@@ -1,9 +1,9 @@
 import { generateInvoiceNumber } from '../utils/invoice-number';
 import { SaleRepository } from '../database/sales.repo';
-import { ProductRepository } from '../database/product.repo';
 import { DebtRepository } from '../database/debt.repo';
 import { CartItem } from '../stores/cart.store';
 import { PaymentMethod } from '../types/sale';
+import { StockService } from './stock.service';
 
 export const InvoiceService = {
   async processTransaction(
@@ -40,10 +40,7 @@ export const InvoiceService = {
       saleItems
     );
 
-    for (const item of items) {
-      const newStock = Math.max(0, item.product.stock - item.qty);
-      await ProductRepository.updateStock(item.product.id, newStock);
-    }
+    await StockService.reduceStockForSaleItems(items, sale.id, 'sale');
 
     if (paymentMethod === 'debt' && customerId) {
       await DebtRepository.createDebt(

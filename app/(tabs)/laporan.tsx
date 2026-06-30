@@ -1,34 +1,41 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
 import { Card } from '../../src/components/Card';
 import { CurrencyText } from '../../src/components/CurrencyText';
 import { ReportRepository } from '../../src/database/report.repo';
-import { DebtRepository } from '../../src/database/debt.repo';
-import { DailyReport } from '../../src/types/report';
+import { DailyReport, LowStockProduct } from '../../src/types/report';
 import { useAppStore } from '../../src/stores/app.store';
 
 export default function LaporanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [report, setReport] = useState<DailyReport | null>(null);
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const reportJsonRef = useRef('');
 
   const activeStore = useAppStore((state) => state.activeStore);
   const storeName = activeStore?.name || 'Warung Madura';
 
   const loadData = useCallback(async () => {
     try {
-      const [dailyReport, transactions] = await Promise.all([
+      const [dailyReport, lowStockItems, transactions] = await Promise.all([
         ReportRepository.getDailyReport(),
+        ReportRepository.getLowStockProducts(5),
         ReportRepository.getRecentTransactions(5),
       ]);
-      setReport(dailyReport);
-      setRecentTransactions(transactions);
+      const payload = JSON.stringify({ dailyReport, lowStockItems, transactions });
+      if (payload !== reportJsonRef.current) {
+        reportJsonRef.current = payload;
+        setReport(dailyReport);
+        setLowStockProducts(lowStockItems);
+        setRecentTransactions(transactions);
+      }
     } catch (error) {
       console.error('Error loading report:', error);
     }
@@ -37,6 +44,12 @@ export default function LaporanScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -173,6 +186,55 @@ export default function LaporanScreen() {
             <CurrencyText amount={(report?.cashTotal || 0) + (report?.qrisTotal || 0)} size="md" color={colors.secondary} />
           </View>
         </Card>
+
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Ringkasan Stok</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total Produk</Text>
+            <Text style={styles.statValue}>{report?.totalProducts || 0}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Produk Aktif</Text>
+            <Text style={styles.statValue}>{report?.totalActiveProducts || 0}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Stok Menipis</Text>
+            <Text style={styles.statValue}>{report?.totalStockLow || 0}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Stok Habis</Text>
+            <Text style={styles.statValue}>{report?.totalStockOut || 0}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Nilai Stok</Text>
+            <CurrencyText amount={report?.totalStockValue || 0} size="md" color={colors.onSurface} />
+          </View>
+        </Card>
+
+        {lowStockProducts.length > 0 && (
+          <Card style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Produk Stok Menipis</Text>
+              <TouchableOpacity onPress={() => router.push('/produk?inventory=low')}>
+                <Text style={styles.seeAllText}>Lihat Semua</Text>
+              </TouchableOpacity>
+            </View>
+            {lowStockProducts.map((product) => (
+              <View key={product.id} style={styles.productRow}>
+                <View style={styles.productImage}>
+                  <Text style={styles.productImageText}>img</Text>
+                </View>
+                <Text style={[styles.productName, { flex: 1 }]}>{product.name}</Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[styles.productQty, product.stock <= 0 && styles.stockLow]}>
+                    {product.stock} / {product.minStock}
+                  </Text>
+                  <Text style={[styles.summaryLabel, { textAlign: 'right' }]}> {product.stock <= 0 ? 'Habis' : 'Menipis'}</Text>
+                </View>
+              </View>
+            ))}
+          </Card>
+        )}
 
         {report && report.topProducts.length > 0 && (
           <Card style={styles.sectionCard}>
@@ -313,6 +375,7 @@ const styles = StyleSheet.create({
   productImageText: { ...typography.labelSm, color: colors.onSurfaceVariant, fontSize: 10 },
   productName: { flex: 1, ...typography.bodyMd, color: colors.onSurface },
   productQty: { ...typography.labelSm, color: colors.primary, fontWeight: '700', marginRight: spacing.stackSm },
+  stockLow: { color: colors.error },
   progressBar: { width: 60, height: 4, backgroundColor: colors.surfaceContainerHigh, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 2 },
   chartContainer: { flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: spacing.stackSm, marginBottom: spacing.stackSm },

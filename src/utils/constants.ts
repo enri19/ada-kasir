@@ -4,9 +4,11 @@ export const APP_VERSION = '1.0.0';
 export const STORAGE_KEYS = {
   ONBOARDING_COMPLETE: 'onboarding_complete',
   ACTIVE_STORE_ID: 'active_store_id',
-  LICENSE_STATUS: 'license_status',
+  LICENSE_DATA: 'license_data',
   THEME_MODE: 'theme_mode',
 } as const;
+
+export const ADMIN_WHATSAPP = '6285156846242';
 
 export const PAYMENT_METHODS = {
   CASH: 'cash',

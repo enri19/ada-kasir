@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
@@ -17,6 +17,7 @@ export default function BonScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [totalDebt, setTotalDebt] = useState(0);
+  const debtsJsonRef = useRef('');
 
   const activeStore = useAppStore((state) => state.activeStore);
   const storeName = activeStore?.name || 'Warung Madura';
@@ -24,9 +25,13 @@ export default function BonScreen() {
   const loadData = useCallback(async () => {
     try {
       const data = await DebtRepository.getAll();
-      setDebts(data);
-      const total = data.reduce((sum, d) => sum + (d.remainingAmount || 0), 0);
-      setTotalDebt(total);
+      const payload = JSON.stringify(data);
+      if (payload !== debtsJsonRef.current) {
+        debtsJsonRef.current = payload;
+        setDebts(data);
+        const total = data.reduce((sum, d) => sum + (d.remainingAmount || 0), 0);
+        setTotalDebt(total);
+      }
     } catch (error) {
       console.error('Error loading debts:', error);
     }
@@ -35,6 +40,12 @@ export default function BonScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);

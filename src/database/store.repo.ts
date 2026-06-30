@@ -13,7 +13,7 @@ export const StoreRepository = {
     const store: Store = {
       id,
       ...data,
-      logoUri: null,
+      logoUri: data.logoUri ?? null,
       qrisImageUri: null,
       qrisName: null,
       qrisNote: null,
@@ -45,7 +45,10 @@ export const StoreRepository = {
     return result || null;
   },
 
-  async update(id: string, data: Partial<StoreFormData> & { qrisImageUri?: string | null; qrisName?: string | null; qrisNote?: string | null }): Promise<Store | null> {
+  async update(
+    id: string,
+    data: Partial<StoreFormData> & { qrisImageUri?: string | null; qrisName?: string | null; qrisNote?: string | null; logoUri?: string | null }
+  ): Promise<Store | null> {
     const db = await getDatabase();
     const now = new Date().toISOString();
     const fields: string[] = [];
@@ -55,6 +58,7 @@ export const StoreRepository = {
     if (data.phone !== undefined) { fields.push('phone = ?'); values.push(data.phone); }
     if (data.address !== undefined) { fields.push('address = ?'); values.push(data.address); }
     if (data.receiptNote !== undefined) { fields.push('receipt_note = ?'); values.push(data.receiptNote); }
+    if (data.logoUri !== undefined) { fields.push('logo_uri = ?'); values.push(data.logoUri); }
     if (data.qrisImageUri !== undefined) { fields.push('qris_image_uri = ?'); values.push(data.qrisImageUri); }
     if (data.qrisName !== undefined) { fields.push('qris_name = ?'); values.push(data.qrisName); }
     if (data.qrisNote !== undefined) { fields.push('qris_note = ?'); values.push(data.qrisNote); }

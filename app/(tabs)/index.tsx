@@ -66,7 +66,10 @@ export default function KasirScreen() {
   const totalItems = getItemCount();
   const totalPrice = getTotal();
 
-  const categoryChips = [{ id: null, name: 'Semua' }, ...categories.map(c => ({ id: c.id, name: c.name }))];
+  const availableCategories = categories.filter((category) =>
+    products.some((product) => product.categoryId === category.id)
+  );
+  const categoryChips = [{ id: null, name: 'Semua' }, ...availableCategories.map(c => ({ id: c.id, name: c.name }))];
 
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === null || product.categoryId === selectedCategory;
@@ -98,24 +101,26 @@ export default function KasirScreen() {
         />
       </View>
 
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
-      >
-        {categoryChips.map((cat) => (
-          <TouchableOpacity
-            key={cat.id || 'semua'}
-            style={[styles.categoryChip, selectedCategory === cat.id && styles.categoryChipActive]}
-            onPress={() => setSelectedCategory(cat.id)}
-          >
-            <Text style={[styles.categoryText, selectedCategory === cat.id && styles.categoryTextActive]}>
-              {cat.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {availableCategories.length > 0 && (
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoriesContainer}
+          contentContainerStyle={styles.categoriesContent}
+        >
+          {categoryChips.map((cat) => (
+            <TouchableOpacity
+              key={cat.id || 'semua'}
+              style={[styles.categoryChip, selectedCategory === cat.id && styles.categoryChipActive]}
+              onPress={() => setSelectedCategory(cat.id)}
+            >
+              <Text style={[styles.categoryText, selectedCategory === cat.id && styles.categoryTextActive]}>
+                {cat.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       <ScrollView 
         style={styles.productsContainer} 

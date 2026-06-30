@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image, Modal } from 'react-native';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
@@ -18,7 +18,10 @@ export default function ProdukScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedInventoryFilter, setSelectedInventoryFilter] = useState<'all' | 'low' | 'out'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const { inventory } = useLocalSearchParams<{ inventory?: string }>();
+  const [showInventoryFilter, setShowInventoryFilter] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const activeStore = useAppStore((state) => state.activeStore);
@@ -52,6 +55,12 @@ export default function ProdukScreen() {
     }, [])
   );
 
+  useEffect(() => {
+    if (inventory === 'low' || inventory === 'out' || inventory === 'all') {
+      setSelectedInventoryFilter(inventory);
+    }
+  }, [inventory]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -74,12 +83,24 @@ export default function ProdukScreen() {
     return cat?.name || null;
   };
 
-  const categoryChips = [{ id: null, name: 'Semua' }, ...categories.map(c => ({ id: c.id, name: c.name }))];
+  const availableCategories = categories.filter((category) =>
+    products.some((product) => product.categoryId === category.id)
+  );
+  const categoryChips = [{ id: null, name: 'Semua' }, ...availableCategories.map(c => ({ id: c.id, name: c.name }))];
+  const inventoryFilters = [
+    { id: 'all', name: 'Semua' },
+    { id: 'low', name: 'Menipis' },
+    { id: 'out', name: 'Habis' },
+  ];
 
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === null || product.categoryId === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const matchesInventory =
+      selectedInventoryFilter === 'all' ||
+      (selectedInventoryFilter === 'low' && product.trackStock && product.stock > 0 && product.stock <= product.minStock) ||
+      (selectedInventoryFilter === 'out' && product.trackStock && product.stock <= 0);
+    return matchesCategory && matchesSearch && matchesInventory;
   });
 
   const handleToggleActive = async (product: Product) => {
@@ -124,30 +145,64 @@ export default function ProdukScreen() {
         />
       </View>
 
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
-      >
-        {categoryChips.map((cat) => (
-          <TouchableOpacity
-            key={cat.id || 'semua'}
-            style={[
-              styles.categoryChip,
-              selectedCategory === cat.id && styles.categoryChipActive
-            ]}
-            onPress={() => setSelectedCategory(cat.id)}
-          >
-            <Text style={[
-              styles.categoryText,
-              selectedCategory === cat.id && styles.categoryTextActive
-            ]}>
-              {cat.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {availableCategories.length > 0 && (
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoriesContainer}
+          contentContainerStyle={styles.categoriesContent}
+        >
+          {categoryChips.map((cat) => (
+            <TouchableOpacity
+              key={cat.id || 'semua'}
+              style={[
+                styles.categoryChip,
+                selectedCategory === cat.id && styles.categoryChipActive
+              ]}
+              onPress={() => setSelectedCategory(cat.id)}
+            >
+              <Text style={[
+                styles.categoryText,
+                selectedCategory === cat.id && styles.categoryTextActive
+              ]}>
+                {cat.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      <View style={styles.filterRow}>
+        <TouchableOpacity style={styles.filterButton} onPress={() => setShowInventoryFilter(true)}>
+          <Text style={styles.filterButtonText}>Filter Stok: {inventoryFilters.find((f) => f.id === selectedInventoryFilter)?.name || 'Semua'}</Text>
+          <Ionicons name="chevron-down" size={16} color={colors.onSurface} />
+        </TouchableOpacity>
+      </View>
+
+      <Modal visible={showInventoryFilter} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Filter Stok</Text>
+            {inventoryFilters.map((filter) => (
+              <TouchableOpacity
+                key={filter.id}
+                style={styles.modalOption}
+                onPress={() => {
+                  setSelectedInventoryFilter(filter.id as 'all' | 'low' | 'out');
+                  setShowInventoryFilter(false);
+                }}
+              >
+                <Text style={[styles.modalOptionText, selectedInventoryFilter === filter.id && styles.modalOptionSelected]}>
+                  {filter.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowInventoryFilter(false)}>
+              <Text style={styles.modalCloseText}>Tutup</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <ScrollView 
         style={styles.productsContainer} 
@@ -259,6 +314,27 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, marginLeft: spacing.stackSm, ...typography.bodyMd, color: colors.onSurface, paddingVertical: 0 },
   categoriesContainer: { maxHeight: 36, marginBottom: spacing.stackSm },
   categoriesContent: { paddingHorizontal: spacing.marginMobile, gap: spacing.stackSm },
+  filterRow: {
+    flexDirection: 'row', paddingHorizontal: spacing.marginMobile, marginBottom: spacing.stackSm,
+  },
+  filterButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1,
+    backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+    borderWidth: 1, borderColor: colors.outlineVariant,
+  },
+  filterButtonText: { ...typography.bodyMd, color: colors.onSurface },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: spacing.marginMobile,
+  },
+  modalContent: {
+    backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.stackMd,
+  },
+  modalTitle: { ...typography.headlineMobile, color: colors.onSurface, marginBottom: spacing.stackSm },
+  modalOption: { paddingVertical: spacing.stackSm },
+  modalOptionText: { ...typography.bodyMd, color: colors.onSurface },
+  modalOptionSelected: { color: colors.primary, fontWeight: '700' },
+  modalCloseButton: { marginTop: spacing.stackMd, alignItems: 'center' },
+  modalCloseText: { ...typography.bodyMd, color: colors.primary, fontWeight: '700' },
   categoryChip: {
     paddingHorizontal: 12, paddingVertical: 4, borderRadius: 14,
     backgroundColor: colors.surfaceContainerLow, borderWidth: 1, borderColor: colors.outlineVariant,

@@ -1,0 +1,283 @@
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
+import { Ionicons } from '@expo/vector-icons';
+import { useAppStore } from '../../../src/stores/app.store';
+import { useLicenseStore } from '../../../src/stores/license.store';
+import { StoreRepository } from '../../../src/database/store.repo';
+import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
+import { Card } from '../../../src/components/Card';
+import { CustomHeader } from '../../../src/components/CustomHeader';
+import { Input } from '../../../src/components/Input';
+import { Button } from '../../../src/components/Button';
+import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
+
+const STATUS_LABELS = {
+  trial: 'Trial',
+  lifetime: 'Lifetime',
+  premium: 'Premium',
+  expired: 'Expired',
+} as const;
+
+function formatDate(value: string | null): string {
+  return value ? new Date(value).toLocaleDateString('id-ID') : '-';
+}
+
+export default function AccountScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const activeStore = useAppStore((state) => state.activeStore);
+  const setActiveStore = useAppStore((state) => state.setActiveStore);
+  const deviceCode = useLicenseStore((state) => state.deviceCode);
+  const licenseStatus = useLicenseStore((state) => state.status);
+  const trialEndsAt = useLicenseStore((state) => state.trialEndsAt);
+  const expiresAt = useLicenseStore((state) => state.expiresAt);
+  const activateLicense = useLicenseStore((state) => state.activateLicense);
+  const refreshLicenseStatus = useLicenseStore((state) => state.refreshStatus);
+
+  const [storeName, setStoreName] = useState(activeStore?.name || '');
+  const [ownerName, setOwnerName] = useState(activeStore?.ownerName || '');
+  const [phone, setPhone] = useState(activeStore?.phone || '');
+  const [address, setAddress] = useState(activeStore?.address || '');
+  const [logoUri, setLogoUri] = useState<string | null>(activeStore?.logoUri ?? null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [licenseCode, setLicenseCode] = useState('');
+  const [isActivating, setIsActivating] = useState(false);
+
+  useEffect(() => {
+    if (activeStore) {
+      setStoreName(activeStore.name);
+      setOwnerName(activeStore.ownerName);
+      setPhone(activeStore.phone);
+      setAddress(activeStore.address);
+      setLogoUri(activeStore.logoUri ?? null);
+    }
+  }, [activeStore]);
+
+  useEffect(() => {
+    refreshLicenseStatus();
+  }, [refreshLicenseStatus]);
+
+  const pickLogo = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Izin Ditolak', 'Aplikasi membutuhkan akses ke galeri foto.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setLogoUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!activeStore) {
+      Alert.alert('Toko tidak ditemukan', 'Silakan kembali dan coba lagi.');
+      return;
+    }
+
+    if (!storeName.trim()) {
+      Alert.alert('Nama toko wajib diisi', 'Isi nama toko sebelum menyimpan.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const updatedStore = await StoreRepository.update(activeStore.id, {
+        name: storeName.trim(),
+        ownerName: ownerName.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        logoUri,
+      });
+
+      if (updatedStore) {
+        setActiveStore(updatedStore);
+        Alert.alert('Berhasil', 'Data toko berhasil diperbarui.');
+      } else {
+        Alert.alert('Gagal', 'Tidak dapat menyimpan data toko.');
+      }
+    } catch (error) {
+      Alert.alert('Terjadi Kesalahan', (error as Error).message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleActivateLicense = async () => {
+    if (!licenseCode.trim()) {
+      Alert.alert('Kode kosong', 'Masukkan kode lisensi terlebih dahulu.');
+      return;
+    }
+
+    setIsActivating(true);
+    try {
+      const success = await activateLicense(licenseCode);
+      if (!success) {
+        Alert.alert('Kode tidak valid', 'Kode lisensi tidak cocok dengan perangkat ini.');
+        return;
+      }
+
+      setLicenseCode('');
+      Alert.alert('Berhasil', 'Lisensi berhasil diaktifkan.');
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  const handleContactAdmin = async () => {
+    const message = [
+      'Halo Admin, saya ingin mengaktifkan lisensi WarungRapi.',
+      `Nama warung: ${activeStore?.name || '-'}`,
+      `Kode perangkat: ${deviceCode || '-'}`,
+    ].join('\n');
+    const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
+
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Gagal membuka WhatsApp', 'Pastikan WhatsApp tersedia di perangkat Anda.');
+    }
+  };
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>      
+      <CustomHeader title="Akun & Lisensi" onBack={() => router.back()} />
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        <Card style={styles.formCard}>
+          <Text style={styles.sectionTitle}>Informasi Warung</Text>
+
+          <View style={styles.logoUpload}>
+            <Text style={styles.label}>Logo Warung</Text>
+            <TouchableOpacity style={styles.logoBox} onPress={pickLogo}>
+              {logoUri ? (
+                <Image source={{ uri: logoUri }} style={styles.logoPreview} />
+              ) : (
+                <Ionicons name="camera-outline" size={32} color={colors.onSurfaceVariant} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <Input
+            label="Nama Warung"
+            value={storeName}
+            onChangeText={setStoreName}
+            placeholder="Contoh: Warung Berkah"
+          />
+          <Input
+            label="Nama Pemilik"
+            value={ownerName}
+            onChangeText={setOwnerName}
+            placeholder="Nama lengkap Anda"
+          />
+          <Input
+            label="Nomor WhatsApp"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="+62 8123456789"
+            keyboardType="phone-pad"
+          />
+          <Input
+            label="Alamat Lengkap"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Masukkan alamat warung Anda"
+            multiline
+            numberOfLines={3}
+          />
+
+          <Button
+            title="Simpan Perubahan"
+            onPress={handleSave}
+            fullWidth
+            loading={isSaving}
+          />
+        </Card>
+
+        <Card style={styles.licenseCard}>
+          <Text style={styles.sectionTitle}>Lisensi</Text>
+
+          <Text style={styles.infoLabel}>Nama Warung</Text>
+          <Text style={styles.infoValue}>{activeStore?.name || '-'}</Text>
+
+          <Text style={styles.infoLabel}>Kode Perangkat</Text>
+          <Text selectable style={styles.infoValue}>{deviceCode || '-'}</Text>
+
+          <Text style={styles.infoLabel}>Status Lisensi</Text>
+          <Text style={styles.infoValue}>{STATUS_LABELS[licenseStatus]}</Text>
+
+          <Text style={styles.infoLabel}>Tanggal Trial Berakhir</Text>
+          <Text style={styles.infoValue}>{formatDate(trialEndsAt)}</Text>
+
+          <Text style={styles.infoLabel}>Tanggal Premium Berakhir</Text>
+          <Text style={styles.infoValue}>{formatDate(expiresAt)}</Text>
+
+          <Input
+            label="Kode Lisensi"
+            value={licenseCode}
+            onChangeText={(value) => setLicenseCode(value.toUpperCase())}
+            placeholder="WRG-LIFE-XXXX-YYYY"
+            editable={!isActivating}
+          />
+
+          <Button
+            title="Aktifkan Lisensi"
+            onPress={handleActivateLicense}
+            fullWidth
+            loading={isActivating}
+          />
+
+          <View style={styles.contactButtonWrapper}>
+            <Button
+              title="Hubungi Admin via WhatsApp"
+              onPress={handleContactAdmin}
+              variant="outline"
+              fullWidth
+              icon={<Ionicons name="logo-whatsapp" size={20} color={colors.primary} />}
+            />
+          </View>
+        </Card>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { flex: 1 },
+  scrollContent: { padding: spacing.marginMobile, paddingBottom: 32 },
+  formCard: { padding: spacing.stackMd, margin: spacing.marginMobile, marginTop: spacing.stackMd },
+  licenseCard: { padding: spacing.stackMd, marginHorizontal: spacing.marginMobile, marginBottom: spacing.stackLg },
+  sectionTitle: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '700', marginBottom: spacing.stackMd },
+  infoLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: spacing.stackMd },
+  infoValue: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '600', marginTop: 4 },
+  contactButtonWrapper: { marginTop: spacing.stackMd },
+  logoUpload: { alignItems: 'center', marginBottom: spacing.stackLg },
+  label: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm, alignSelf: 'flex-start' },
+  logoBox: {
+    width: 104,
+    height: 104,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.outlineVariant,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceContainerLow,
+    overflow: 'hidden',
+  },
+  logoPreview: {
+    width: '100%',
+    height: '100%',
+  },
+});

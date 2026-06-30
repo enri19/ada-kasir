@@ -11,7 +11,7 @@ import { useCartStore } from '../../src/stores/cart.store';
 import { CustomerRepository } from '../../src/database/customer.repo';
 import { SaleRepository } from '../../src/database/sales.repo';
 import { DebtRepository } from '../../src/database/debt.repo';
-import { ProductRepository } from '../../src/database/product.repo';
+import { StockService } from '../../src/services/stock.service';
 import { generateInvoiceNumber } from '../../src/utils/invoice-number';
 import { CustomHeader } from '../../src/components/CustomHeader';
 import { Customer } from '../../src/types/customer';
@@ -99,13 +99,7 @@ export default function PembayaranBonScreen() {
         note.trim() || null
       );
 
-      for (const item of items) {
-        const product = await ProductRepository.getById(item.product.id);
-        if (product) {
-          const newStock = Math.max(0, product.stock - item.qty);
-          await ProductRepository.updateStock(item.product.id, newStock);
-        }
-      }
+      await StockService.reduceStockForSaleItems(items, invoiceNumber, 'sale');
 
       clearCart();
       resetPayment();

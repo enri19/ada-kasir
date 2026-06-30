@@ -8,7 +8,7 @@ import { CurrencyText } from '../../src/components/CurrencyText';
 import { Button } from '../../src/components/Button';
 import { useCartStore } from '../../src/stores/cart.store';
 import { SaleRepository } from '../../src/database/sales.repo';
-import { ProductRepository } from '../../src/database/product.repo';
+import { StockService } from '../../src/services/stock.service';
 import { generateInvoiceNumber } from '../../src/utils/invoice-number';
 import { formatRupiah } from '../../src/utils/currency';
 import { useAppStore } from '../../src/stores/app.store';
@@ -94,13 +94,7 @@ export default function PembayaranTunaiScreen() {
         saleItems
       );
 
-      for (const item of items) {
-        const product = await ProductRepository.getById(item.product.id);
-        if (product) {
-          const newStock = Math.max(0, product.stock - item.qty);
-          await ProductRepository.updateStock(item.product.id, newStock);
-        }
-      }
+      await StockService.reduceStockForSaleItems(items, invoiceNumber, 'sale');
 
       clearCart();
       resetPayment();

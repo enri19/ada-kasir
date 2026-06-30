@@ -8,7 +8,7 @@ import { CurrencyText } from '../../src/components/CurrencyText';
 import { Button } from '../../src/components/Button';
 import { useCartStore } from '../../src/stores/cart.store';
 import { SaleRepository } from '../../src/database/sales.repo';
-import { ProductRepository } from '../../src/database/product.repo';
+import { StockService } from '../../src/services/stock.service';
 import { generateInvoiceNumber } from '../../src/utils/invoice-number';
 import { useAppStore } from '../../src/stores/app.store';
 import { CustomHeader } from '../../src/components/CustomHeader';
@@ -27,6 +27,7 @@ export default function PembayaranQRISScreen() {
 
   const qrisImage = activeStore?.qrisImageUri || null;
   const qrisName = activeStore?.qrisName || activeStore?.name || 'Warung';
+  const qrisNote = activeStore?.qrisNote || null;
 
   const handleProcessPayment = async () => {
     if (processing) return;
@@ -68,13 +69,7 @@ export default function PembayaranQRISScreen() {
                 saleItems
               );
 
-              for (const item of items) {
-                const product = await ProductRepository.getById(item.product.id);
-                if (product) {
-                  const newStock = Math.max(0, product.stock - item.qty);
-                  await ProductRepository.updateStock(item.product.id, newStock);
-                }
-              }
+              await StockService.reduceStockForSaleItems(items, invoiceNumber, 'sale');
 
               clearCart();
               resetPayment();
@@ -99,7 +94,10 @@ export default function PembayaranQRISScreen() {
   };
 
   const handleGoToSettings = () => {
-    router.back();
+    router.push({
+      pathname: '/settings/qris',
+      params: { returnTo: 'pembayaran-qris' },
+    });
   };
 
   if (!qrisImage) {
@@ -115,7 +113,7 @@ export default function PembayaranQRISScreen() {
               Silakan upload gambar QRIS toko di menu Pengaturan terlebih dahulu.
             </Text>
             <Button
-              title="Buka Pengaturan"
+              title="Atur QRIS Toko"
               onPress={handleGoToSettings}
               size="lg"
               icon={<Ionicons name="settings-outline" size={20} color={colors.onPrimary} />}
@@ -141,6 +139,7 @@ export default function PembayaranQRISScreen() {
         <View style={styles.qrisCard}>
           <Image source={{ uri: qrisImage }} style={styles.qrisImage} />
           <Text style={styles.qrisName}>{qrisName}</Text>
+          {qrisNote && <Text style={styles.qrisNote}>{qrisNote}</Text>}
         </View>
 
         <View style={styles.warningCard}>
@@ -185,6 +184,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLow,
   },
   qrisName: { ...typography.bodyLg, fontWeight: '600', color: colors.onSurface, marginTop: spacing.stackMd },
+  qrisNote: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: spacing.stackSm },
   warningCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: spacing.stackSm,
     backgroundColor: '#ffebee', borderRadius: borderRadius.md,

@@ -10,6 +10,8 @@ export default function ProdukLayout() {
       <Stack.Screen name="tambah" />
       <Stack.Screen name="edit/[id]" />
       <Stack.Screen name="detail/[id]" />
+      <Stack.Screen name="stok-menipis" />
+      <Stack.Screen name="stok-habis" />
     </Stack>
   );
 }

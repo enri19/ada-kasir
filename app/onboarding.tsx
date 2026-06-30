@@ -60,14 +60,11 @@ export default function OnboardingScreen() {
         phone: phone.trim(),
         address: address.trim(),
         receiptNote: 'Terima kasih atas kunjungan Anda.',
+        logoUri,
       });
 
       // Seed default categories
       await CategoryRepository.seedDefaultCategories();
-
-      if (logoUri) {
-        await StoreRepository.update(store.id, { name: store.name });
-      }
 
       setActiveStore(store);
       setIsOnboardingComplete(true);

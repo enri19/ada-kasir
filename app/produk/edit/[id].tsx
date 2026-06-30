@@ -32,6 +32,9 @@ export default function EditProdukScreen() {
   const [costPrice, setCostPrice] = useState('');
   const [sellPrice, setSellPrice] = useState('');
   const [stock, setStock] = useState('0');
+  const [minStock, setMinStock] = useState('0');
+  const [trackStock, setTrackStock] = useState(true);
+  const [allowNegativeStock, setAllowNegativeStock] = useState(true);
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
@@ -50,6 +53,9 @@ export default function EditProdukScreen() {
           setCostPrice(prod.costPrice > 0 ? String(prod.costPrice) : '');
           setSellPrice(String(prod.sellPrice));
           setStock(String(prod.stock));
+          setMinStock(String(prod.minStock));
+          setTrackStock(prod.trackStock);
+          setAllowNegativeStock(prod.allowNegativeStock);
           setIsActive(prod.isActive);
           setImageUri(prod.imageUri);
         }
@@ -95,6 +101,9 @@ export default function EditProdukScreen() {
         costPrice: parseRupiah(costPrice),
         sellPrice: parseRupiah(sellPrice),
         stock: parseInt(stock, 10) || 0,
+        minStock: parseInt(minStock, 10) || 0,
+        trackStock,
+        allowNegativeStock,
         unit,
         imageUri,
         isActive,
@@ -304,6 +313,39 @@ export default function EditProdukScreen() {
             <Ionicons name="add" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
+
+        <Text style={styles.label}>Stok Minimum</Text>
+        <View style={styles.stockControl}>
+          <TouchableOpacity 
+            style={styles.stockButton}
+            onPress={() => setMinStock(String(Math.max(0, parseInt(minStock, 10) - 1)))}
+          >
+            <Ionicons name="remove" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <TextInput
+            style={styles.stockInput}
+            value={minStock}
+            onChangeText={(text: string) => setMinStock(text.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+          />
+          <TouchableOpacity 
+            style={styles.stockButton}
+            onPress={() => setMinStock(String(parseInt(minStock, 10) + 1))}
+          >
+            <Ionicons name="add" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.switchRow}>
+          <TouchableOpacity style={styles.switchOption} onPress={() => setTrackStock(!trackStock)}>
+            <Text style={styles.switchLabel}>Pantau Stok</Text>
+            <Text style={styles.switchValue}>{trackStock ? 'Ya' : 'Tidak'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.switchOption} onPress={() => setAllowNegativeStock(!allowNegativeStock)}>
+            <Text style={styles.switchLabel}>Izinkan Stok Minus</Text>
+            <Text style={styles.switchValue}>{allowNegativeStock ? 'Ya' : 'Tidak'}</Text>
+          </TouchableOpacity>
+        </View>
       </Card>
 
       {/* Delete Button */}
@@ -468,6 +510,17 @@ const styles = StyleSheet.create({
   },
   stockButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   stockInput: { flex: 1, textAlign: 'center', ...typography.bodyLg, color: colors.onSurface, minHeight: 48 },
+  switchRow: { flexDirection: 'row', gap: spacing.stackMd, marginTop: spacing.stackSm },
+  switchOption: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    padding: spacing.stackSm,
+  },
+  switchLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 4 },
+  switchValue: { ...typography.bodyMd, fontWeight: '600', color: colors.onSurface },
   
   deleteButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

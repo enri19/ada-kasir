@@ -34,6 +34,7 @@ const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
     try {
       db = await SQLite.openDatabaseAsync(DATABASE_NAME);
       await db.execAsync(`
+        DROP TABLE IF EXISTS stock_movements;
         DROP TABLE IF EXISTS debt_payments;
         DROP TABLE IF EXISTS debts;
         DROP TABLE IF EXISTS sale_items;
@@ -69,8 +70,9 @@ const runMigrations = async () => {
 };
 
 export const resetDatabase = async () => {
-  if (!db) throw new Error('Database not initialized');
-  await db.execAsync(`
+  const database = await getDatabase();
+  await database.execAsync(`
+    DROP TABLE IF EXISTS stock_movements;
     DROP TABLE IF EXISTS debt_payments;
     DROP TABLE IF EXISTS debts;
     DROP TABLE IF EXISTS sale_items;

@@ -19,4 +19,5 @@ export interface StoreFormData {
   phone: string;
   address: string;
   receiptNote: string;
+  logoUri?: string | null;
 }

@@ -1,16 +1,5 @@
 import { getDatabase } from './db';
-
-export interface DailyReport {
-  totalSales: number;
-  totalTransactions: number;
-  totalProfit: number;
-  totalDebt: number;
-  cashTotal: number;
-  qrisTotal: number;
-  debtTotal: number;
-  topProducts: { name: string; qty: number; revenue: number }[];
-  hourlySales: { hour: number; total: number }[];
-}
+import { DailyReport, LowStockProduct } from '../types/report';
 
 export const ReportRepository = {
   async getDailyReport(date?: string): Promise<DailyReport> {
@@ -65,6 +54,23 @@ export const ReportRepository = {
       [startDate, endDate]
     );
 
+    const stockSummary = await db.getFirstAsync<{
+      totalProducts: number;
+      totalActiveProducts: number;
+      totalStockLow: number;
+      totalStockOut: number;
+      totalStockValue: number;
+    }>(
+      `SELECT
+         COUNT(*) as totalProducts,
+         SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as totalActiveProducts,
+         SUM(CASE WHEN track_stock = 1 AND min_stock > 0 AND stock <= min_stock THEN 1 ELSE 0 END) as totalStockLow,
+         SUM(CASE WHEN track_stock = 1 AND stock <= 0 THEN 1 ELSE 0 END) as totalStockOut,
+         COALESCE(SUM(stock * cost_price), 0) as totalStockValue
+       FROM products`,
+      []
+    );
+
     return {
       totalSales: salesResult?.total || 0,
       totalTransactions: salesResult?.count || 0,
@@ -73,6 +79,11 @@ export const ReportRepository = {
       cashTotal: cashResult?.total || 0,
       qrisTotal: qrisResult?.total || 0,
       debtTotal: debtResult2?.total || 0,
+      totalProducts: stockSummary?.totalProducts || 0,
+      totalActiveProducts: stockSummary?.totalActiveProducts || 0,
+      totalStockLow: stockSummary?.totalStockLow || 0,
+      totalStockOut: stockSummary?.totalStockOut || 0,
+      totalStockValue: stockSummary?.totalStockValue || 0,
       topProducts,
       hourlySales,
     };
@@ -85,6 +96,25 @@ export const ReportRepository = {
        FROM sales ORDER BY created_at DESC LIMIT ?`,
       [limit]
     );
+  },
+
+  async getLowStockProducts(limit: number = 5): Promise<LowStockProduct[]> {
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<any>(
+      `SELECT id, name, stock, min_stock as minStock, track_stock as trackStock
+       FROM products
+       WHERE track_stock = 1 AND is_active = 1 AND stock <= min_stock
+       ORDER BY stock ASC, min_stock ASC
+       LIMIT ?`,
+      [limit]
+    );
+    return rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      stock: row.stock,
+      minStock: row.minStock,
+      trackStock: row.trackStock === 1,
+    }));
   },
 
   async getTransactionsByDate(date: string): Promise<any[]> {
