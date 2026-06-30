@@ -129,7 +129,7 @@ export default function PembayaranBonScreen() {
 
       <View style={styles.totalBar}>
         <Text style={styles.totalLabel}>Total Bon</Text>
-        <CurrencyText amount={totalPrice} size="lg" color={colors.primary} />
+        <CurrencyText amount={totalPrice} size="lg" color={colors.onPrimary} />
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -200,7 +200,7 @@ export default function PembayaranBonScreen() {
       </ScrollView>
 
       {selectedCustomer && (
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { paddingBottom: spacing.stackMd + insets.bottom }] }>
           <Button
             title={`Simpan Bon - ${selectedCustomer.name}`}
             onPress={handleConfirm}
@@ -220,9 +220,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryContainer, padding: spacing.stackMd,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  totalLabel: { ...typography.labelSm, color: colors.primaryFixed },
+  totalLabel: { ...typography.labelSm, color: colors.onPrimary },
   content: { flex: 1 },
-  contentContainer: { padding: spacing.marginMobile, paddingBottom: 100 },
+  contentContainer: { padding: spacing.marginMobile, paddingBottom: 180 },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
@@ -266,5 +266,6 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 0, right: 0, bottom: 0,
     backgroundColor: colors.surface, paddingHorizontal: spacing.marginMobile,
     paddingTop: spacing.stackMd, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
+    zIndex: 10,
   },
 });

@@ -20,7 +20,7 @@ export default function HelpScreen() {
   const insets = useSafeAreaInsets();
 
   const handleContactAdmin = async () => {
-    const message = 'Halo Admin, saya butuh bantuan penggunaan aplikasi Kasir Rapi.';
+    const message = 'Halo Admin, saya butuh bantuan penggunaan aplikasi Warungr Rapi.';
     const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
     try {
       await Linking.openURL(url);

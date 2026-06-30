@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,8 @@ import { formatRupiah } from '../../src/utils/currency';
 import { useAppStore } from '../../src/stores/app.store';
 import { SaleRepository } from '../../src/database/sales.repo';
 import { WhatsAppService } from '../../src/services/whatsapp.service';
+import { APP_NAME, APP_VERSION } from '../../src/utils/constants';
+import { SaleWithItems } from '../../src/types/sale';
 
 export default function TransaksiBerhasilScreen() {
   const router = useRouter();
@@ -23,10 +25,27 @@ export default function TransaksiBerhasilScreen() {
   }>();
 
   const activeStore = useAppStore((state) => state.activeStore);
+  const [saleData, setSaleData] = useState<SaleWithItems | null>(null);
   const changeAmount = parseInt(change || '0', 10) || 0;
   const totalAmount = parseInt(total, 10) || 0;
   const receivedAmount = parseInt(received || '0', 10) || 0;
   const method = (paymentMethod || 'cash') as string;
+  const visibleProducts = saleData?.items.slice(0, 2) ?? [];
+  const hiddenProductsCount = saleData ? Math.max(0, saleData.items.length - visibleProducts.length) : 0;
+
+  useEffect(() => {
+    const loadSaleData = async () => {
+      if (!invoiceNumber) return;
+      try {
+        const sale = await SaleRepository.getByInvoiceNumber(invoiceNumber);
+        setSaleData(sale);
+      } catch (error) {
+        console.error('Failed to load sale data:', error);
+      }
+    };
+
+    loadSaleData();
+  }, [invoiceNumber]);
 
   const getMethodLabel = () => {
     switch (method) {
@@ -56,11 +75,11 @@ export default function TransaksiBerhasilScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + 8 }]}>
       <View style={styles.content}>
         <View style={styles.successCard}>
           <View style={styles.successIcon}>
-            <Ionicons name="checkmark-circle" size={64} color={colors.secondary} />
+            <Ionicons name="checkmark-circle" size={40} color={colors.secondary} />
           </View>
           <Text style={styles.successTitle}>Transaksi Berhasil</Text>
           <Text style={styles.invoiceNumber}>Invoice #{invoiceNumber}</Text>
@@ -92,6 +111,27 @@ export default function TransaksiBerhasilScreen() {
           </View>
         </View>
 
+        {saleData && saleData.items.length > 0 && (
+          <View style={styles.productsCard}>
+            <View style={styles.productsHeader}>
+              <Text style={styles.sectionTitle}>Informasi Produk</Text>
+              <Text style={styles.productsCount}>{saleData.items.reduce((sum, item) => sum + item.qty, 0)} item</Text>
+            </View>
+            {visibleProducts.map((item) => (
+              <View key={item.id} style={styles.productRow}>
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName}>{item.productName}</Text>
+                  <Text style={styles.productMeta}>{item.qty} x {formatRupiah(item.price)}</Text>
+                </View>
+                <Text style={styles.productSubtotal}>{formatRupiah(item.subtotal)}</Text>
+              </View>
+            ))}
+            {hiddenProductsCount > 0 && (
+              <Text style={styles.moreProductsText}>+{hiddenProductsCount} produk lainnya</Text>
+            )}
+          </View>
+        )}
+
         <View style={styles.actions}>
           <Button
             title="Kirim Nota WhatsApp"
@@ -111,58 +151,82 @@ export default function TransaksiBerhasilScreen() {
         </View>
 
         <TouchableOpacity style={styles.newTransactionButton} onPress={() => router.replace('/(tabs)')}>
-          <Ionicons name="cart-outline" size={20} color={colors.onSurfaceVariant} />
+          <Ionicons name="cart-outline" size={20} color={colors.primary} />
           <Text style={styles.newTransactionText}>Transaksi Baru</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.footer}>Sistem Kasir {activeStore?.name || 'Warung Madura'} V2.4</Text>
+      <Text style={styles.footer}>Sistem Kasir {activeStore?.name || APP_NAME} v{APP_VERSION}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { flex: 1, padding: spacing.marginMobile },
+  content: { flex: 1, paddingHorizontal: spacing.marginMobile, paddingTop: 16, paddingBottom: 16, justifyContent: 'flex-start' },
   successCard: {
     backgroundColor: colors.surface, borderRadius: borderRadius.lg,
-    borderWidth: 1, borderColor: colors.outlineVariant, padding: spacing.stackLg,
-    alignItems: 'center', marginBottom: spacing.stackLg,
+    borderWidth: 1, borderColor: colors.outlineVariant, paddingHorizontal: spacing.stackSm, paddingVertical: 8,
+    alignItems: 'center', marginBottom: 20,
   },
   successIcon: {
-    width: 100, height: 100, borderRadius: 50,
+    width: 48, height: 48, borderRadius: 24,
     backgroundColor: colors.secondaryContainer, alignItems: 'center', justifyContent: 'center',
-    marginBottom: spacing.stackMd,
+    marginBottom: 3,
   },
-  successTitle: { ...typography.headlineMobile, fontWeight: '700', color: colors.onSurface },
-  invoiceNumber: { ...typography.bodyLg, color: colors.onSurfaceVariant, marginTop: spacing.stackSm },
+  successTitle: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface },
+  invoiceNumber: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2 },
   changeCard: {
     backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.lg,
-    padding: spacing.stackLg, alignItems: 'center', marginBottom: spacing.stackLg,
+    paddingHorizontal: 10, paddingVertical: 8, alignItems: 'center', marginBottom: 20,
   },
   changeLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm },
   detailsCard: {
     backgroundColor: colors.surface, borderRadius: borderRadius.lg,
-    borderWidth: 1, borderColor: colors.outlineVariant, padding: spacing.stackLg, marginBottom: spacing.stackLg,
+    borderWidth: 1, borderColor: colors.outlineVariant, padding: 8, marginBottom: spacing.stackMd,
   },
-  detailRow: { flexDirection: 'row', gap: spacing.stackMd, marginBottom: spacing.stackLg },
+  productsCard: {
+    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+    borderWidth: 1, borderColor: colors.outlineVariant, padding: 8, marginBottom: spacing.stackMd,
+  },
+  productsHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4,
+  },
+  sectionTitle: { ...typography.labelSm, color: colors.onSurfaceVariant, textTransform: 'uppercase' },
+  productsCount: { ...typography.labelSm, color: colors.primary, fontWeight: '700' },
+  productRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4,
+    borderTopWidth: 1, borderTopColor: colors.surfaceContainerHigh,
+  },
+  productInfo: { flex: 1, marginRight: spacing.stackMd },
+  productName: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '600' },
+  productMeta: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
+  productSubtotal: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '600' },
+  moreProductsText: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 4 },
+  detailRow: { flexDirection: 'row', gap: 6, marginBottom: 6 },
   detailBox: {
     flex: 1, backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.md,
-    padding: spacing.stackMd,
+    padding: 8,
   },
   detailLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm },
   statusBadge: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: colors.secondaryContainer, paddingHorizontal: spacing.stackLg, paddingVertical: spacing.stackSm,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    backgroundColor: colors.secondaryContainer, paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: borderRadius.full, alignSelf: 'center',
   },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.secondary },
   statusText: { ...typography.bodyLg, color: colors.secondary, fontWeight: '600' },
-  actions: { gap: spacing.stackMd, marginBottom: spacing.stackLg },
+  actions: { gap: 12, marginBottom: 20 },
   newTransactionButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: spacing.stackMd,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: spacing.stackMd,
+    borderRadius: borderRadius.md,
+    alignSelf: 'stretch',
+    minHeight: spacing.touchTargetMin,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: 'transparent',
   },
-  newTransactionText: { ...typography.bodyLg, color: colors.onSurfaceVariant, fontWeight: '600' },
-  footer: { ...typography.labelSm, color: colors.onSurfaceVariant, textAlign: 'center', paddingBottom: spacing.stackLg },
+  newTransactionText: { ...typography.bodyLg, color: colors.primary, fontWeight: '600', lineHeight: 20 },
+  footer: { ...typography.labelSm, color: colors.onSurfaceVariant, textAlign: 'center', paddingTop: 12, paddingBottom: 12 },
 });

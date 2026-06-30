@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "WarungRapi",
-    "slug": "kasir-rapi",
+    "slug": "warung-rapi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icons/primary.png",
     "userInterfaceStyle": "light",
     "scheme": "warungrapi",
     "experiments": {
@@ -20,16 +20,15 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#8f000d",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/icons/receipt.png",
+        "monochromeImage": "./assets/icons/receipt.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.warungrapi.app"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icons/primary.png"
     }
   }
 }

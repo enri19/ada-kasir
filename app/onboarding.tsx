@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import { colors, spacing, typography, borderRadius } from '../src/config/theme';
 import { Button } from '../src/components/Button';
 import { Input } from '../src/components/Input';
@@ -11,6 +12,7 @@ import { Card } from '../src/components/Card';
 import { useAppStore } from '../src/stores/app.store';
 import { StoreRepository } from '../src/database/store.repo';
 import { CategoryRepository } from '../src/database/category.repo';
+import { ADMIN_WHATSAPP } from '../src/utils/constants';
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -71,6 +73,17 @@ export default function OnboardingScreen() {
       router.replace('/(tabs)');
     } catch (error) {
       alert('Gagal menyimpan data toko: ' + (error as Error).message);
+    }
+  };
+
+  const handleContactSupport = async () => {
+    const message = 'Halo Admin, saya butuh bantuan setup awal aplikasi WarungRapi.';
+    const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
+
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Gagal Membuka WhatsApp', 'Pastikan WhatsApp tersedia di perangkat Anda.');
     }
   };
 
@@ -144,7 +157,7 @@ export default function OnboardingScreen() {
             {agreedToTerms && <Ionicons name="checkmark" size={16} color={colors.onPrimary} />}
           </View>
           <Text style={styles.termsText}>
-            Saya menyetujui <Text style={styles.termsLink}>Syarat & Ketentuan</Text> serta Kebijakan Privasi Warung Madura.
+            Saya menyetujui <Text style={styles.termsLink}>Syarat & Ketentuan</Text> serta Kebijakan Privasi Warung Rapi.
           </Text>
         </TouchableOpacity>
 
@@ -162,7 +175,7 @@ export default function OnboardingScreen() {
       {/* Help Footer */}
       <Text style={styles.footer}>
         Butuh bantuan dalam setup?{' '}
-        <Text style={styles.footerLink}>Hubungi Support</Text>
+        <Text style={styles.footerLink} onPress={handleContactSupport}>Hubungi Support</Text>
       </Text>
     </ScrollView>
   );

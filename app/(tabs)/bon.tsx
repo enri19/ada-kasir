@@ -20,7 +20,7 @@ export default function BonScreen() {
   const debtsJsonRef = useRef('');
 
   const activeStore = useAppStore((state) => state.activeStore);
-  const storeName = activeStore?.name || 'Warung Madura';
+  const storeName = activeStore?.name || 'Warung Rapi';
 
   const loadData = useCallback(async () => {
     try {
