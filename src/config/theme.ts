@@ -1,0 +1,116 @@
+export const colors = {
+  primary: '#8f000d',
+  primaryContainer: '#b22222',
+  primaryFixed: '#ffdad6',
+  primaryFixedDim: '#ffb4ac',
+  onPrimary: '#ffffff',
+  onPrimaryContainer: '#ffc8c2',
+  onPrimaryFixed: '#410003',
+  onPrimaryFixedVariant: '#92030f',
+  secondary: '#2a6b2c',
+  secondaryContainer: '#acf4a4',
+  secondaryFixed: '#acf4a4',
+  secondaryFixedDim: '#91d78a',
+  onSecondary: '#ffffff',
+  onSecondaryContainer: '#307231',
+  onSecondaryFixed: '#002203',
+  onSecondaryFixedVariant: '#0c5216',
+  tertiary: '#6a3800',
+  tertiaryContainer: '#8c4c00',
+  tertiaryFixed: '#ffdcc2',
+  tertiaryFixedDim: '#ffb77a',
+  onTertiary: '#ffffff',
+  onTertiaryContainer: '#ffcba2',
+  onTertiaryFixed: '#2e1500',
+  onTertiaryFixedVariant: '#6d3a00',
+  background: '#f9f9f9',
+  onBackground: '#1a1c1c',
+  surface: '#ffffff',
+  surfaceDim: '#dadada',
+  surfaceBright: '#f9f9f9',
+  surfaceContainerLowest: '#ffffff',
+  surfaceContainerLow: '#f3f3f3',
+  surfaceContainer: '#eeeeee',
+  surfaceContainerHigh: '#e8e8e8',
+  surfaceContainerHighest: '#e2e2e2',
+  surfaceVariant: '#e2e2e2',
+  onSurface: '#1a1c1c',
+  onSurfaceVariant: '#5a403e',
+  inverseSurface: '#2f3131',
+  inverseOnSurface: '#f1f1f1',
+  inversePrimary: '#ffb4ac',
+  outline: '#8e706d',
+  outlineVariant: '#e2beba',
+  surfaceTint: '#b52424',
+  error: '#ba1a1a',
+  onError: '#ffffff',
+  errorContainer: '#ffdad6',
+  onErrorContainer: '#93000a',
+} as const;
+
+export const typography = {
+  headlineLg: {
+    fontFamily: 'Inter',
+    fontSize: 24,
+    fontWeight: '700' as const,
+    lineHeight: 32,
+  },
+  headlineMobile: {
+    fontFamily: 'Inter',
+    fontSize: 20,
+    fontWeight: '700' as const,
+    lineHeight: 28,
+  },
+  priceDisplay: {
+    fontFamily: 'Inter',
+    fontSize: 32,
+    fontWeight: '800' as const,
+    lineHeight: 40,
+    letterSpacing: -0.02,
+  },
+  bodyLg: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '500' as const,
+    lineHeight: 24,
+  },
+  bodyMd: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '400' as const,
+    lineHeight: 20,
+  },
+  labelSm: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600' as const,
+    lineHeight: 16,
+    letterSpacing: 0.05,
+  },
+} as const;
+
+export const spacing = {
+  gutter: 16,
+  marginMobile: 16,
+  stackSm: 8,
+  stackMd: 16,
+  stackLg: 24,
+  touchTargetMin: 48,
+} as const;
+
+export const borderRadius = {
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  full: 9999,
+} as const;
+
+export const theme = {
+  colors,
+  typography,
+  spacing,
+  borderRadius,
+} as const;
+
+export type Theme = typeof theme;
