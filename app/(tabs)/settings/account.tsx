@@ -137,7 +137,7 @@ export default function AccountScreen() {
 
   const handleContactAdmin = async () => {
     const message = [
-      'Halo Admin, saya ingin mengaktifkan lisensi WarungRapi.',
+      'Halo Admin, saya ingin mengaktifkan lisensi AdaKasir.',
       `Nama warung: ${activeStore?.name || '-'}`,
       `Kode perangkat: ${deviceCode || '-'}`,
     ].join('\n');

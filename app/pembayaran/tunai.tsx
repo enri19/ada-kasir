@@ -29,7 +29,7 @@ export default function PembayaranTunaiScreen() {
   const [processing, setProcessing] = useState(false);
 
   const activeStore = useAppStore((state) => state.activeStore);
-  const storeName = activeStore?.name || 'Warung Rapi';
+  const storeName = activeStore?.name || 'AdaKasir';
 
   const totalPrice = getTotal();
   const subtotalPrice = getSubtotal();

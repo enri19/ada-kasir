@@ -1,12 +1,23 @@
 import { getDatabase } from './db';
 import { DailyReport, LowStockProduct } from '../types/report';
 
+const getLocalDayRange = (date?: string) => {
+  const now = new Date();
+  const parts = date?.split('-').map(Number);
+  const year = parts?.[0] || now.getFullYear();
+  const month = parts?.[1] || now.getMonth() + 1;
+  const day = parts?.[2] || now.getDate();
+
+  return {
+    startDate: new Date(year, month - 1, day, 0, 0, 0, 0).toISOString(),
+    endDate: new Date(year, month - 1, day, 23, 59, 59, 999).toISOString(),
+  };
+};
+
 export const ReportRepository = {
   async getDailyReport(date?: string): Promise<DailyReport> {
     const db = await getDatabase();
-    const targetDate = date || new Date().toISOString().split('T')[0];
-    const startDate = `${targetDate}T00:00:00.000Z`;
-    const endDate = `${targetDate}T23:59:59.999Z`;
+    const { startDate, endDate } = getLocalDayRange(date);
 
     const salesResult = await db.getFirstAsync<{ total: number; count: number }>(
       `SELECT COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled'`,
@@ -33,7 +44,7 @@ export const ReportRepository = {
     );
 
     const hourlySales = await db.getAllAsync<{ hour: number; total: number }>(
-      `SELECT CAST(strftime('%H', created_at) AS INTEGER) as hour, SUM(total_amount) as total 
+      `SELECT CAST(strftime('%H', created_at, 'localtime') AS INTEGER) as hour, COUNT(*) as total 
        FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled'
        GROUP BY hour ORDER BY hour`,
       [startDate, endDate]
@@ -119,8 +130,7 @@ export const ReportRepository = {
 
   async getTransactionsByDate(date: string): Promise<any[]> {
     const db = await getDatabase();
-    const startDate = `${date}T00:00:00.000Z`;
-    const endDate = `${date}T23:59:59.999Z`;
+    const { startDate, endDate } = getLocalDayRange(date);
     return await db.getAllAsync(
       `SELECT id, invoice_number as invoiceNumber, total_amount as totalAmount, payment_method as paymentMethod, status, created_at as createdAt 
        FROM sales WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC`,

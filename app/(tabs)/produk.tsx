@@ -25,7 +25,7 @@ export default function ProdukScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const activeStore = useAppStore((state) => state.activeStore);
-  const storeName = activeStore?.name || 'Warung Rapi';
+  const storeName = activeStore?.name || 'AdaKasir';
 
   const [needsRefresh, setNeedsRefresh] = useState(true);
 

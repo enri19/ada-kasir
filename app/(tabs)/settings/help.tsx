@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
 import { Card } from '../../../src/components/Card';
@@ -17,7 +16,6 @@ const HELP_STEPS = [
 
 export default function HelpScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const handleContactAdmin = async () => {
     const message = 'Halo Admin, saya butuh bantuan penggunaan aplikasi Warungr Rapi.';
@@ -30,7 +28,7 @@ export default function HelpScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>      
+    <View style={styles.container}>      
       <CustomHeader title="Bantuan" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {HELP_STEPS.map((step) => (
@@ -57,7 +55,7 @@ export default function HelpScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
-  scrollContent: { padding: spacing.marginMobile, paddingBottom: 32 },
+  scrollContent: { padding: spacing.marginMobile, paddingBottom: 16 },
   headerTitle: { ...typography.headlineLg, color: colors.onSurface, marginBottom: spacing.stackLg },
   helpCard: { padding: spacing.stackMd, marginBottom: spacing.stackSm },
   helpTitle: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '700', marginBottom: spacing.stackSm },

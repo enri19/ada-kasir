@@ -77,7 +77,7 @@ export default function OnboardingScreen() {
   };
 
   const handleContactSupport = async () => {
-    const message = 'Halo Admin, saya butuh bantuan setup awal aplikasi WarungRapi.';
+    const message = 'Halo Admin, saya butuh bantuan setup awal aplikasi AdaKasir.';
     const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
 
     try {
@@ -157,7 +157,7 @@ export default function OnboardingScreen() {
             {agreedToTerms && <Ionicons name="checkmark" size={16} color={colors.onPrimary} />}
           </View>
           <Text style={styles.termsText}>
-            Saya menyetujui <Text style={styles.termsLink}>Syarat & Ketentuan</Text> serta Kebijakan Privasi Warung Rapi.
+            Saya menyetujui <Text style={styles.termsLink}>Syarat & Ketentuan</Text> serta Kebijakan Privasi AdaKasir.
           </Text>
         </TouchableOpacity>
 

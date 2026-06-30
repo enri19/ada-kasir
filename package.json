@@ -1,5 +1,5 @@
 {
-  "name": "warung-rapi",
+  "name": "ada-kasir",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {

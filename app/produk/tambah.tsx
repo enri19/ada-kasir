@@ -220,7 +220,7 @@ export default function TambahProdukScreen() {
         </View>
 
         <Text style={styles.label}>Stok Awal</Text>
-        <View style={styles.stockControl}>
+        <View style={[styles.stockControl, styles.stockControlSpacing]}>
           <TouchableOpacity 
             style={styles.stockButton}
             onPress={() => setStock(String(Math.max(0, parseInt(stock, 10) - 1)))}
@@ -242,7 +242,7 @@ export default function TambahProdukScreen() {
         </View>
 
         <Text style={styles.label}>Stok Minimum</Text>
-        <View style={styles.stockControl}>
+        <View style={[styles.stockControl, styles.stockControlSpacing]}>
           <TouchableOpacity 
             style={styles.stockButton}
             onPress={() => setMinStock(String(Math.max(0, parseInt(minStock, 10) - 1)))}
@@ -416,6 +416,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.md,
     borderWidth: 1, borderColor: colors.outlineVariant,
   },
+  stockControlSpacing: { marginBottom: spacing.stackMd },
   stockButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   stockInput: { flex: 1, textAlign: 'center', ...typography.bodyLg, color: colors.onSurface, minHeight: 48 },
   switchRow: { flexDirection: 'row', gap: spacing.stackMd, marginTop: spacing.stackSm },

@@ -1,4 +1,4 @@
-export const APP_NAME = 'WarungRapi';
+export const APP_NAME = 'AdaKasir';
 export const APP_VERSION = '1.0.0';
 
 export const STORAGE_KEYS = {

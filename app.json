@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "WarungRapi",
-    "slug": "warung-rapi",
+    "name": "AdaKasir",
+    "slug": "ada-kasir",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icons/primary.png",
+    "icon": "./assets/icons/logo.png",
     "userInterfaceStyle": "light",
-    "scheme": "warungrapi",
+    "scheme": "AdaKasir",
     "experiments": {
       "typedRoutes": true
     },
@@ -15,7 +15,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.warungrapi.app"
+      "bundleIdentifier": "com.AdaKasir.app"
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -25,10 +25,10 @@
         "monochromeImage": "./assets/icons/receipt.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.warungrapi.app"
+      "package": "com.AdaKasir.app"
     },
     "web": {
-      "favicon": "./assets/icons/primary.png"
+      "favicon": "./assets/icons/logo.png"
     }
   }
 }

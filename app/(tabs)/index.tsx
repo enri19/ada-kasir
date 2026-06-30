@@ -27,7 +27,7 @@ export default function KasirScreen() {
   const getItemCount = useCartStore((state) => state.getItemCount);
 
   const activeStore = useAppStore((state) => state.activeStore);
-  const storeName = activeStore?.name || 'Warung Rapi';
+  const storeName = activeStore?.name || 'AdaKasir';
 
   const [needsRefresh, setNeedsRefresh] = useState(true);
 

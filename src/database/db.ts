@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { ALL_MIGRATIONS } from './migrations';
 
-const DATABASE_NAME = 'warungrapi.db';
+const DATABASE_NAME = 'AdaKasir.db';
 
 let db: SQLite.SQLiteDatabase | null = null;
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;

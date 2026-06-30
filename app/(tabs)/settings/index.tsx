@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Network from 'expo-network';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,7 +15,6 @@ import { APP_NAME, APP_VERSION, STORAGE_KEYS } from '../../../src/utils/constant
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [isOnline, setIsOnline] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
   const appVersion = Constants.expoConfig?.version ?? APP_VERSION;
@@ -88,7 +86,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>      
+    <View style={styles.container}>      
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.headerTitle}>Pengaturan</Text>
 
@@ -165,7 +163,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
-  scrollContent: { padding: spacing.marginMobile, paddingBottom: 40 },
+  scrollContent: { padding: spacing.marginMobile, paddingBottom: 16 },
   headerTitle: { ...typography.headlineLg, color: colors.onSurface, marginBottom: spacing.stackLg },
   badgeCard: { padding: spacing.stackMd, marginBottom: spacing.stackLg },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm, marginBottom: spacing.stackSm },

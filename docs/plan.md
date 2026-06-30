@@ -15,7 +15,7 @@ Fokus utama aplikasi:
 
 Nama bisnis sementara:
 
-* WarungRapi
+* AdaKasir
 * WarungNota
 * KasirBon
 * BonRapi

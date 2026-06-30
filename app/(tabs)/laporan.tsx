@@ -20,7 +20,7 @@ export default function LaporanScreen() {
   const reportJsonRef = useRef('');
 
   const activeStore = useAppStore((state) => state.activeStore);
-  const storeName = activeStore?.name || 'Warung Rapi';
+  const storeName = activeStore?.name || 'AdaKasir';
 
   const loadData = useCallback(async () => {
     try {
@@ -74,7 +74,19 @@ export default function LaporanScreen() {
     return { text: status.toUpperCase(), color: colors.onSurfaceVariant, bg: colors.surfaceContainerLow, icon: 'time-outline' as const };
   };
 
-  const maxHourlySales = report?.hourlySales.reduce((max, h) => Math.max(max, h.total), 0) || 1;
+  const formatHourLabel = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
+  const formatNumber = (value: number) => value.toLocaleString('id-ID');
+
+  const hourlyChartData = Array.from({ length: 24 }, (_, index) => {
+    const item = (report?.hourlySales || []).find((entry) => entry.hour === index);
+    return { hour: index, total: item?.total || 0 };
+  });
+
+  const maxHourlySales = hourlyChartData.reduce((max, item) => Math.max(max, item.total), 0) || 1;
+  const peakHourData = hourlyChartData.reduce(
+    (peak, item) => (item.total > peak.total ? item : peak),
+    hourlyChartData[0] || { hour: 0, total: 0 }
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -240,7 +252,6 @@ export default function LaporanScreen() {
           <Card style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Produk Terlaris</Text>
-              <Text style={styles.seeAllText}>Lihat Semua</Text>
             </View>
 
             {report.topProducts.map((product, index) => {
@@ -261,26 +272,32 @@ export default function LaporanScreen() {
           </Card>
         )}
 
-        {report && report.hourlySales.length > 0 && (
+        {hourlyChartData.length > 0 && (
           <Card style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Waktu Teramai</Text>
-            <View style={styles.chartContainer}>
-              {[6, 9, 12, 15, 18, 21, 0].map((hour) => {
-                const hourData = report.hourlySales.find((h) => h.hour === hour);
-                const height = hourData ? (hourData.total / maxHourlySales) * 100 : 10;
-                const isActive = hourData && hourData.total === maxHourlySales;
-                return (
-                  <View key={hour} style={styles.chartBar}>
-                    <View style={[styles.chartBarFill, { height: `${height}%` }, isActive && styles.chartBarActive]} />
-                  </View>
-                );
-              })}
-            </View>
-            <View style={styles.chartLabels}>
-              {['06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '00:00'].map((time, index) => (
-                <Text key={index} style={styles.chartLabel}>{time}</Text>
-              ))}
-            </View>
+            <Text style={styles.sectionTitle}>Waktu Teramai (24 Jam)</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator
+              contentContainerStyle={styles.chartScrollContent}
+            >
+              <View style={styles.chartContainer}>
+                {hourlyChartData.map((item) => {
+                  const height = item.total > 0 ? (item.total / maxHourlySales) * 100 : 0;
+                  const isActive = item.total > 0 && item.total === peakHourData.total;
+                  return (
+                    <View key={item.hour} style={styles.chartColumn}>
+                      <View style={styles.chartBar}>
+                        <View style={[styles.chartBarFill, { height: `${height}%` }, isActive && styles.chartBarActive]} />
+                      </View>
+                      <Text style={styles.chartLabel}>{formatHourLabel(item.hour)}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <Text style={styles.chartSummary}>
+              Jam puncak: {peakHourData.total > 0 ? `${formatHourLabel(peakHourData.hour)} (${formatNumber(peakHourData.total)} transaksi)` : 'Belum ada data'}
+            </Text>
           </Card>
         )}
 
@@ -378,12 +395,14 @@ const styles = StyleSheet.create({
   stockLow: { color: colors.error },
   progressBar: { width: 60, height: 4, backgroundColor: colors.surfaceContainerHigh, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 2 },
-  chartContainer: { flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: spacing.stackSm, marginBottom: spacing.stackSm },
-  chartBar: { flex: 1, height: '100%', justifyContent: 'flex-end' },
+  chartScrollContent: { paddingBottom: spacing.stackSm },
+  chartContainer: { flexDirection: 'row', height: 152, gap: spacing.stackSm },
+  chartColumn: { width: 34, height: '100%', alignItems: 'center', justifyContent: 'flex-end' },
+  chartBar: { width: 18, height: 120, justifyContent: 'flex-end' },
   chartBarFill: { backgroundColor: colors.surfaceContainerHigh, borderRadius: 2, width: '100%' },
   chartBarActive: { backgroundColor: colors.primary },
-  chartLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.stackLg },
-  chartLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, fontSize: 10 },
+  chartLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, fontSize: 9, marginTop: spacing.stackSm, textAlign: 'center' },
+  chartSummary: { ...typography.bodyMd, color: colors.primary, fontWeight: '700' },
   transactionCard: { marginBottom: spacing.stackSm },
   transactionCardInner: { padding: spacing.stackMd },
   transactionRow: { flexDirection: 'row', alignItems: 'center' },
