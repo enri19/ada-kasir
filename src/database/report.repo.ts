@@ -65,6 +65,16 @@ export const ReportRepository = {
       [startDate, endDate]
     );
 
+    const debtPaymentsCash = await db.getFirstAsync<{ total: number }>(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE created_at >= ? AND created_at <= ? AND payment_method = 'cash'`,
+      [startDate, endDate]
+    );
+
+    const debtPaymentsQris = await db.getFirstAsync<{ total: number }>(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE created_at >= ? AND created_at <= ? AND payment_method = 'qris_static'`,
+      [startDate, endDate]
+    );
+
     const stockSummary = await db.getFirstAsync<{
       totalProducts: number;
       totalActiveProducts: number;
@@ -90,6 +100,8 @@ export const ReportRepository = {
       cashTotal: cashResult?.total || 0,
       qrisTotal: qrisResult?.total || 0,
       debtTotal: debtResult2?.total || 0,
+      debtCashTotal: debtPaymentsCash?.total || 0,
+      debtQrisTotal: debtPaymentsQris?.total || 0,
       totalProducts: stockSummary?.totalProducts || 0,
       totalActiveProducts: stockSummary?.totalActiveProducts || 0,
       totalStockLow: stockSummary?.totalStockLow || 0,

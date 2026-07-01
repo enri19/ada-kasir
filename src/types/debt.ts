@@ -19,8 +19,11 @@ export interface Debt {
 export interface DebtPayment {
   id: string;
   debtId: string;
+  customerId: string;
   amount: number;
+  paymentMethod: 'cash' | 'qris_static';
   note: string | null;
+  paidAt: string;
   createdAt: string;
 }
 

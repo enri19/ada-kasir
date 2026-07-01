@@ -113,12 +113,16 @@ export const CREATE_DEBTS_TABLE = `
 
 export const CREATE_DEBT_PAYMENTS_TABLE = `
   CREATE TABLE IF NOT EXISTS debt_payments (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY NOT NULL,
     debt_id TEXT NOT NULL,
-    amount INTEGER NOT NULL DEFAULT 0,
+    customer_id TEXT NOT NULL,
+    amount REAL NOT NULL,
+    payment_method TEXT NOT NULL DEFAULT 'cash',
     note TEXT,
+    paid_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE
+    FOREIGN KEY (debt_id) REFERENCES debts(id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
   );
 `;
 
@@ -146,6 +150,10 @@ export const ALL_MIGRATIONS = [
   CREATE_SALE_ITEMS_TABLE,
   CREATE_DEBTS_TABLE,
   CREATE_DEBT_PAYMENTS_TABLE,
+  // Backfill new columns for existing installations
+  "ALTER TABLE debt_payments ADD COLUMN customer_id TEXT",
+  "ALTER TABLE debt_payments ADD COLUMN payment_method TEXT DEFAULT 'cash'",
+  "ALTER TABLE debt_payments ADD COLUMN paid_at TEXT",
   CREATE_STOCK_MOVEMENTS_TABLE,
   'ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE stores ADD COLUMN qris_image_uri TEXT',

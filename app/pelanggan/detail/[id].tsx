@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Linking, Alert, Modal, TextInput,
@@ -9,6 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
 import { CurrencyText } from '../../../src/components/CurrencyText';
 import { Card } from '../../../src/components/Card';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { parseRupiah, formatRupiah } from '../../../src/utils/currency';
+import { Platform } from 'react-native';
 import { CustomerRepository } from '../../../src/database/customer.repo';
 import { DebtRepository } from '../../../src/database/debt.repo';
 import { Customer } from '../../../src/types/customer';
@@ -36,14 +39,32 @@ export default function DetailPelangganScreen() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [totalDebt, setTotalDebt] = useState(0);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qris_static'>('cash');
+  const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [paymentNote, setPaymentNote] = useState('');
+  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
 
-  // Edit modal
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editNote, setEditNote] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!showPaymentModal) {
+      setShowDatePicker(false);
+    }
+  }, [showPaymentModal]);
+
+  const formatDateOnly = (date: Date | undefined) =>
+    date
+      ? date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+      : 'Pilih tanggal';
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -55,6 +76,8 @@ export default function DetailPelangganScreen() {
       setCustomer(cust);
       setDebts(debtList);
       setTotalDebt(debtList.reduce((s, d) => s + (d.remainingAmount || 0), 0));
+      const payments = await DebtRepository.getDebtPaymentsByCustomerId(id);
+      setPaymentHistory(payments);
     } catch (e) {
       console.error('detail pelanggan error', e);
     }
@@ -132,6 +155,32 @@ export default function DetailPelangganScreen() {
     const formatted = cleaned.startsWith('62') ? cleaned : `62${cleaned}`;
     Linking.openURL(`https://wa.me/${formatted}?text=${encodeURIComponent(text)}`);
   }, [customer, activeStore, debts, totalDebt]);
+
+  const openPaymentModal = useCallback((debt: Debt) => {
+    if (isReadOnly) {
+      Alert.alert('Mode read-only', 'Anda tidak dapat mencatat pembayaran bon saat lisensi sudah berakhir.');
+      return;
+    }
+    setSelectedDebt(debt);
+    setPaymentAmount(debt.remainingAmount ? debt.remainingAmount.toLocaleString('id-ID') : '');
+    setPaymentMethod('cash');
+    setPaymentDate(new Date());
+    setPaymentNote('');
+    setShowPaymentModal(true);
+  }, [isReadOnly]);
+
+  const handleSavePayment = useCallback(async () => {
+    if (!selectedDebt) return;
+    const amount = parseRupiah(paymentAmount);
+    try {
+      await DebtRepository.payDebt(selectedDebt.id, amount, paymentMethod, paymentNote || null, paymentDate?.toISOString());
+      setShowPaymentModal(false);
+      await loadData();
+      Alert.alert('Berhasil', 'Pembayaran bon berhasil dicatat.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Gagal mencatat pembayaran.');
+    }
+  }, [selectedDebt, paymentAmount, paymentMethod, paymentNote, paymentDate, loadData]);
 
   if (!customer) {
     return (
@@ -280,9 +329,37 @@ export default function DetailPelangganScreen() {
                     <CurrencyText amount={debt.paidAmount} size="sm" color={colors.secondary} />
                   </View>
                 )}
+                {debt.status !== 'paid' && (
+                  <View style={{ marginTop: spacing.stackSm }}>
+                      <TouchableOpacity style={styles.saveBtn} onPress={() => openPaymentModal(debt)}>
+                        <Text style={styles.saveBtnText}>Catat Pembayaran</Text>
+                      </TouchableOpacity>
+                  </View>
+                )}
               </Card>
             );
           })
+        )}
+
+        {/* Riwayat Pembayaran */}
+        <Text style={[styles.sectionTitle, { marginTop: spacing.stackMd }]}>Riwayat Pembayaran ({paymentHistory.length})</Text>
+        {paymentHistory.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Ionicons name="time-outline" size={40} color={colors.surfaceContainerHigh} />
+            <Text style={styles.emptyText}>Belum ada pembayaran</Text>
+          </View>
+        ) : (
+          paymentHistory.map((p) => (
+            <Card key={p.id} style={{ padding: spacing.stackMd, marginBottom: spacing.stackSm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <View>
+                  <Text style={{ ...typography.bodyMd, fontWeight: '700' }}>{p.note || 'Pembayaran Bon'}</Text>
+                  <Text style={{ ...typography.labelSm, color: colors.onSurfaceVariant }}>{new Date(p.paidAt).toLocaleString('id-ID')}</Text>
+                </View>
+                <CurrencyText amount={p.amount} size="sm" color={colors.primary} />
+              </View>
+            </Card>
+          ))
         )}
       </ScrollView>
 
@@ -316,6 +393,88 @@ export default function DetailPelangganScreen() {
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowEdit(false)}>
               <Text style={styles.cancelBtnText}>Batal</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal visible={showPaymentModal} transparent animationType="fade" onRequestClose={() => setShowPaymentModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Catat Pembayaran Bon</Text>
+            {selectedDebt && (
+              <>
+                <Text style={styles.fieldLabel}>Sisa Bon</Text>
+                <CurrencyText amount={selectedDebt.remainingAmount} size="md" />
+
+                <Text style={styles.fieldLabel}>Nominal Pembayaran</Text>
+                <TextInput
+                  style={styles.input}
+                  value={paymentAmount}
+                  onChangeText={(text) => {
+                    const num = parseInt(text.replace(/[^0-9]/g, ''), 10) || 0;
+                    setPaymentAmount(num ? num.toLocaleString('id-ID') : '');
+                  }}
+                  placeholder="0"
+                  placeholderTextColor={colors.onSurfaceVariant}
+                  keyboardType="numeric"
+                />
+
+                <Text style={styles.fieldLabel}>Metode Pembayaran</Text>
+                <View style={styles.paymentMethodRow}>
+                  <TouchableOpacity
+                    style={[styles.methodOption, paymentMethod === 'cash' && styles.methodOptionActive]}
+                    onPress={() => setPaymentMethod('cash')}
+                  >
+                    <View style={[styles.methodIcon, paymentMethod === 'cash' && styles.methodIconActive]}>
+                      <Ionicons name="cash-outline" size={18} color={paymentMethod === 'cash' ? colors.onPrimary : colors.primary} />
+                    </View>
+                    <Text style={[styles.methodText, paymentMethod === 'cash' && styles.methodTextActive]}>Tunai</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.methodOption, paymentMethod === 'qris_static' && styles.methodOptionActive]}
+                    onPress={() => setPaymentMethod('qris_static')}
+                  >
+                    <View style={[styles.methodIcon, paymentMethod === 'qris_static' && styles.methodIconActive]}>
+                      <Ionicons name="qr-code-outline" size={18} color={paymentMethod === 'qris_static' ? colors.onPrimary : colors.primary} />
+                    </View>
+                    <Text style={[styles.methodText, paymentMethod === 'qris_static' && styles.methodTextActive]}>QRIS</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.fieldLabel}>Tanggal Pembayaran</Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.input, { justifyContent: 'center' }]}> 
+                  <Text style={{ ...typography.bodyMd, color: colors.onSurface }}>{formatDateOnly(paymentDate)}</Text>
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={paymentDate ?? new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(e, date) => {
+                      if (Platform.OS === 'android') setShowDatePicker(false);
+                      if (date) setPaymentDate(date);
+                      if (e.type === 'dismissed') {
+                        setShowDatePicker(false);
+                      }
+                    }}
+                  />
+                )}
+
+                <Text style={styles.fieldLabel}>Catatan (opsional)</Text>
+                <TextInput style={[styles.input, styles.inputMultiline]} value={paymentNote} onChangeText={setPaymentNote} placeholder="Catatan" placeholderTextColor={colors.onSurfaceVariant} multiline numberOfLines={2} />
+
+                <View style={{ marginTop: spacing.stackMd }}>
+                  <TouchableOpacity style={styles.saveBtn} onPress={handleSavePayment}>
+                    <Text style={styles.saveBtnText}>Simpan Pembayaran</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ height: spacing.stackSm }} />
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPaymentModal(false)}>
+                  <Text style={styles.cancelBtnText}>Batal</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -418,6 +577,41 @@ const styles = StyleSheet.create({
     ...typography.bodyMd, color: colors.onSurface,
   },
   inputMultiline: { minHeight: 64, textAlignVertical: 'top' },
+  paymentMethodRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.stackMd,
+  },
+  methodOption: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 12, paddingHorizontal: 14,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surface,
+  },
+  methodOptionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  methodIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  methodIconActive: {
+    backgroundColor: colors.primaryContainer,
+  },
+  methodText: {
+    ...typography.bodyMd,
+    color: colors.onSurface,
+    fontWeight: '700',
+  },
+  methodTextActive: {
+    color: colors.onPrimary,
+  },
   saveBtn: {
     backgroundColor: colors.primary, borderRadius: borderRadius.lg,
     paddingVertical: 14, alignItems: 'center', marginTop: 4,

@@ -6,6 +6,8 @@ export interface DailyReport {
   cashTotal: number;
   qrisTotal: number;
   debtTotal: number;
+  debtCashTotal?: number; // pembayaran bon tunai
+  debtQrisTotal?: number; // pembayaran bon qris
   totalProducts: number;
   totalActiveProducts: number;
   totalStockLow: number;
