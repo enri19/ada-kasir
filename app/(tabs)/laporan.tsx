@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,8 @@ import { CurrencyText } from '../../src/components/CurrencyText';
 import { ReportRepository } from '../../src/database/report.repo';
 import { DailyReport, LowStockProduct } from '../../src/types/report';
 import { useAppStore } from '../../src/stores/app.store';
+import { useLicenseStore } from '../../src/stores/license.store';
+import PremiumUpsellModal from '../../src/components/PremiumUpsellModal';
 
 export default function LaporanScreen() {
   const router = useRouter();
@@ -23,6 +25,7 @@ export default function LaporanScreen() {
 
   const activeStore = useAppStore((state) => state.activeStore);
   const storeName = activeStore?.name || 'AdaKasir';
+  const canExportReport = useLicenseStore((state) => state.canExportReport);
 
   const loadData = useCallback(async () => {
     try {
@@ -74,13 +77,23 @@ export default function LaporanScreen() {
     [lowStockProducts]
   );
 
+  const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
+
   const handleExportCSV = useCallback(() => {
-    Alert.alert('Export CSV', 'Fitur export akan tersedia pada versi berikutnya.');
-  }, []);
+    if (!canExportReport()) {
+      setShowPremiumUpsell(true);
+      return;
+    }
+    Alert.alert('Export CSV', 'Fitur export sedang disiapkan.');
+  }, [canExportReport]);
 
   const handleExportPDF = useCallback(() => {
-    Alert.alert('Export PDF', 'Fitur export akan tersedia pada versi berikutnya.');
-  }, []);
+    if (!canExportReport()) {
+      setShowPremiumUpsell(true);
+      return;
+    }
+    Alert.alert('Export PDF', 'Fitur export sedang disiapkan.');
+  }, [canExportReport]);
 
   const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -487,6 +500,7 @@ export default function LaporanScreen() {
             </TouchableOpacity>
           </View>
         </Card>
+        <PremiumUpsellModal visible={showPremiumUpsell} onClose={() => setShowPremiumUpsell(false)} />
       </ScrollView>
     </View>
   );

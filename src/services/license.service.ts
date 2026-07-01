@@ -36,9 +36,9 @@ export type LicenseValidationResult =
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DEVICE_CHARACTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const DEVICE_CODE_PATTERN = /^WRG-([A-Z0-9]{4})-([A-Z0-9]{4})$/;
-const LIFETIME_KEY_PATTERN = /^WRG-LIFE-([A-Z0-9]{4})-(\d{4})$/;
-const PREMIUM_KEY_PATTERN = /^WRG-PREM-([A-Z0-9]{4})-(\d{8})$/;
+const DEVICE_CODE_PATTERN = /^ADK-([A-Z0-9]{4})-([A-Z0-9]{4})$/;
+const LIFETIME_KEY_PATTERN = /^ADK-LIFE-([A-Z0-9]{4})-(\d{4})$/;
+const PREMIUM_KEY_PATTERN = /^ADK-PREM-([A-Z0-9]{4})-(\d{8})$/;
 const TRIAL_DAYS = 14;
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ function parsePremiumExpiry(value: string): Date | null {
   return d;
 }
 
-/** Ambil token perangkat (bagian tengah deviceCode, misal WRG-8F3K-29XA → "8F3K") */
+/** Ambil token perangkat (bagian tengah deviceCode, misal ADK-8F3K-29XA → "8F3K") */
 function extractDeviceToken(deviceCode: string): string | null {
   const match = deviceCode.trim().toUpperCase().match(DEVICE_CODE_PATTERN);
   return match ? match[1] : null;
@@ -76,7 +76,7 @@ function extractDeviceToken(deviceCode: string): string | null {
 
 export const LicenseService = {
   generateDeviceCode(): string {
-    return `WRG-${generateSegment()}-${generateSegment()}`;
+    return `ADK-${generateSegment()}-${generateSegment()}`;
   },
 
   isValidDeviceCode(deviceCode: string): boolean {
@@ -132,9 +132,9 @@ export const LicenseService = {
     const nowMs = now.getTime();
 
     // Lifetime tidak pernah expired
-    if (data.hasLifetime || data.licenseKey?.startsWith('WRG-LIFE-')) {
+    if (data.hasLifetime || data.licenseKey?.startsWith('ADK-LIFE-')) {
       // Cek apakah ada Premium aktif di atasnya
-      if (data.licenseKey?.startsWith('WRG-PREM-') && data.expiresAt) {
+      if (data.licenseKey?.startsWith('ADK-PREM-') && data.expiresAt) {
         const premExpiry = new Date(data.expiresAt).getTime();
         if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';
         return 'lifetime'; // Premium expired, fallback ke Lifetime
@@ -143,7 +143,7 @@ export const LicenseService = {
     }
 
     // Premium tanpa Lifetime
-    if (data.licenseKey?.startsWith('WRG-PREM-')) {
+    if (data.licenseKey?.startsWith('ADK-PREM-')) {
       const premExpiry = data.expiresAt ? new Date(data.expiresAt).getTime() : NaN;
       if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';
       return 'premium_expired';

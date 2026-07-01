@@ -30,27 +30,7 @@ const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   } catch (error) {
     console.error('Database initialization error:', error);
     db = null;
-    // Try to reset and reinitialize
-    try {
-      db = await SQLite.openDatabaseAsync(DATABASE_NAME);
-      await db.execAsync(`
-        DROP TABLE IF EXISTS stock_movements;
-        DROP TABLE IF EXISTS debt_payments;
-        DROP TABLE IF EXISTS debts;
-        DROP TABLE IF EXISTS sale_items;
-        DROP TABLE IF EXISTS sales;
-        DROP TABLE IF EXISTS customers;
-        DROP TABLE IF EXISTS products;
-        DROP TABLE IF EXISTS categories;
-        DROP TABLE IF EXISTS stores;
-      `);
-      await runMigrations();
-      return db;
-    } catch (retryError) {
-      console.error('Database retry failed:', retryError);
-      db = null;
-      throw retryError;
-    }
+    throw error;
   }
 };
 
@@ -70,6 +50,9 @@ const runMigrations = async () => {
 };
 
 export const resetDatabase = async () => {
+  if (!__DEV__) {
+    throw new Error('resetDatabase is for development only');
+  }
   const database = await getDatabase();
   await database.execAsync(`
     DROP TABLE IF EXISTS stock_movements;

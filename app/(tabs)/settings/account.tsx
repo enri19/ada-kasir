@@ -235,7 +235,7 @@ export default function AccountScreen() {
             label="Kode Lisensi"
             value={licenseCode}
             onChangeText={(value) => setLicenseCode(value.toUpperCase())}
-            placeholder="WRG-LIFE-XXXX-YYYY"
+            placeholder="ADK-LIFE-XXXX-YYYY"
             editable={!isActivating}
           />
 

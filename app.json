@@ -13,9 +13,10 @@
     "plugins": [
       "expo-router"
     ],
+    "scheme": "adakasir",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.AdaKasir.app"
+      "bundleIdentifier": "com.adakasir.app"
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -25,7 +26,7 @@
         "monochromeImage": "./assets/icons/receipt.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.AdaKasir.app"
+      "package": "com.adakasir.app"
     },
     "web": {
       "favicon": "./assets/icons/logo.png"
