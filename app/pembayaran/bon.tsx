@@ -37,7 +37,7 @@ export default function PembayaranBonScreen() {
 
   const loadCustomers = async () => {
     try {
-      const data = await CustomerRepository.getAll();
+      const data = await CustomerRepository.getActive();
       setCustomers(data);
     } catch (error) {
       console.error('Error loading customers:', error);

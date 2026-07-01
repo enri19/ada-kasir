@@ -8,6 +8,7 @@ import { CurrencyText } from '../src/components/CurrencyText';
 import { Button } from '../src/components/Button';
 import { useCartStore } from '../src/stores/cart.store';
 import { formatRupiah, parseRupiah } from '../src/utils/currency';
+import { getProductImage } from '../src/utils/product-images';
 
 export default function KeranjangScreen() {
   const router = useRouter();
@@ -84,7 +85,7 @@ export default function KeranjangScreen() {
                 {item.product.imageUri ? (
                   <Image source={{ uri: item.product.imageUri }} style={styles.itemImageContent} />
                 ) : (
-                  <Text style={styles.itemImageText}>img</Text>
+                  <Image source={getProductImage(item.product.imageKey)} style={styles.itemImageContent} />
                 )}
               </View>
               <View style={styles.itemInfo}>

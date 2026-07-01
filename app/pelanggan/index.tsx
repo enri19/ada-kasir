@@ -7,6 +7,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Button } from '../../src/components/Button';
 import { CustomerRepository } from '../../src/database/customer.repo';
 import { Customer, CustomerDebtSummary } from '../../src/types/customer';
 import { useLicenseStore } from '../../src/stores/license.store';
@@ -228,11 +229,14 @@ export default function KelolaPelangganScreen() {
 
             <Text style={styles.fieldLabel}>Alamat (opsional)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, styles.inputMultiline]}
               value={addAddress}
               onChangeText={setAddAddress}
               placeholder="Alamat pelanggan"
               placeholderTextColor={colors.onSurfaceVariant}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
             />
 
             <Text style={styles.fieldLabel}>Catatan (opsional)</Text>
@@ -244,14 +248,12 @@ export default function KelolaPelangganScreen() {
               placeholderTextColor={colors.onSurfaceVariant}
               multiline
               numberOfLines={2}
+              textAlignVertical="top"
             />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveAdd} disabled={saving}>
-              <Text style={styles.saveBtnText}>{saving ? 'Menyimpan...' : 'Simpan Pelanggan'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAdd(false)}>
-              <Text style={styles.cancelBtnText}>Batal</Text>
-            </TouchableOpacity>
+            <Button title={saving ? 'Menyimpan...' : 'Simpan Pelanggan'} onPress={handleSaveAdd} loading={saving} fullWidth size="lg" />
+            <View style={{ height: spacing.stackSm }} />
+            <Button title="Batal" onPress={() => setShowAdd(false)} variant="outline" fullWidth />
           </View>
         </View>
       </Modal>
@@ -334,10 +336,10 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.md,
     borderWidth: 1, borderColor: colors.outlineVariant,
-    paddingHorizontal: 12, paddingVertical: 10, marginBottom: spacing.stackMd,
-    ...typography.bodyMd, color: colors.onSurface,
+    paddingHorizontal: spacing.stackMd, paddingVertical: spacing.stackSm, marginBottom: spacing.stackMd,
+    ...typography.bodyMd, color: colors.onSurface, minHeight: 48,
   },
-  inputMultiline: { minHeight: 64, textAlignVertical: 'top' },
+  inputMultiline: { minHeight: 80, textAlignVertical: 'top', paddingTop: spacing.stackMd },
   saveBtn: {
     backgroundColor: colors.primary, borderRadius: borderRadius.lg,
     paddingVertical: 14, alignItems: 'center', marginTop: 4,

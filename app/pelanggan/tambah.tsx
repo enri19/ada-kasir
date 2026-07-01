@@ -79,7 +79,7 @@ export default function TambahPelangganScreen() {
             style={styles.input}
             value={phone}
             onChangeText={setPhone}
-            placeholder="+62 8123456789"
+            placeholder="08xxxxxxxxxx"
             placeholderTextColor={colors.onSurfaceVariant}
             keyboardType="phone-pad"
           />

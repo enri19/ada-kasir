@@ -194,7 +194,7 @@ export default function AccountScreen() {
             label="Nomor WhatsApp"
             value={phone}
             onChangeText={setPhone}
-            placeholder="+62 8123456789"
+            placeholder="08xxxxxxxxxx"
             keyboardType="phone-pad"
           />
           <Input
