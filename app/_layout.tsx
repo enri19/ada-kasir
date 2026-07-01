@@ -46,6 +46,7 @@ export default function RootLayout() {
         <Stack.Screen name="transaksi/berhasil" />
         <Stack.Screen name="transaksi/detail/[id]" />
         <Stack.Screen name="produk" />
+        <Stack.Screen name="laporan/detail" />
         <Stack.Screen name="kategori" />
         <Stack.Screen name="pelanggan/tambah" />
         <Stack.Screen name="pelanggan/detail/[id]" />

@@ -97,6 +97,7 @@ export const CREATE_DEBTS_TABLE = `
     id TEXT PRIMARY KEY,
     customer_id TEXT NOT NULL,
     sale_id TEXT,
+    source TEXT NOT NULL DEFAULT 'transaction',
     amount INTEGER NOT NULL DEFAULT 0,
     paid_amount INTEGER NOT NULL DEFAULT 0,
     remaining_amount INTEGER NOT NULL DEFAULT 0,
@@ -154,4 +155,5 @@ export const ALL_MIGRATIONS = [
   'ALTER TABLE products ADD COLUMN track_stock INTEGER NOT NULL DEFAULT 1',
   'ALTER TABLE products ADD COLUMN allow_negative_stock INTEGER NOT NULL DEFAULT 1',
   "ALTER TABLE products ADD COLUMN image_key TEXT DEFAULT 'default'",
+  "ALTER TABLE debts ADD COLUMN source TEXT NOT NULL DEFAULT 'transaction'",
 ];

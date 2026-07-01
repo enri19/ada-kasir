@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
+} from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,498 +11,197 @@ import { CurrencyText } from '../../src/components/CurrencyText';
 import { ReportRepository } from '../../src/database/report.repo';
 import { DailyReport, LowStockProduct } from '../../src/types/report';
 import { useAppStore } from '../../src/stores/app.store';
-import { useLicenseStore } from '../../src/stores/license.store';
-import PremiumUpsellModal from '../../src/components/PremiumUpsellModal';
 
 export default function LaporanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const storeName = useAppStore((s) => s.activeStore?.name) ?? 'AdaKasir';
+
   const [report, setReport] = useState<DailyReport | null>(null);
-  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [lowStock, setLowStock] = useState<LowStockProduct[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const reportJsonRef = useRef('');
-
-  const [previewTab, setPreviewTab] = useState<'transaksi' | 'terlaris' | 'stok'>('transaksi');
-
-  const activeStore = useAppStore((state) => state.activeStore);
-  const storeName = activeStore?.name || 'AdaKasir';
-  const canExportReport = useLicenseStore((state) => state.canExportReport);
+  const cacheRef = useRef('');
 
   const loadData = useCallback(async () => {
     try {
-      const [dailyReport, lowStockItems, transactions] = await Promise.all([
+      const [daily, stock] = await Promise.all([
         ReportRepository.getDailyReport(),
-        ReportRepository.getLowStockProducts(10),
-        ReportRepository.getRecentTransactions(10),
+        ReportRepository.getLowStockProducts(3),
       ]);
-      const payload = JSON.stringify({ dailyReport, lowStockItems, transactions });
-      if (payload !== reportJsonRef.current) {
-        reportJsonRef.current = payload;
-        setReport(dailyReport);
-        setLowStockProducts(lowStockItems);
-        setRecentTransactions(transactions);
-      }
-    } catch (error) {
-      console.error('Error loading report:', error);
+      const key = JSON.stringify({ daily, stock });
+      if (key === cacheRef.current) return;
+      cacheRef.current = key;
+      setReport(daily);
+      setLowStock(stock);
+    } catch (e) {
+      console.error('laporan load error', e);
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData])
-  );
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    cacheRef.current = '';
     await loadData();
     setRefreshing(false);
   }, [loadData]);
 
-  const previewTransactions = useMemo(
-    () => recentTransactions.slice(0, 10),
-    [recentTransactions]
-  );
-
-  const previewTopProducts = useMemo(
-    () => (report?.topProducts || []).slice(0, 10),
-    [report]
-  );
-
-  const previewLowStock = useMemo(
-    () => lowStockProducts.slice(0, 10),
-    [lowStockProducts]
-  );
-
-  const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
-
-  const handleExportCSV = useCallback(() => {
-    if (!canExportReport()) {
-      setShowPremiumUpsell(true);
-      return;
-    }
-    Alert.alert('Export CSV', 'Fitur export sedang disiapkan.');
-  }, [canExportReport]);
-
-  const handleExportPDF = useCallback(() => {
-    if (!canExportReport()) {
-      setShowPremiumUpsell(true);
-      return;
-    }
-    Alert.alert('Export PDF', 'Fitur export sedang disiapkan.');
-  }, [canExportReport]);
-
-  const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-
-  const getMethodLabel = (method: string) => {
-    switch (method) {
-      case 'cash': return 'Tunai';
-      case 'qris_static': return 'QRIS';
-      case 'debt': return 'Bon';
-      default: return method;
-    }
-  };
-
-  const getStatusInfo = (status: string, method: string) => {
-    if (status === 'paid') return { text: 'LUNAS', color: colors.secondary, bg: '#e8f5e9', icon: 'checkmark' as const };
-    if (method === 'debt') return { text: 'BON', color: colors.error, bg: '#ffebee', icon: 'time-outline' as const };
-    return { text: status.toUpperCase(), color: colors.onSurfaceVariant, bg: colors.surfaceContainerLow, icon: 'time-outline' as const };
-  };
-
-  const formatHourLabel = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
-  const formatNumber = (value: number) => value.toLocaleString('id-ID');
-
-  const hourlyChartData = Array.from({ length: 24 }, (_, index) => {
-    const item = (report?.hourlySales || []).find((entry) => entry.hour === index);
-    return { hour: index, total: item?.total || 0 };
+  const today = new Date().toLocaleDateString('id-ID', {
+    day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  const maxHourlySales = hourlyChartData.reduce((max, item) => Math.max(max, item.total), 0) || 1;
-  const peakHourData = hourlyChartData.reduce(
-    (peak, item) => (item.total > peak.total ? item : peak),
-    hourlyChartData[0] || { hour: 0, total: 0 }
-  );
+  const cashIn = (report?.cashTotal ?? 0) + (report?.qrisTotal ?? 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="storefront" size={24} color={colors.primary} />
+          <Ionicons name="storefront" size={22} color={colors.primary} />
           <Text style={styles.headerTitle}>{storeName}</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>Siap Jualan</Text>
-          </View>
-          <Ionicons name="calendar-outline" size={24} color={colors.primary} />
         </View>
       </View>
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 150 + insets.bottom }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        <View style={styles.reportHeader}>
-          <Text style={styles.reportLabel}>DASHBOARD OVERVIEW</Text>
-          <View style={styles.reportTitleRow}>
-            <Text style={styles.reportTitle}>Laporan Harian</Text>
-            <Text style={styles.reportDate}>Hari Ini{'\n'}{today}</Text>
-          </View>
+        {/* Date label */}
+        <View style={styles.dateRow}>
+          <Text style={styles.dateLabel}>Laporan Harian</Text>
+          <Text style={styles.dateValue}>{today}</Text>
         </View>
 
-        <Card style={styles.statCard}>
-          <View style={styles.statHeader}>
-            <View style={[styles.statIcon, { backgroundColor: '#ffebee' }]}>
-              <Ionicons name="cash-outline" size={24} color={colors.primary} />
+        {/* Omzet + Uang Masuk */}
+        <View style={styles.row}>
+          <Card style={styles.halfCard}>
+            <View style={[styles.iconBox, { backgroundColor: '#ffebee' }]}>
+              <Ionicons name="trending-up-outline" size={20} color={colors.primary} />
             </View>
-          </View>
-          <Text style={styles.statLabel}>Total Penjualan</Text>
-          <CurrencyText amount={report?.totalSales || 0} size="lg" color={colors.onSurface} />
-        </Card>
-
-        <Card style={styles.statCard}>
-          <View style={styles.statHeader}>
-            <View style={[styles.statIcon, { backgroundColor: '#e8f5e9' }]}>
-              <Ionicons name="receipt-outline" size={24} color={colors.secondary} />
-            </View>
-          </View>
-          <Text style={styles.statLabel}>Total Transaksi</Text>
-          <Text style={styles.statValue}>{report?.totalTransactions || 0} Nota</Text>
-        </Card>
-
-        <Card style={styles.statCard}>
-          <View style={styles.statHeader}>
-            <View style={[styles.statIcon, { backgroundColor: '#fff3e0' }]}>
-              <Ionicons name="trending-up-outline" size={24} color="#ff9800" />
-            </View>
-          </View>
-          <Text style={styles.statLabel}>Estimasi Laba</Text>
-          <CurrencyText amount={report?.totalProfit || 0} size="lg" color={colors.onSurface} />
-        </Card>
-
-        {(report?.totalDebt || 0) > 0 && (
-          <Card style={[styles.statCard, styles.urgentCard]}>
-            <View style={styles.statHeader}>
-              <View style={[styles.statIcon, { backgroundColor: '#ffebee' }]}>
-                <Ionicons name="receipt-outline" size={24} color={colors.error} />
-              </View>
-              <View style={styles.urgentBadge}>
-                <Text style={styles.urgentText}>URGENT</Text>
-              </View>
-            </View>
-            <Text style={[styles.statLabel, { color: colors.error }]}>Bon Belum Lunas</Text>
-            <CurrencyText amount={report?.totalDebt || 0} size="lg" color={colors.error} />
+            <Text style={styles.cardLabel}>Omzet</Text>
+            <CurrencyText amount={report?.totalSales ?? 0} size="md" color={colors.onSurface} />
           </Card>
-        )}
+          <Card style={styles.halfCard}>
+            <View style={[styles.iconBox, { backgroundColor: '#e8f5e9' }]}>
+              <Ionicons name="wallet-outline" size={20} color={colors.secondary} />
+            </View>
+            <Text style={styles.cardLabel}>Uang Masuk</Text>
+            <CurrencyText amount={cashIn} size="md" color={colors.secondary} />
+          </Card>
+        </View>
 
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Ringkasan Pembayaran</Text>
-          <View style={styles.paymentRow}>
-            <View style={styles.paymentItem}>
-              <View style={[styles.paymentIcon, { backgroundColor: '#e8f5e9' }]}>
-                <Ionicons name="cash-outline" size={20} color={colors.secondary} />
+        {/* Tunai / QRIS / Bon */}
+        <Card style={styles.payCard}>
+          <Text style={styles.sectionTitle}>Rincian Pembayaran</Text>
+          <View style={styles.payRow}>
+            <View style={styles.payItem}>
+              <View style={[styles.payIcon, { backgroundColor: '#e8f5e9' }]}>
+                <Ionicons name="cash-outline" size={18} color={colors.secondary} />
               </View>
-              <Text style={styles.paymentLabel}>Tunai</Text>
-              <CurrencyText amount={report?.cashTotal || 0} size="sm" color={colors.onSurface} />
+              <Text style={styles.payLabel}>Tunai</Text>
+              <CurrencyText amount={report?.cashTotal ?? 0} size="sm" color={colors.onSurface} />
             </View>
-            <View style={styles.paymentItem}>
-              <View style={[styles.paymentIcon, { backgroundColor: '#e3f2fd' }]}>
-                <Ionicons name="qr-code-outline" size={20} color="#2196F3" />
+            <View style={styles.payItem}>
+              <View style={[styles.payIcon, { backgroundColor: '#e3f2fd' }]}>
+                <Ionicons name="qr-code-outline" size={18} color="#2196F3" />
               </View>
-              <Text style={styles.paymentLabel}>QRIS</Text>
-              <CurrencyText amount={report?.qrisTotal || 0} size="sm" color={colors.onSurface} />
+              <Text style={styles.payLabel}>QRIS</Text>
+              <CurrencyText amount={report?.qrisTotal ?? 0} size="sm" color={colors.onSurface} />
             </View>
-            <View style={styles.paymentItem}>
-              <View style={[styles.paymentIcon, { backgroundColor: '#fff3e0' }]}>
-                <Ionicons name="receipt-outline" size={20} color="#FF9800" />
+            <View style={styles.payItem}>
+              <View style={[styles.payIcon, { backgroundColor: '#fff3e0' }]}>
+                <Ionicons name="receipt-outline" size={18} color="#FF9800" />
               </View>
-              <Text style={styles.paymentLabel}>Bon</Text>
-              <CurrencyText amount={report?.debtTotal || 0} size="sm" color={colors.onSurface} />
+              <Text style={styles.payLabel}>Bon</Text>
+              <CurrencyText amount={report?.debtTotal ?? 0} size="sm" color={colors.onSurface} />
             </View>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Omzet Hari Ini</Text>
-            <CurrencyText amount={report?.totalSales || 0} size="md" color={colors.primary} />
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Uang Masuk (Tunai + QRIS)</Text>
-            <CurrencyText amount={(report?.cashTotal || 0) + (report?.qrisTotal || 0)} size="md" color={colors.secondary} />
           </View>
         </Card>
 
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Ringkasan Stok</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total Produk</Text>
-            <Text style={styles.statValue}>{report?.totalProducts || 0}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Produk Aktif</Text>
-            <Text style={styles.statValue}>{report?.totalActiveProducts || 0}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Stok Menipis</Text>
-            <Text style={styles.statValue}>{report?.totalStockLow || 0}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Stok Habis</Text>
-            <Text style={styles.statValue}>{report?.totalStockOut || 0}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Nilai Stok</Text>
-            <CurrencyText amount={report?.totalStockValue || 0} size="md" color={colors.onSurface} />
-          </View>
-        </Card>
-
-        {lowStockProducts.length > 0 && (
-          <Card style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Produk Stok Menipis</Text>
-              <TouchableOpacity onPress={() => router.push('/produk?inventory=low')}>
-                <Text style={styles.seeAllText}>Lihat Semua</Text>
-              </TouchableOpacity>
+        {/* Laba + Transaksi */}
+        <View style={styles.row}>
+          <Card style={styles.halfCard}>
+            <View style={[styles.iconBox, { backgroundColor: '#fff3e0' }]}>
+              <Ionicons name="stats-chart-outline" size={20} color="#FF9800" />
             </View>
-            {lowStockProducts.map((product) => (
-              <View key={product.id} style={styles.productRow}>
-                <View style={styles.productImage}>
-                  <Text style={styles.productImageText}>img</Text>
-                </View>
-                <Text style={[styles.productName, { flex: 1 }]}>{product.name}</Text>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[styles.productQty, product.stock <= 0 && styles.stockLow]}>
-                    {product.stock} / {product.minStock}
-                  </Text>
-                  <Text style={[styles.summaryLabel, { textAlign: 'right' }]}> {product.stock <= 0 ? 'Habis' : 'Menipis'}</Text>
-                </View>
-              </View>
-            ))}
+            <Text style={styles.cardLabel}>Laba Kotor</Text>
+            <CurrencyText amount={report?.totalProfit ?? 0} size="md" color={colors.onSurface} />
           </Card>
-        )}
-
-        {report && report.topProducts.length > 0 && (
-          <Card style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Produk Terlaris</Text>
+          <Card style={styles.halfCard}>
+            <View style={[styles.iconBox, { backgroundColor: '#ede7f6' }]}>
+              <Ionicons name="receipt-outline" size={20} color="#7E57C2" />
             </View>
-
-            {report.topProducts.map((product, index) => {
-              const maxQty = report.topProducts[0]?.qty || 1;
-              return (
-                <View key={index} style={styles.productRow}>
-                  <View style={styles.productImage}>
-                    <Text style={styles.productImageText}>img</Text>
-                  </View>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productQty}>{product.qty} Pcs</Text>
-                  <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: `${(product.qty / maxQty) * 100}%` }]} />
-                  </View>
-                </View>
-              );
-            })}
+            <Text style={styles.cardLabel}>Transaksi</Text>
+            <Text style={styles.bigNumber}>{report?.totalTransactions ?? 0} Nota</Text>
           </Card>
-        )}
+        </View>
 
-        {hourlyChartData.length > 0 && (
-          <Card style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Waktu Teramai (24 Jam)</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator
-              contentContainerStyle={styles.chartScrollContent}
-            >
-              <View style={styles.chartContainer}>
-                {hourlyChartData.map((item) => {
-                  const height = item.total > 0 ? (item.total / maxHourlySales) * 100 : 0;
-                  const isActive = item.total > 0 && item.total === peakHourData.total;
-                  return (
-                    <View key={item.hour} style={styles.chartColumn}>
-                      <View style={styles.chartBar}>
-                        <View style={[styles.chartBarFill, { height: `${height}%` }, isActive && styles.chartBarActive]} />
-                      </View>
-                      <Text style={styles.chartLabel}>{formatHourLabel(item.hour)}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </ScrollView>
-            <Text style={styles.chartSummary}>
-              Jam puncak: {peakHourData.total > 0 ? `${formatHourLabel(peakHourData.hour)} (${formatNumber(peakHourData.total)} transaksi)` : 'Belum ada data'}
+        {/* Stok menipis count */}
+        {(report?.totalStockLow ?? 0) > 0 && (
+          <Card style={[styles.alertCard]}>
+            <Ionicons name="warning-outline" size={18} color="#E65100" />
+            <Text style={styles.alertText}>
+              {report!.totalStockLow} produk stok menipis
+              {(report?.totalStockOut ?? 0) > 0 && `, ${report!.totalStockOut} habis`}
             </Text>
+            <TouchableOpacity onPress={() => router.push('/produk/stok-menipis' as never)}>
+              <Text style={styles.alertLink}>Lihat</Text>
+            </TouchableOpacity>
           </Card>
         )}
 
-        <Text style={styles.sectionTitle}>Transaksi Terakhir</Text>
-
-        {recentTransactions.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Ionicons name="receipt-outline" size={48} color={colors.surfaceContainerHigh} />
-            <Text style={styles.emptyText}>Belum ada transaksi hari ini</Text>
-          </Card>
-        ) : (
-          recentTransactions.map((trx) => {
-            const statusInfo = getStatusInfo(trx.status, trx.paymentMethod);
-            return (
-              <TouchableOpacity
-                key={trx.id}
-                style={styles.transactionCard}
-                onPress={() => router.push(`/transaksi/detail/${trx.id}`)}
-              >
-                <Card style={styles.transactionCardInner}>
-                  <View style={styles.transactionRow}>
-                    <View style={[styles.transactionIcon, trx.status === 'paid' ? styles.transactionIconPaid : styles.transactionIconPending]}>
-                      <Ionicons name={statusInfo.icon} size={20} color={trx.status === 'paid' ? colors.secondary : '#ff9800'} />
-                    </View>
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionId}>#{trx.invoiceNumber}</Text>
-                      <Text style={styles.transactionTime}>
-                        {new Date(trx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {getMethodLabel(trx.paymentMethod)}
-                      </Text>
-                    </View>
-                    <View style={styles.transactionAmount}>
-                      <CurrencyText amount={trx.totalAmount} size="sm" color={colors.onSurface} />
-                      <View style={[styles.transactionStatus, { backgroundColor: statusInfo.bg }]}>
-                        <Text style={[styles.transactionStatusText, { color: statusInfo.color }]}>
-                          {statusInfo.text}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            );
-          })
-        )}
-
-        {/* Preview Laporan */}
-        <Card style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Preview Laporan</Text>
-          </View>
-
-          <View style={styles.previewTabs}>
-            {(['transaksi', 'terlaris', 'stok'] as const).map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.previewTab, previewTab === tab && styles.previewTabActive]}
-                onPress={() => setPreviewTab(tab)}
-              >
-                <Text style={[styles.previewTabText, previewTab === tab && styles.previewTabTextActive]}>
-                  {tab === 'transaksi' ? 'Transaksi' : tab === 'terlaris' ? 'Terlaris' : 'Stok Menipis'}
-                </Text>
-              </TouchableOpacity>
+        {/* Produk Terlaris (maks 3) */}
+        {(report?.topProducts.length ?? 0) > 0 && (
+          <Card style={styles.listCard}>
+            <Text style={styles.sectionTitle}>Produk Terlaris</Text>
+            {report!.topProducts.slice(0, 3).map((p, i) => (
+              <View key={i} style={styles.listRow}>
+                <View style={styles.rankBadge}>
+                  <Text style={styles.rankText}>{i + 1}</Text>
+                </View>
+                <Text style={styles.listName} numberOfLines={1}>{p.name}</Text>
+                <Text style={styles.listQty}>{p.qty} pcs</Text>
+              </View>
             ))}
-          </View>
+          </Card>
+        )}
 
-          {previewTab === 'transaksi' && (
-            <View>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>No Nota</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.7 }]}>Jam</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Metode</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1.1, textAlign: 'right' }]}>Total</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'right' }]}>Status</Text>
+        {/* Stok Menipis (maks 3) */}
+        {lowStock.length > 0 && (
+          <Card style={styles.listCard}>
+            <Text style={styles.sectionTitle}>Stok Menipis</Text>
+            {lowStock.map((p) => (
+              <View key={p.id} style={styles.listRow}>
+                <View style={[styles.rankBadge, p.stock <= 0 ? styles.rankDanger : styles.rankWarn]}>
+                  <Ionicons
+                    name={p.stock <= 0 ? 'close' : 'alert'}
+                    size={12}
+                    color={p.stock <= 0 ? colors.error : '#E65100'}
+                  />
+                </View>
+                <Text style={styles.listName} numberOfLines={1}>{p.name}</Text>
+                <Text style={[styles.listQty, p.stock <= 0 && styles.textDanger]}>
+                  {p.stock <= 0 ? 'Habis' : `Sisa ${p.stock}`}
+                </Text>
               </View>
-              {previewTransactions.length === 0 ? (
-                <Text style={styles.tableEmpty}>Belum ada transaksi</Text>
-              ) : (
-                previewTransactions.map((trx, i) => {
-                  const statusInfo = getStatusInfo(trx.status, trx.paymentMethod);
-                  return (
-                    <View key={trx.id} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
-                      <Text style={[styles.tableCell, { flex: 1.2 }]} numberOfLines={1}>#{trx.invoiceNumber}</Text>
-                      <Text style={[styles.tableCell, { flex: 0.7 }]}>
-                        {new Date(trx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
-                      <Text style={[styles.tableCell, { flex: 0.8 }]}>{getMethodLabel(trx.paymentMethod)}</Text>
-                      <Text style={[styles.tableCell, styles.tableCellRight, { flex: 1.1 }]} numberOfLines={1}>
-                        {trx.totalAmount.toLocaleString('id-ID')}
-                      </Text>
-                      <View style={[{ flex: 0.8, alignItems: 'flex-end', justifyContent: 'center' }]}>
-                        <View style={[styles.statusBadgeSmall, { backgroundColor: statusInfo.bg }]}>
-                          <Text style={[styles.statusBadgeText, { color: statusInfo.color }]}>{statusInfo.text}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          )}
+            ))}
+          </Card>
+        )}
 
-          {previewTab === 'terlaris' && (
-            <View>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Produk</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'center' }]}>Terjual</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1.2, textAlign: 'right' }]}>Total Penjualan</Text>
-              </View>
-              {previewTopProducts.length === 0 ? (
-                <Text style={styles.tableEmpty}>Belum ada data penjualan</Text>
-              ) : (
-                previewTopProducts.map((p, i) => (
-                  <View key={i} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
-                    <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{p.name}</Text>
-                    <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center' }]}>{p.qty}</Text>
-                    <Text style={[styles.tableCell, styles.tableCellRight, { flex: 1.2 }]} numberOfLines={1}>
-                      {p.revenue.toLocaleString('id-ID')}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </View>
-          )}
-
-          {previewTab === 'stok' && (
-            <View>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Produk</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.7, textAlign: 'center' }]}>Stok</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.7, textAlign: 'center' }]}>Min</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'right' }]}>Status</Text>
-              </View>
-              {previewLowStock.length === 0 ? (
-                <Text style={styles.tableEmpty}>Stok semua produk aman</Text>
-              ) : (
-                previewLowStock.map((p, i) => (
-                  <View key={p.id} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
-                    <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{p.name}</Text>
-                    <Text style={[styles.tableCell, { flex: 0.7, textAlign: 'center' }, p.stock <= 0 && styles.tableCellDanger]}>{p.stock}</Text>
-                    <Text style={[styles.tableCell, { flex: 0.7, textAlign: 'center' }]}>{p.minStock}</Text>
-                    <View style={[{ flex: 0.8, alignItems: 'flex-end', justifyContent: 'center' }]}>
-                      <View style={[styles.statusBadgeSmall, p.stock <= 0 ? styles.badgeDanger : styles.badgeWarn]}>
-                        <Text style={[styles.statusBadgeText, p.stock <= 0 ? styles.badgeDangerText : styles.badgeWarnText]}>
-                          {p.stock <= 0 ? 'Habis' : 'Menipis'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
-          )}
-
-          <View style={styles.exportRow}>
-            <TouchableOpacity style={styles.exportButton} onPress={handleExportCSV}>
-              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
-              <Text style={styles.exportButtonText}>Export CSV</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.exportButton, styles.exportButtonSecondary]} onPress={handleExportPDF}>
-              <Ionicons name="document-outline" size={16} color={colors.onSurfaceVariant} />
-              <Text style={[styles.exportButtonText, { color: colors.onSurfaceVariant }]}>Export PDF</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
-        <PremiumUpsellModal visible={showPremiumUpsell} onClose={() => setShowPremiumUpsell(false)} />
+        {/* CTA */}
+        <TouchableOpacity
+          style={styles.detailBtn}
+          onPress={() => router.push('/laporan/detail' as never)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="bar-chart-outline" size={18} color={colors.onPrimary} />
+          <Text style={styles.detailBtnText}>Lihat Detail Laporan</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.onPrimary} />
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -510,124 +211,68 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: spacing.marginMobile, paddingVertical: spacing.stackSm,
-    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant,
+    paddingHorizontal: spacing.marginMobile, paddingVertical: 10,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1, borderBottomColor: colors.outlineVariant,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { ...typography.headlineMobile, color: colors.primary },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
-  statusBadge: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.secondaryContainer, paddingHorizontal: spacing.stackSm, paddingVertical: 4,
-    borderRadius: borderRadius.full,
-  },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.secondary, marginRight: 6 },
-  statusText: { ...typography.labelSm, color: colors.secondary },
   content: { flex: 1 },
-  scrollContent: { padding: spacing.marginMobile, paddingBottom: 100 },
-  reportHeader: { marginBottom: spacing.stackLg },
-  reportLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 4 },
-  reportTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  reportTitle: { ...typography.headlineLg, color: colors.onSurface },
-  reportDate: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'right' },
-  statCard: { padding: spacing.stackMd, marginBottom: spacing.stackMd },
-  statHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.stackSm },
-  statIcon: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  statLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 4 },
-  statValue: { ...typography.headlineMobile, fontWeight: '700', color: colors.onSurface },
-  urgentCard: { backgroundColor: '#ffebee', borderColor: colors.error },
-  urgentBadge: { backgroundColor: colors.error, paddingHorizontal: spacing.stackSm, paddingVertical: 2, borderRadius: borderRadius.sm },
-  urgentText: { ...typography.labelSm, color: colors.onPrimary, fontSize: 10, fontWeight: '700' },
-  sectionCard: { padding: spacing.stackMd, marginBottom: spacing.stackLg },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.stackMd },
-  sectionTitle: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface, marginBottom: spacing.stackMd },
-  seeAllText: { ...typography.labelSm, color: colors.primary },
-  productRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.stackSm },
-  productImage: {
-    width: 40, height: 40, borderRadius: borderRadius.sm,
-    backgroundColor: colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
-    marginRight: spacing.stackSm,
+  scroll: { padding: spacing.marginMobile },
+  dateRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: spacing.stackMd,
   },
-  productImageText: { ...typography.labelSm, color: colors.onSurfaceVariant, fontSize: 10 },
-  productName: { flex: 1, ...typography.bodyMd, color: colors.onSurface },
-  productQty: { ...typography.labelSm, color: colors.primary, fontWeight: '700', marginRight: spacing.stackSm },
-  stockLow: { color: colors.error },
-  progressBar: { width: 60, height: 4, backgroundColor: colors.surfaceContainerHigh, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 2 },
-  chartScrollContent: { paddingBottom: spacing.stackSm },
-  chartContainer: { flexDirection: 'row', height: 152, gap: spacing.stackSm },
-  chartColumn: { width: 34, height: '100%', alignItems: 'center', justifyContent: 'flex-end' },
-  chartBar: { width: 18, height: 120, justifyContent: 'flex-end' },
-  chartBarFill: { backgroundColor: colors.surfaceContainerHigh, borderRadius: 2, width: '100%' },
-  chartBarActive: { backgroundColor: colors.primary },
-  chartLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, fontSize: 9, marginTop: spacing.stackSm, textAlign: 'center' },
-  chartSummary: { ...typography.bodyMd, color: colors.primary, fontWeight: '700' },
-  transactionCard: { marginBottom: spacing.stackSm },
-  transactionCardInner: { padding: spacing.stackMd },
-  transactionRow: { flexDirection: 'row', alignItems: 'center' },
-  transactionIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: spacing.stackMd },
-  transactionIconPaid: { backgroundColor: '#e8f5e9' },
-  transactionIconPending: { backgroundColor: '#fff3e0' },
-  transactionInfo: { flex: 1 },
-  transactionId: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface },
-  transactionTime: { ...typography.labelSm, color: colors.onSurfaceVariant },
-  transactionAmount: { alignItems: 'flex-end' },
-  transactionStatus: { marginTop: 4, paddingHorizontal: spacing.stackSm, paddingVertical: 2, borderRadius: borderRadius.sm },
-  transactionStatusText: { ...typography.labelSm, fontSize: 10, fontWeight: '700' },
-  emptyCard: { padding: spacing.stackLg * 2, alignItems: 'center' },
-  emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackMd },
-  paymentRow: { flexDirection: 'row', gap: spacing.stackSm, marginBottom: spacing.stackMd },
-  paymentItem: {
+  dateLabel: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface },
+  dateValue: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  row: { flexDirection: 'row', gap: spacing.stackSm, marginBottom: spacing.stackSm },
+  halfCard: { flex: 1, padding: spacing.stackMd },
+  iconBox: {
+    width: 36, height: 36, borderRadius: borderRadius.md,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+  },
+  cardLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 4 },
+  bigNumber: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface },
+  payCard: { padding: spacing.stackMd, marginBottom: spacing.stackSm },
+  sectionTitle: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface, marginBottom: spacing.stackSm },
+  payRow: { flexDirection: 'row', gap: spacing.stackSm },
+  payItem: {
     flex: 1, alignItems: 'center', padding: spacing.stackSm,
     backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.md,
   },
-  paymentIcon: {
-    width: 36, height: 36, borderRadius: 18,
+  payIcon: {
+    width: 32, height: 32, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center', marginBottom: 4,
   },
-  paymentLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 2 },
-  summaryRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: spacing.stackSm, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
+  payLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 2 },
+  alertCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: spacing.stackMd, marginBottom: spacing.stackSm,
+    backgroundColor: '#fff8e1',
   },
-  summaryLabel: { ...typography.bodyMd, color: colors.onSurfaceVariant },
-  // Preview Laporan
-  previewTabs: {
-    flexDirection: 'row', marginBottom: spacing.stackMd,
-    backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.md, padding: 3,
+  alertText: { ...typography.bodyMd, color: '#E65100', flex: 1 },
+  alertLink: { ...typography.labelSm, color: colors.primary, fontWeight: '700' },
+  listCard: { padding: spacing.stackMd, marginBottom: spacing.stackSm },
+  listRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 7, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
   },
-  previewTab: {
-    flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: borderRadius.sm,
+  rankBadge: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: colors.surfaceContainerHigh,
+    alignItems: 'center', justifyContent: 'center',
   },
-  previewTabActive: { backgroundColor: colors.surface },
-  previewTabText: { ...typography.labelSm, color: colors.onSurfaceVariant, fontWeight: '500', fontSize: 11 },
-  previewTabTextActive: { color: colors.primary, fontWeight: '700' },
-  tableHeader: {
-    flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 4,
-    backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.sm, marginBottom: 2,
+  rankDanger: { backgroundColor: '#ffebee' },
+  rankWarn: { backgroundColor: '#fff3e0' },
+  rankText: { ...typography.labelSm, fontSize: 10, fontWeight: '700', color: colors.onSurfaceVariant },
+  listName: { ...typography.bodyMd, color: colors.onSurface, flex: 1 },
+  listQty: { ...typography.labelSm, color: colors.onSurfaceVariant, fontWeight: '600' },
+  textDanger: { color: colors.error },
+  detailBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg, paddingVertical: 14,
+    marginTop: spacing.stackMd,
   },
-  tableHeaderCell: { ...typography.labelSm, fontSize: 10, color: colors.onSurfaceVariant, fontWeight: '700' },
-  tableRow: { flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 4, alignItems: 'center' },
-  tableRowAlt: { backgroundColor: colors.surfaceContainerLow },
-  tableCell: { ...typography.labelSm, fontSize: 11, color: colors.onSurface },
-  tableCellRight: { textAlign: 'right' },
-  tableCellDanger: { color: colors.error, fontWeight: '700' },
-  tableEmpty: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: spacing.stackLg },
-  statusBadgeSmall: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
-  statusBadgeText: { fontSize: 9, fontWeight: '700' },
-  badgeDanger: { backgroundColor: '#ffebee' },
-  badgeDangerText: { color: colors.error },
-  badgeWarn: { backgroundColor: '#fff3e0' },
-  badgeWarnText: { color: '#e65100' },
-  exportRow: {
-    flexDirection: 'row', gap: spacing.stackSm, marginTop: spacing.stackMd,
-    paddingTop: spacing.stackMd, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-  },
-  exportButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 10, borderRadius: borderRadius.md,
-    borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface,
-  },
-  exportButtonSecondary: { borderColor: colors.outlineVariant },
-  exportButtonText: { ...typography.labelSm, color: colors.primary, fontWeight: '600' },
+  detailBtnText: { ...typography.bodyLg, color: colors.onPrimary, fontWeight: '700', flex: 1, textAlign: 'center' },
 });

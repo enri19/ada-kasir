@@ -51,7 +51,8 @@ export const InvoiceService = {
         totalAmount,
         'unpaid',
         null,
-        null
+        null,
+        'transaction'
       );
     }
 

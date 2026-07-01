@@ -95,7 +95,9 @@ export default function SettingsScreen() {
             <View style={[styles.statusDot, { backgroundColor: isOnline ? '#4CAF50' : '#F44336' }]} />
             <Text style={styles.statusText}>{isOnline ? 'Online' : 'Offline'}</Text>
           </View>
-          <Text style={styles.statusNote}>Fitur kasir tetap aktif meskipun offline.</Text>
+          <Text style={styles.statusNote}>
+            Aplikasi tetap bisa digunakan saat offline. Beberapa fitur premium seperti backup, aktivasi, dan export membutuhkan internet.
+          </Text>
         </Card>
 
         <TouchableOpacity style={styles.menuCard} onPress={() => router.push('/settings/account')}>

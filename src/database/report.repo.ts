@@ -137,4 +137,24 @@ export const ReportRepository = {
       [startDate, endDate]
     );
   },
+
+  async getTransactionsByRange(startDate: string, endDate: string, limit = 50): Promise<any[]> {
+    const db = await getDatabase();
+    return await db.getAllAsync(
+      `SELECT id, invoice_number as invoiceNumber, total_amount as totalAmount, payment_method as paymentMethod, status, created_at as createdAt 
+       FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled' ORDER BY created_at DESC LIMIT ?`,
+      [startDate, endDate, limit]
+    );
+  },
+
+  async getTopProductsByRange(startDate: string, endDate: string, limit = 50): Promise<{ name: string; qty: number; revenue: number }[]> {
+    const db = await getDatabase();
+    return await db.getAllAsync<{ name: string; qty: number; revenue: number }>(
+      `SELECT si.product_name as name, SUM(si.qty) as qty, SUM(si.subtotal) as revenue 
+       FROM sale_items si JOIN sales s ON si.sale_id = s.id 
+       WHERE s.created_at >= ? AND s.created_at <= ? AND s.status != 'cancelled'
+       GROUP BY si.product_name ORDER BY qty DESC LIMIT ?`,
+      [startDate, endDate, limit]
+    );
+  },
 };

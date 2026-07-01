@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image, Modal, FlatList } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image, Modal, FlatList } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -92,6 +92,7 @@ export default function ProdukScreen() {
   const { inventory } = useLocalSearchParams<{ inventory?: string }>();
   const [showInventoryFilter, setShowInventoryFilter] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const activeStore = useAppStore((state) => state.activeStore);
   const storeName = activeStore?.name || 'AdaKasir';
@@ -109,6 +110,8 @@ export default function ProdukScreen() {
       setNeedsRefresh(false);
     } catch (error) {
       console.error('Error loading products:', error);
+    } finally {
+      setIsInitialLoading(false);
     }
   }, []);
 
@@ -253,10 +256,6 @@ export default function ProdukScreen() {
           <Ionicons name="storefront" size={24} color={colors.primary} />
           <Text style={styles.headerTitle}>{storeName}</Text>
         </View>
-        <View style={styles.statusBadge}>
-          <View style={styles.statusDot} />
-          <Text style={styles.statusText}>Siap Jualan</Text>
-        </View>
       </View>
 
       <View style={styles.searchContainer}>
@@ -270,154 +269,163 @@ export default function ProdukScreen() {
         />
       </View>
 
-      {availableCategories.length > 0 && (
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesContainer}
-          contentContainerStyle={styles.categoriesContent}
-        >
-          {categoryChips.map((cat) => (
-            <TouchableOpacity
-              key={cat.id || 'semua'}
-              style={[
-                styles.categoryChip,
-                selectedCategory === cat.id && styles.categoryChipActive
-              ]}
-              onPress={() => setSelectedCategory(cat.id)}
-            >
-              <Text style={[
-                styles.categoryText,
-                selectedCategory === cat.id && styles.categoryTextActive
-              ]}>
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
-
-      <View style={styles.filterRow}>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setShowInventoryFilter(true)}>
-          <Text style={styles.filterButtonText}>Filter Stok: {selectedInventoryFilterLabel}</Text>
-          <Ionicons name="chevron-down" size={16} color={colors.onSurface} />
-        </TouchableOpacity>
-      </View>
-
-      <Modal visible={showInventoryFilter} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Filter Stok</Text>
-            {inventoryFilters.map((filter) => (
-              <TouchableOpacity
-                key={filter.id}
-                style={styles.modalOption}
-                onPress={() => {
-                  setSelectedInventoryFilter(filter.id as 'all' | 'low' | 'out');
-                  setShowInventoryFilter(false);
-                }}
-              >
-                <Text style={[styles.modalOptionText, selectedInventoryFilter === filter.id && styles.modalOptionSelected]}>
-                  {filter.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowInventoryFilter(false)}>
-              <Text style={styles.modalCloseText}>Tutup</Text>
-            </TouchableOpacity>
-          </View>
+      {isInitialLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Sedang menyiapkan daftar produk...</Text>
         </View>
-      </Modal>
+      ) : (
+        <>
+          {availableCategories.length > 0 && (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.categoriesContainer}
+              contentContainerStyle={styles.categoriesContent}
+            >
+              {categoryChips.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id || 'semua'}
+                  style={[
+                    styles.categoryChip,
+                    selectedCategory === cat.id && styles.categoryChipActive
+                  ]}
+                  onPress={() => setSelectedCategory(cat.id)}
+                >
+                  <Text style={[
+                    styles.categoryText,
+                    selectedCategory === cat.id && styles.categoryTextActive
+                  ]}>
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
-      <Modal
-        visible={!!selectedActionProduct}
-        transparent
-        animationType="fade"
-        onRequestClose={closeActionMenu}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle} numberOfLines={1}>{selectedActionProduct?.name}</Text>
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                if (!selectedActionProduct) return;
-                closeActionMenu();
-                router.push(`/produk/edit/${selectedActionProduct.id}`);
-              }}
-            >
-              <Text style={styles.modalOptionText}>Edit Produk</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                if (!selectedActionProduct) return;
-                const product = selectedActionProduct;
-                closeActionMenu();
-                handleToggleActive(product);
-              }}
-            >
-              <Text style={styles.modalOptionText}>
-                {selectedActionProduct?.isActive ? 'Nonaktifkan Produk' : 'Aktifkan Produk'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                if (!selectedActionProduct) return;
-                const product = selectedActionProduct;
-                closeActionMenu();
-                handleDelete(product);
-              }}
-            >
-              <Text style={[styles.modalOptionText, { color: colors.error }]}>Hapus Produk</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCloseButton} onPress={closeActionMenu}>
-              <Text style={styles.modalCloseText}>Batal</Text>
+          <View style={styles.filterRow}>
+            <TouchableOpacity style={styles.filterButton} onPress={() => setShowInventoryFilter(true)}>
+              <Text style={styles.filterButtonText}>Filter Stok: {selectedInventoryFilterLabel}</Text>
+              <Ionicons name="chevron-down" size={16} color={colors.onSurface} />
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
 
-      <FlatList
-        style={styles.productsContainer}
-        contentContainerStyle={styles.productsContent}
-        data={filteredProducts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderProductItem}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="cube-outline" size={64} color={colors.surfaceContainerHigh} />
-            <Text style={styles.emptyTitle}>Belum ada produk</Text>
-            <Text style={styles.emptyText}>Tambahkan produk pertama Anda</Text>
-          </View>
-        }
-        initialNumToRender={6}
-        maxToRenderPerBatch={4}
-        updateCellsBatchingPeriod={80}
-        windowSize={3}
-        removeClippedSubviews
-        showsVerticalScrollIndicator={false}
-      />
+          <Modal visible={showInventoryFilter} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Filter Stok</Text>
+                {inventoryFilters.map((filter) => (
+                  <TouchableOpacity
+                    key={filter.id}
+                    style={styles.modalOption}
+                    onPress={() => {
+                      setSelectedInventoryFilter(filter.id as 'all' | 'low' | 'out');
+                      setShowInventoryFilter(false);
+                    }}
+                  >
+                    <Text style={[styles.modalOptionText, selectedInventoryFilter === filter.id && styles.modalOptionSelected]}>
+                      {filter.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowInventoryFilter(false)}>
+                  <Text style={styles.modalCloseText}>Tutup</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
 
-      {__DEV__ && (
-        <TouchableOpacity
-          style={[styles.fabSeed, { bottom: 84 }]}
-          onPress={handleSeedDummy}
-        >
-          <Ionicons name="flask-outline" size={20} color={colors.onPrimary} />
-          <Text style={styles.fabSeedText}>Dummy</Text>
-        </TouchableOpacity>
+          <Modal
+            visible={!!selectedActionProduct}
+            transparent
+            animationType="fade"
+            onRequestClose={closeActionMenu}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle} numberOfLines={1}>{selectedActionProduct?.name}</Text>
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    if (!selectedActionProduct) return;
+                    closeActionMenu();
+                    router.push(`/produk/edit/${selectedActionProduct.id}`);
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>Edit Produk</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    if (!selectedActionProduct) return;
+                    const product = selectedActionProduct;
+                    closeActionMenu();
+                    handleToggleActive(product);
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>
+                    {selectedActionProduct?.isActive ? 'Nonaktifkan Produk' : 'Aktifkan Produk'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    if (!selectedActionProduct) return;
+                    const product = selectedActionProduct;
+                    closeActionMenu();
+                    handleDelete(product);
+                  }}
+                >
+                  <Text style={[styles.modalOptionText, { color: colors.error }]}>Hapus Produk</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalCloseButton} onPress={closeActionMenu}>
+                  <Text style={styles.modalCloseText}>Batal</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          <FlatList
+            style={styles.productsContainer}
+            contentContainerStyle={styles.productsContent}
+            data={filteredProducts}
+            keyExtractor={(item) => item.id}
+            renderItem={renderProductItem}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Ionicons name="cube-outline" size={64} color={colors.surfaceContainerHigh} />
+                <Text style={styles.emptyTitle}>Belum ada produk</Text>
+                <Text style={styles.emptyText}>Tambahkan produk pertama Anda</Text>
+              </View>
+            }
+            initialNumToRender={6}
+            maxToRenderPerBatch={4}
+            updateCellsBatchingPeriod={80}
+            windowSize={3}
+            removeClippedSubviews
+            showsVerticalScrollIndicator={false}
+          />
+
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.fabSeed, { bottom: 84 }]}
+              onPress={handleSeedDummy}
+            >
+              <Ionicons name="flask-outline" size={20} color={colors.onPrimary} />
+              <Text style={styles.fabSeedText}>Dummy</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            style={[styles.fab, { bottom: 16 }]}
+            onPress={() => router.push('/produk/tambah')}
+          >
+            <Ionicons name="add" size={28} color={colors.onPrimary} />
+          </TouchableOpacity>
+        </>
       )}
-      <TouchableOpacity 
-        style={[styles.fab, { bottom: 16 }]}
-        onPress={() => router.push('/produk/tambah')}
-      >
-        <Ionicons name="add" size={28} color={colors.onPrimary} />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -432,13 +440,6 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
   headerTitle: { ...typography.headlineMobile, color: colors.primary },
-  statusBadge: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.secondaryContainer, paddingHorizontal: spacing.stackSm, paddingVertical: 4,
-    borderRadius: borderRadius.full,
-  },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.secondary, marginRight: 6 },
-  statusText: { ...typography.labelSm, color: colors.secondary },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: colors.surface,
@@ -484,6 +485,8 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyTitle: { ...typography.headlineMobile, color: colors.onSurface, marginTop: spacing.stackMd },
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.marginMobile },
+  loadingText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm },
   productCard: {
     marginBottom: 8,
     paddingHorizontal: 12,

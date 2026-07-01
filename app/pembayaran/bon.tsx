@@ -96,7 +96,8 @@ export default function PembayaranBonScreen() {
         totalPrice,
         'unpaid',
         null,
-        note.trim() || null
+        note.trim() || null,
+        'transaction'
       );
 
       await StockService.reduceStockForSaleItems(items, invoiceNumber, 'sale');

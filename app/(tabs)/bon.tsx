@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
+import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,19 +7,31 @@ import { colors, spacing, typography, borderRadius } from '../../src/config/them
 import { Card } from '../../src/components/Card';
 import { CurrencyText } from '../../src/components/CurrencyText';
 import { DebtRepository } from '../../src/database/debt.repo';
+import { CustomerRepository } from '../../src/database/customer.repo';
 import { DebtWithCustomer } from '../../src/types/debt';
+import { Customer } from '../../src/types/customer';
 import { useAppStore } from '../../src/stores/app.store';
+import { useLicenseStore } from '../../src/stores/license.store';
 
 export default function BonScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [debts, setDebts] = useState<DebtWithCustomer[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [totalDebt, setTotalDebt] = useState(0);
+  const [showAddDebtModal, setShowAddDebtModal] = useState(false);
+  const [manualAmount, setManualAmount] = useState('');
+  const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
+  const [manualNote, setManualNote] = useState('Sisa bon dari catatan lama');
+  const [creatingDebt, setCreatingDebt] = useState(false);
   const debtsJsonRef = useRef('');
 
   const activeStore = useAppStore((state) => state.activeStore);
+  const isReadOnly = useLicenseStore((state) => state.isReadOnlyMode());
   const storeName = activeStore?.name || 'AdaKasir';
 
   const loadData = useCallback(async () => {
@@ -37,9 +49,19 @@ export default function BonScreen() {
     }
   }, []);
 
+  const loadCustomers = useCallback(async () => {
+    try {
+      const data = await CustomerRepository.getAll();
+      setCustomers(data);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadCustomers();
+  }, [loadData, loadCustomers]);
 
   useFocusEffect(
     useCallback(() => {
@@ -49,8 +71,82 @@ export default function BonScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await Promise.all([loadData(), loadCustomers()]);
     setRefreshing(false);
+  };
+
+  const filteredCustomers = customers.filter((c) =>
+    c.name.toLowerCase().includes(customerSearch.toLowerCase())
+  );
+
+  const handleOpenAddDebt = () => {
+    if (isReadOnly) {
+      Alert.alert('Mode read-only', 'Anda tidak dapat menambah bon manual saat lisensi sudah berakhir.');
+      return;
+    }
+    setShowAddDebtModal(true);
+  };
+
+  const handleCreateManualDebt = async () => {
+    if (!selectedCustomer) {
+      Alert.alert('Pilih pelanggan', 'Pilih pelanggan terlebih dahulu untuk menambah bon manual.');
+      return;
+    }
+
+    const amount = Number(manualAmount.replace(/[^0-9]/g, ''));
+    if (!amount || amount <= 0) {
+      Alert.alert('Nominal tidak valid', 'Masukkan nominal bon yang benar.');
+      return;
+    }
+
+    setCreatingDebt(true);
+    try {
+      const createdAt = new Date(manualDate).toISOString();
+      await DebtRepository.createDebt(
+        selectedCustomer.id,
+        null,
+        amount,
+        0,
+        amount,
+        'unpaid',
+        manualDate,
+        manualNote.trim() || 'Sisa bon dari catatan lama',
+        'manual',
+        createdAt
+      );
+      await loadData();
+      setShowAddDebtModal(false);
+      setManualAmount('');
+      setManualDate(new Date().toISOString().slice(0, 10));
+      setManualNote('Sisa bon dari catatan lama');
+      Alert.alert('Berhasil', 'Bon manual berhasil ditambahkan.');
+    } catch (error) {
+      console.error('Error creating manual debt:', error);
+      Alert.alert('Gagal', 'Terjadi kesalahan saat menambahkan bon manual.');
+    } finally {
+      setCreatingDebt(false);
+    }
+  };
+
+  const handleCreateCustomer = async () => {
+    if (!customerSearch.trim()) {
+      Alert.alert('Nama pelanggan wajib', 'Masukkan nama pelanggan untuk menambahkan data baru.');
+      return;
+    }
+    try {
+      const customer = await CustomerRepository.create({
+        name: customerSearch.trim(),
+        phone: '',
+        address: '',
+        note: '',
+      });
+      setCustomers((prev) => [customer, ...prev]);
+      setSelectedCustomer(customer);
+      Alert.alert('Berhasil', 'Pelanggan baru ditambahkan dan dipilih.');
+    } catch (error) {
+      console.error('Error creating customer:', error);
+      Alert.alert('Gagal', 'Tidak dapat menambahkan pelanggan baru.');
+    }
   };
 
   const filteredDebts = debts.filter((d) =>
@@ -89,10 +185,6 @@ export default function BonScreen() {
         <View style={styles.headerLeft}>
           <Ionicons name="storefront" size={24} color={colors.primary} />
           <Text style={styles.headerTitle}>{storeName}</Text>
-        </View>
-        <View style={styles.statusBadge}>
-          <View style={styles.statusDot} />
-          <Text style={styles.statusText}>Online</Text>
         </View>
       </View>
 
@@ -171,11 +263,90 @@ export default function BonScreen() {
 
       <TouchableOpacity
         style={[styles.addBonButton, { bottom: 16 + insets.bottom }]}
-        onPress={() => router.push('/pelanggan/tambah')}
+        onPress={handleOpenAddDebt}
       >
-        <Ionicons name="person-add" size={20} color={colors.onPrimary} />
+        <Ionicons name="add" size={20} color={colors.onPrimary} />
         <Text style={styles.addBonText}>Tambah Bon Baru</Text>
       </TouchableOpacity>
+
+      <Modal visible={showAddDebtModal} transparent animationType="fade" onRequestClose={() => setShowAddDebtModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Tambah Bon Manual</Text>
+
+            <Text style={styles.fieldLabel}>Pilih Pelanggan</Text>
+            <View style={styles.customerSearchRow}>
+              <TextInput
+                style={[styles.input, styles.customerSearchInput]}
+                placeholder="Cari atau ketik nama pelanggan"
+                placeholderTextColor={colors.onSurfaceVariant}
+                value={customerSearch}
+                onChangeText={(value) => {
+                  setCustomerSearch(value);
+                  setSelectedCustomer(null);
+                }}
+              />
+              <TouchableOpacity style={styles.addCustomerButton} onPress={handleCreateCustomer}>
+                <Ionicons name="person-add-outline" size={20} color={colors.onPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.customerList} nestedScrollEnabled>
+              {filteredCustomers.map((customer) => (
+                <TouchableOpacity
+                  key={customer.id}
+                  style={[styles.customerItem, selectedCustomer?.id === customer.id && styles.customerItemSelected]}
+                  onPress={() => setSelectedCustomer(customer)}
+                >
+                  <Text style={styles.customerItemName}>{customer.name}</Text>
+                  {selectedCustomer?.id === customer.id && (
+                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+              {filteredCustomers.length === 0 && (
+                <View style={styles.emptyStateModal}>
+                  <Text style={styles.emptyText}>Tidak ada pelanggan. Tambahkan baru dengan tombol di samping.</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <Text style={styles.fieldLabel}>Nominal Bon</Text>
+            <TextInput
+              style={styles.input}
+              value={manualAmount}
+              onChangeText={setManualAmount}
+              placeholder="Masukkan nominal"
+              placeholderTextColor={colors.onSurfaceVariant}
+              keyboardType="numeric"
+            />
+
+            <Text style={styles.fieldLabel}>Tanggal Bon</Text>
+            <TextInput
+              style={styles.input}
+              value={manualDate}
+              onChangeText={setManualDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.onSurfaceVariant}
+            />
+
+            <Text style={styles.fieldLabel}>Catatan (opsional)</Text>
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              value={manualNote}
+              onChangeText={setManualNote}
+              multiline
+              numberOfLines={3}
+            />
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleCreateManualDebt} disabled={creatingDebt}>
+              <Text style={styles.saveButtonText}>{creatingDebt ? 'Menyimpan...' : 'Simpan Bon Manual'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddDebtModal(false)}>
+              <Text style={styles.cancelButtonText}>Batal</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -238,4 +409,58 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4,
   },
   addBonText: { ...typography.bodyLg, fontWeight: '700', color: colors.onPrimary },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    padding: spacing.marginMobile,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.stackMd,
+    maxHeight: '90%',
+  },
+  modalTitle: { ...typography.headlineMobile, color: colors.onSurface, marginBottom: spacing.stackSm },
+  fieldLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 6, fontWeight: '700' },
+  customerSearchRow: { flexDirection: 'row', gap: spacing.stackSm, marginBottom: spacing.stackSm },
+  customerSearchInput: { flex: 1 },
+  addCustomerButton: {
+    width: 44, height: 44, borderRadius: borderRadius.md,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+  },
+  customerList: { maxHeight: 140, marginBottom: spacing.stackMd },
+  customerItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.surfaceContainerLow, padding: spacing.stackSm, borderRadius: borderRadius.md,
+    marginBottom: spacing.stackSm,
+  },
+  customerItemSelected: { borderWidth: 1, borderColor: colors.primary },
+  customerItemName: { ...typography.bodyMd, color: colors.onSurface },
+  emptyStateModal: { alignItems: 'center', justifyContent: 'center', padding: spacing.stackMd },
+  input: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    color: colors.onSurface,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: spacing.stackMd,
+    ...typography.bodyMd,
+  },
+  multilineInput: { minHeight: 80, textAlignVertical: 'top' },
+  saveButton: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: spacing.stackSm,
+  },
+  saveButtonText: { ...typography.bodyLg, color: colors.onPrimary, fontWeight: '700' },
+  cancelButton: {
+    marginTop: spacing.stackSm,
+    alignItems: 'center',
+  },
+  cancelButtonText: { ...typography.bodyMd, color: colors.primary, fontWeight: '700' },
 });
