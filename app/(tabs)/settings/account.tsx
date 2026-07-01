@@ -15,12 +15,13 @@ import { Input } from '../../../src/components/Input';
 import { Button } from '../../../src/components/Button';
 import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
 
-const STATUS_LABELS = {
-  trial: 'Trial',
+const STATUS_LABELS: Record<string, string> = {
+  trial_active: 'Trial Aktif',
+  trial_expired: 'Trial Berakhir',
   lifetime: 'Lifetime',
-  premium: 'Premium',
-  expired: 'Expired',
-} as const;
+  premium_active: 'Premium Aktif',
+  premium_expired: 'Premium Berakhir',
+};
 
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleDateString('id-ID') : '-';
@@ -122,9 +123,17 @@ export default function AccountScreen() {
 
     setIsActivating(true);
     try {
-      const success = await activateLicense(licenseCode);
-      if (!success) {
-        Alert.alert('Kode tidak valid', 'Kode lisensi tidak cocok dengan perangkat ini.');
+      const result = await activateLicense(licenseCode);
+      if (result === 'device_mismatch') {
+        Alert.alert('Kode tidak cocok', 'Kode lisensi tidak cocok dengan perangkat ini.');
+        return;
+      }
+      if (result === 'expired') {
+        Alert.alert('Kode kedaluwarsa', 'Kode lisensi Premium sudah melewati tanggal berlaku.');
+        return;
+      }
+      if (result !== 'ok') {
+        Alert.alert('Kode tidak valid', 'Format kode lisensi tidak dikenali.');
         return;
       }
 

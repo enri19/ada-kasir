@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,8 @@ export default function LaporanScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const reportJsonRef = useRef('');
 
+  const [previewTab, setPreviewTab] = useState<'transaksi' | 'terlaris' | 'stok'>('transaksi');
+
   const activeStore = useAppStore((state) => state.activeStore);
   const storeName = activeStore?.name || 'AdaKasir';
 
@@ -26,8 +28,8 @@ export default function LaporanScreen() {
     try {
       const [dailyReport, lowStockItems, transactions] = await Promise.all([
         ReportRepository.getDailyReport(),
-        ReportRepository.getLowStockProducts(5),
-        ReportRepository.getRecentTransactions(5),
+        ReportRepository.getLowStockProducts(10),
+        ReportRepository.getRecentTransactions(10),
       ]);
       const payload = JSON.stringify({ dailyReport, lowStockItems, transactions });
       if (payload !== reportJsonRef.current) {
@@ -51,11 +53,34 @@ export default function LaporanScreen() {
     }, [loadData])
   );
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
-  };
+  }, [loadData]);
+
+  const previewTransactions = useMemo(
+    () => recentTransactions.slice(0, 10),
+    [recentTransactions]
+  );
+
+  const previewTopProducts = useMemo(
+    () => (report?.topProducts || []).slice(0, 10),
+    [report]
+  );
+
+  const previewLowStock = useMemo(
+    () => lowStockProducts.slice(0, 10),
+    [lowStockProducts]
+  );
+
+  const handleExportCSV = useCallback(() => {
+    Alert.alert('Export CSV', 'Fitur export akan tersedia pada versi berikutnya.');
+  }, []);
+
+  const handleExportPDF = useCallback(() => {
+    Alert.alert('Export PDF', 'Fitur export akan tersedia pada versi berikutnya.');
+  }, []);
 
   const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -98,7 +123,7 @@ export default function LaporanScreen() {
         <View style={styles.headerRight}>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
-            <Text style={styles.statusText}>Online</Text>
+            <Text style={styles.statusText}>Siap Jualan</Text>
           </View>
           <Ionicons name="calendar-outline" size={24} color={colors.primary} />
         </View>
@@ -342,6 +367,126 @@ export default function LaporanScreen() {
             );
           })
         )}
+
+        {/* Preview Laporan */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Preview Laporan</Text>
+          </View>
+
+          <View style={styles.previewTabs}>
+            {(['transaksi', 'terlaris', 'stok'] as const).map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.previewTab, previewTab === tab && styles.previewTabActive]}
+                onPress={() => setPreviewTab(tab)}
+              >
+                <Text style={[styles.previewTabText, previewTab === tab && styles.previewTabTextActive]}>
+                  {tab === 'transaksi' ? 'Transaksi' : tab === 'terlaris' ? 'Terlaris' : 'Stok Menipis'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {previewTab === 'transaksi' && (
+            <View>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>No Nota</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.7 }]}>Jam</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Metode</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1.1, textAlign: 'right' }]}>Total</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'right' }]}>Status</Text>
+              </View>
+              {previewTransactions.length === 0 ? (
+                <Text style={styles.tableEmpty}>Belum ada transaksi</Text>
+              ) : (
+                previewTransactions.map((trx, i) => {
+                  const statusInfo = getStatusInfo(trx.status, trx.paymentMethod);
+                  return (
+                    <View key={trx.id} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
+                      <Text style={[styles.tableCell, { flex: 1.2 }]} numberOfLines={1}>#{trx.invoiceNumber}</Text>
+                      <Text style={[styles.tableCell, { flex: 0.7 }]}>
+                        {new Date(trx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                      <Text style={[styles.tableCell, { flex: 0.8 }]}>{getMethodLabel(trx.paymentMethod)}</Text>
+                      <Text style={[styles.tableCell, styles.tableCellRight, { flex: 1.1 }]} numberOfLines={1}>
+                        {trx.totalAmount.toLocaleString('id-ID')}
+                      </Text>
+                      <View style={[{ flex: 0.8, alignItems: 'flex-end', justifyContent: 'center' }]}>
+                        <View style={[styles.statusBadgeSmall, { backgroundColor: statusInfo.bg }]}>
+                          <Text style={[styles.statusBadgeText, { color: statusInfo.color }]}>{statusInfo.text}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          )}
+
+          {previewTab === 'terlaris' && (
+            <View>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Produk</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'center' }]}>Terjual</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1.2, textAlign: 'right' }]}>Total Penjualan</Text>
+              </View>
+              {previewTopProducts.length === 0 ? (
+                <Text style={styles.tableEmpty}>Belum ada data penjualan</Text>
+              ) : (
+                previewTopProducts.map((p, i) => (
+                  <View key={i} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
+                    <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{p.name}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center' }]}>{p.qty}</Text>
+                    <Text style={[styles.tableCell, styles.tableCellRight, { flex: 1.2 }]} numberOfLines={1}>
+                      {p.revenue.toLocaleString('id-ID')}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          {previewTab === 'stok' && (
+            <View>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Produk</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.7, textAlign: 'center' }]}>Stok</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.7, textAlign: 'center' }]}>Min</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'right' }]}>Status</Text>
+              </View>
+              {previewLowStock.length === 0 ? (
+                <Text style={styles.tableEmpty}>Stok semua produk aman</Text>
+              ) : (
+                previewLowStock.map((p, i) => (
+                  <View key={p.id} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
+                    <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{p.name}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.7, textAlign: 'center' }, p.stock <= 0 && styles.tableCellDanger]}>{p.stock}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.7, textAlign: 'center' }]}>{p.minStock}</Text>
+                    <View style={[{ flex: 0.8, alignItems: 'flex-end', justifyContent: 'center' }]}>
+                      <View style={[styles.statusBadgeSmall, p.stock <= 0 ? styles.badgeDanger : styles.badgeWarn]}>
+                        <Text style={[styles.statusBadgeText, p.stock <= 0 ? styles.badgeDangerText : styles.badgeWarnText]}>
+                          {p.stock <= 0 ? 'Habis' : 'Menipis'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          <View style={styles.exportRow}>
+            <TouchableOpacity style={styles.exportButton} onPress={handleExportCSV}>
+              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
+              <Text style={styles.exportButtonText}>Export CSV</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.exportButton, styles.exportButtonSecondary]} onPress={handleExportPDF}>
+              <Ionicons name="document-outline" size={16} color={colors.onSurfaceVariant} />
+              <Text style={[styles.exportButtonText, { color: colors.onSurfaceVariant }]}>Export PDF</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
       </ScrollView>
     </View>
   );
@@ -432,4 +577,43 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.stackSm, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
   },
   summaryLabel: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  // Preview Laporan
+  previewTabs: {
+    flexDirection: 'row', marginBottom: spacing.stackMd,
+    backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.md, padding: 3,
+  },
+  previewTab: {
+    flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: borderRadius.sm,
+  },
+  previewTabActive: { backgroundColor: colors.surface },
+  previewTabText: { ...typography.labelSm, color: colors.onSurfaceVariant, fontWeight: '500', fontSize: 11 },
+  previewTabTextActive: { color: colors.primary, fontWeight: '700' },
+  tableHeader: {
+    flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 4,
+    backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.sm, marginBottom: 2,
+  },
+  tableHeaderCell: { ...typography.labelSm, fontSize: 10, color: colors.onSurfaceVariant, fontWeight: '700' },
+  tableRow: { flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 4, alignItems: 'center' },
+  tableRowAlt: { backgroundColor: colors.surfaceContainerLow },
+  tableCell: { ...typography.labelSm, fontSize: 11, color: colors.onSurface },
+  tableCellRight: { textAlign: 'right' },
+  tableCellDanger: { color: colors.error, fontWeight: '700' },
+  tableEmpty: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: spacing.stackLg },
+  statusBadgeSmall: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
+  statusBadgeText: { fontSize: 9, fontWeight: '700' },
+  badgeDanger: { backgroundColor: '#ffebee' },
+  badgeDangerText: { color: colors.error },
+  badgeWarn: { backgroundColor: '#fff3e0' },
+  badgeWarnText: { color: '#e65100' },
+  exportRow: {
+    flexDirection: 'row', gap: spacing.stackSm, marginTop: spacing.stackMd,
+    paddingTop: spacing.stackMd, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
+  },
+  exportButton: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 10, borderRadius: borderRadius.md,
+    borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface,
+  },
+  exportButtonSecondary: { borderColor: colors.outlineVariant },
+  exportButtonText: { ...typography.labelSm, color: colors.primary, fontWeight: '600' },
 });

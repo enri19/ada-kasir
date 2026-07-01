@@ -1,4 +1,16 @@
-export type LicenseStatus = 'trial' | 'lifetime' | 'premium' | 'expired';
+// ─── Status Types ────────────────────────────────────────────────────────────
+// trial_active   : dalam masa trial 14 hari
+// trial_expired  : trial habis, mode read-only
+// lifetime       : Lifetime Basic aktif selamanya
+// premium_active : Premium aktif (belum expired)
+// premium_expired: Premium habis; Basic aktif jika punya Lifetime, else read-only
+
+export type LicenseStatus =
+  | 'trial_active'
+  | 'trial_expired'
+  | 'lifetime'
+  | 'premium_active'
+  | 'premium_expired';
 
 export interface LicenseData {
   deviceCode: string;
@@ -8,16 +20,20 @@ export interface LicenseData {
   activatedAt: string | null;
   expiresAt: string | null;
   licenseKey: string | null;
+  /** true jika user pernah aktivasi Lifetime (dipakai saat premium_expired) */
+  hasLifetime: boolean;
 }
 
 export type LicenseValidationResult =
   | {
       valid: true;
-      status: 'lifetime' | 'premium';
+      status: 'lifetime' | 'premium_active';
       licenseKey: string;
       expiresAt: string | null;
     }
-  | { valid: false };
+  | { valid: false; reason: 'device_mismatch' | 'invalid_format' | 'expired' };
+
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const DEVICE_CHARACTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const DEVICE_CODE_PATTERN = /^WRG-([A-Z0-9]{4})-([A-Z0-9]{4})$/;
@@ -25,34 +41,38 @@ const LIFETIME_KEY_PATTERN = /^WRG-LIFE-([A-Z0-9]{4})-(\d{4})$/;
 const PREMIUM_KEY_PATTERN = /^WRG-PREM-([A-Z0-9]{4})-(\d{8})$/;
 const TRIAL_DAYS = 14;
 
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
 function generateSegment(): string {
   let result = '';
-  for (let index = 0; index < 4; index += 1) {
+  for (let i = 0; i < 4; i++) {
     result += DEVICE_CHARACTERS[Math.floor(Math.random() * DEVICE_CHARACTERS.length)];
   }
   return result;
 }
 
-function addTrialPeriod(installedAt: Date): Date {
-  return new Date(installedAt.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+function addTrialPeriod(from: Date): Date {
+  return new Date(from.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
 }
 
 function parsePremiumExpiry(value: string): Date | null {
   const year = Number(value.slice(0, 4));
   const month = Number(value.slice(4, 6));
   const day = Number(value.slice(6, 8));
-  const expiry = new Date(year, month - 1, day, 23, 59, 59, 999);
-
-  if (
-    expiry.getFullYear() !== year ||
-    expiry.getMonth() !== month - 1 ||
-    expiry.getDate() !== day
-  ) {
+  const d = new Date(year, month - 1, day, 23, 59, 59, 999);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
     return null;
   }
-
-  return expiry;
+  return d;
 }
+
+/** Ambil token perangkat (bagian tengah deviceCode, misal WRG-8F3K-29XA → "8F3K") */
+function extractDeviceToken(deviceCode: string): string | null {
+  const match = deviceCode.trim().toUpperCase().match(DEVICE_CODE_PATTERN);
+  return match ? match[1] : null;
+}
+
+// ─── LicenseService ───────────────────────────────────────────────────────────
 
 export const LicenseService = {
   generateDeviceCode(): string {
@@ -66,62 +86,134 @@ export const LicenseService = {
   createTrialLicense(now = new Date()): LicenseData {
     return {
       deviceCode: this.generateDeviceCode(),
-      status: 'trial',
+      status: 'trial_active',
       installedAt: now.toISOString(),
       trialEndsAt: addTrialPeriod(now).toISOString(),
       activatedAt: null,
       expiresAt: null,
       licenseKey: null,
+      hasLifetime: false,
     };
   },
 
   validateLicenseKey(licenseKey: string, deviceCode: string): LicenseValidationResult {
-    const normalizedKey = licenseKey.trim().toUpperCase();
-    const normalizedDeviceCode = deviceCode.trim().toUpperCase();
-    const deviceMatch = normalizedDeviceCode.match(DEVICE_CODE_PATTERN);
+    const key = licenseKey.trim().toUpperCase();
+    const deviceToken = extractDeviceToken(deviceCode);
+    if (!deviceToken) return { valid: false, reason: 'invalid_format' };
 
-    if (!deviceMatch) return { valid: false };
-
-    const deviceIdentifier = deviceMatch[1];
-    const lifetimeMatch = normalizedKey.match(LIFETIME_KEY_PATTERN);
+    const lifetimeMatch = key.match(LIFETIME_KEY_PATTERN);
     if (lifetimeMatch) {
-      if (lifetimeMatch[1] !== deviceIdentifier) return { valid: false };
-      return {
-        valid: true,
-        status: 'lifetime',
-        licenseKey: normalizedKey,
-        expiresAt: null,
-      };
+      if (lifetimeMatch[1] !== deviceToken) return { valid: false, reason: 'device_mismatch' };
+      return { valid: true, status: 'lifetime', licenseKey: key, expiresAt: null };
     }
 
-    const premiumMatch = normalizedKey.match(PREMIUM_KEY_PATTERN);
+    const premiumMatch = key.match(PREMIUM_KEY_PATTERN);
     if (premiumMatch) {
-      if (premiumMatch[1] !== deviceIdentifier) return { valid: false };
+      if (premiumMatch[1] !== deviceToken) return { valid: false, reason: 'device_mismatch' };
       const expiry = parsePremiumExpiry(premiumMatch[2]);
-      if (!expiry) return { valid: false };
-
+      if (!expiry) return { valid: false, reason: 'invalid_format' };
+      if (expiry.getTime() < Date.now()) return { valid: false, reason: 'expired' };
       return {
         valid: true,
-        status: 'premium',
-        licenseKey: normalizedKey,
+        status: 'premium_active',
+        licenseKey: key,
         expiresAt: expiry.toISOString(),
       };
     }
 
-    return { valid: false };
+    return { valid: false, reason: 'invalid_format' };
   },
 
+  /**
+   * Hitung status aktual berdasarkan data tersimpan + waktu sekarang.
+   * Dipanggil setiap kali app dibuka / resume.
+   */
   resolveStatus(data: LicenseData, now = new Date()): LicenseStatus {
-    if (data.status === 'lifetime' || data.licenseKey?.startsWith('WRG-LIFE-')) {
+    const nowMs = now.getTime();
+
+    // Lifetime tidak pernah expired
+    if (data.hasLifetime || data.licenseKey?.startsWith('WRG-LIFE-')) {
+      // Cek apakah ada Premium aktif di atasnya
+      if (data.licenseKey?.startsWith('WRG-PREM-') && data.expiresAt) {
+        const premExpiry = new Date(data.expiresAt).getTime();
+        if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';
+        return 'lifetime'; // Premium expired, fallback ke Lifetime
+      }
       return 'lifetime';
     }
 
-    if (data.status === 'premium' || data.licenseKey?.startsWith('WRG-PREM-')) {
-      const expiresAt = data.expiresAt ? new Date(data.expiresAt).getTime() : Number.NaN;
-      return Number.isFinite(expiresAt) && expiresAt >= now.getTime() ? 'premium' : 'expired';
+    // Premium tanpa Lifetime
+    if (data.licenseKey?.startsWith('WRG-PREM-')) {
+      const premExpiry = data.expiresAt ? new Date(data.expiresAt).getTime() : NaN;
+      if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';
+      return 'premium_expired';
     }
 
-    const trialEndsAt = new Date(data.trialEndsAt).getTime();
-    return Number.isFinite(trialEndsAt) && trialEndsAt >= now.getTime() ? 'trial' : 'expired';
+    // Trial
+    const trialExpiry = new Date(data.trialEndsAt).getTime();
+    if (Number.isFinite(trialExpiry) && trialExpiry >= nowMs) return 'trial_active';
+    return 'trial_expired';
+  },
+
+  // ─── Permission helpers ─────────────────────────────────────────────────────
+
+  /** Basic features aktif (kasir, produk, stok, laporan, dll) */
+  canUseBasicFeatures(status: LicenseStatus): boolean {
+    return status === 'trial_active' || status === 'lifetime' || status === 'premium_active';
+  },
+
+  /** Boleh membuat transaksi baru */
+  canCreateTransaction(status: LicenseStatus): boolean {
+    return this.canUseBasicFeatures(status);
+  },
+
+  /** Boleh tambah / edit / hapus produk */
+  canManageProducts(status: LicenseStatus): boolean {
+    return this.canUseBasicFeatures(status);
+  },
+
+  /** Boleh tambah / koreksi stok */
+  canManageStock(status: LicenseStatus): boolean {
+    return this.canUseBasicFeatures(status);
+  },
+
+  /** Boleh export Excel / PDF — hanya Premium */
+  canExportReport(status: LicenseStatus): boolean {
+    return status === 'premium_active';
+  },
+
+  /** Fitur Premium aktif */
+  canUsePremiumFeatures(status: LicenseStatus): boolean {
+    return status === 'premium_active';
+  },
+
+  /** Mode read-only: data bisa dilihat tapi tidak bisa diubah */
+  isReadOnlyMode(status: LicenseStatus): boolean {
+    return status === 'trial_expired' || status === 'premium_expired';
+  },
+
+  /** Shortcut cek trial expired */
+  isTrialExpired(status: LicenseStatus): boolean {
+    return status === 'trial_expired';
+  },
+
+  // ─── WhatsApp message builders ──────────────────────────────────────────────
+
+  buildActivationMessage(storeName: string, deviceCode: string): string {
+    return (
+      `Halo Admin AdaKasir, saya ingin aktivasi lisensi.\n\n` +
+      `Nama Warung: ${storeName}\n` +
+      `Kode Perangkat: ${deviceCode}\n` +
+      `Paket: Lifetime`
+    );
+  },
+
+  buildPremiumMessage(storeName: string, deviceCode: string): string {
+    return (
+      `Halo Admin AdaKasir, saya ingin mengaktifkan Premium.\n\n` +
+      `Nama Warung: ${storeName}\n` +
+      `Kode Perangkat: ${deviceCode}\n` +
+      `Paket: Premium`
+    );
   },
 };
