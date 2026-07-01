@@ -32,6 +32,8 @@ __MACOSX/
 *.pem
 
 # local env files
+.env
+.env.local
 .env*.local
 
 # typescript
