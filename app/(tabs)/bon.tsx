@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Modal } from 'react-native';
+import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Modal, Platform } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +26,8 @@ export default function BonScreen() {
   const [totalDebt, setTotalDebt] = useState(0);
   const [showAddDebtModal, setShowAddDebtModal] = useState(false);
   const [manualAmount, setManualAmount] = useState('');
-  const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
+  const [manualDate, setManualDate] = useState(new Date());
+  const [showManualDatePicker, setShowManualDatePicker] = useState(false);
   const [manualNote, setManualNote] = useState('Sisa bon dari catatan lama');
   const [creatingDebt, setCreatingDebt] = useState(false);
   const debtsJsonRef = useRef('');
@@ -87,6 +89,14 @@ export default function BonScreen() {
     setShowAddDebtModal(true);
   };
 
+  const formatCurrencyInput = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const formatDateLabel = (date: Date) =>
+    date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
   const handleCreateManualDebt = async () => {
     if (!selectedCustomer) {
       Alert.alert('Pilih pelanggan', 'Pilih pelanggan terlebih dahulu untuk menambah bon manual.');
@@ -101,7 +111,7 @@ export default function BonScreen() {
 
     setCreatingDebt(true);
     try {
-      const createdAt = new Date(manualDate).toISOString();
+      const createdAt = manualDate.toISOString();
       await DebtRepository.createDebt(
         selectedCustomer.id,
         null,
@@ -109,7 +119,7 @@ export default function BonScreen() {
         0,
         amount,
         'unpaid',
-        manualDate,
+        manualDate.toISOString().slice(0, 10),
         manualNote.trim() || 'Sisa bon dari catatan lama',
         'manual',
         createdAt
@@ -117,7 +127,7 @@ export default function BonScreen() {
       await loadData();
       setShowAddDebtModal(false);
       setManualAmount('');
-      setManualDate(new Date().toISOString().slice(0, 10));
+      setManualDate(new Date());
       setManualNote('Sisa bon dari catatan lama');
       Alert.alert('Berhasil', 'Bon manual berhasil ditambahkan.');
     } catch (error) {
@@ -314,20 +324,28 @@ export default function BonScreen() {
             <TextInput
               style={styles.input}
               value={manualAmount}
-              onChangeText={setManualAmount}
+              onChangeText={(value) => setManualAmount(formatCurrencyInput(value))}
               placeholder="Masukkan nominal"
               placeholderTextColor={colors.onSurfaceVariant}
               keyboardType="numeric"
             />
 
             <Text style={styles.fieldLabel}>Tanggal Bon</Text>
-            <TextInput
-              style={styles.input}
-              value={manualDate}
-              onChangeText={setManualDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.onSurfaceVariant}
-            />
+            <TouchableOpacity style={styles.input} onPress={() => setShowManualDatePicker(true)}>
+              <Text style={styles.dateInputText}>{formatDateLabel(manualDate)}</Text>
+            </TouchableOpacity>
+            {showManualDatePicker && (
+              <DateTimePicker
+                value={manualDate}
+                mode="date"
+                display="default"
+                maximumDate={new Date()}
+                onChange={(_event: DateTimePickerEvent, selected?: Date) => {
+                  setShowManualDatePicker(Platform.OS === 'ios');
+                  if (selected) setManualDate(selected);
+                }}
+              />
+            )}
 
             <Text style={styles.fieldLabel}>Catatan (opsional)</Text>
             <TextInput
@@ -448,6 +466,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: spacing.stackMd,
     ...typography.bodyMd,
+  },
+  dateInputText: {
+    ...typography.bodyMd,
+    color: colors.onSurface,
   },
   multilineInput: { minHeight: 80, textAlignVertical: 'top' },
   saveButton: {

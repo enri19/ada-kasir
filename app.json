@@ -6,14 +6,14 @@
     "orientation": "portrait",
     "icon": "./assets/icons/logo.png",
     "userInterfaceStyle": "light",
-    "scheme": "AdaKasir",
+    "scheme": "adakasir",
     "experiments": {
       "typedRoutes": true
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "@react-native-community/datetimepicker"
     ],
-    "scheme": "adakasir",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.adakasir.app"

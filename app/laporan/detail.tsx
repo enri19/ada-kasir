@@ -1,12 +1,12 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  Alert, TextInput, ActivityIndicator,
+  Alert, ActivityIndicator, Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
 import { ReportRepository } from '../../src/database/report.repo';
 import { LowStockProduct } from '../../src/types/report';
@@ -42,32 +42,21 @@ function endOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 }
 
-function periodRange(period: Period, customStart: string, customEnd: string): [Date, Date] {
-  const now = new Date();
-  if (period === 'today') return [startOfDay(now), endOfDay(now)];
-  if (period === '7days') {
-    const from = new Date(now);
-    from.setDate(from.getDate() - 6);
-    return [startOfDay(from), endOfDay(now)];
-  }
-  if (period === 'month') {
-    return [new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0), endOfDay(now)];
-  }
-  // custom
-  const s = new Date(customStart);
-  const e = new Date(customEnd);
-  return [
-    Number.isNaN(s.getTime()) ? startOfDay(now) : startOfDay(s),
-    Number.isNaN(e.getTime()) ? endOfDay(now) : endOfDay(e),
-  ];
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('id-ID', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+function fmtDateTime(iso: string) {
+  const d = new Date(iso);
+  return (
+    d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+    ' ' +
+    d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  );
 }
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-}
+
 function fmtRupiah(n: number) {
   return 'Rp' + n.toLocaleString('id-ID');
 }
@@ -85,7 +74,7 @@ function statusInfo(status: string, method: string): { text: string; color: stri
   return { text: status, color: colors.onSurfaceVariant, bg: colors.surfaceContainerLow };
 }
 
-// ─── Row components (memo, defined outside screen) ───────────────────────────
+// ─── Row components (defined outside screen, no re-creation on render) ────────
 
 const TrxRow = ({ item, onPress }: { item: Transaction; onPress: () => void }) => {
   const si = statusInfo(item.status, item.paymentMethod);
@@ -93,9 +82,7 @@ const TrxRow = ({ item, onPress }: { item: Transaction; onPress: () => void }) =
     <TouchableOpacity style={styles.rowCard} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.rowCardLeft}>
         <Text style={styles.rowInvoice}>{item.invoiceNumber}</Text>
-        <Text style={styles.rowSub}>
-          {fmtDate(item.createdAt)} {fmtTime(item.createdAt)}
-        </Text>
+        <Text style={styles.rowSub}>{fmtDateTime(item.createdAt)}</Text>
         <Text style={styles.rowSub}>{methodLabel(item.paymentMethod)}</Text>
       </View>
       <View style={styles.rowCardRight}>
@@ -130,9 +117,7 @@ const StockRow = ({ item }: { item: LowStockProduct }) => {
         <Text style={styles.rowSub}>Min stok: {item.minStock}</Text>
       </View>
       <View style={styles.rowCardRight}>
-        <Text style={[styles.rowAmount, isOut && styles.textDanger]}>
-          Sisa {item.stock}
-        </Text>
+        <Text style={[styles.rowAmount, isOut && styles.textDanger]}>Sisa {item.stock}</Text>
         <View style={[styles.badge, isOut ? styles.badgeDanger : styles.badgeWarn]}>
           <Text style={[styles.badgeText, isOut ? styles.badgeDangerText : styles.badgeWarnText]}>
             {isOut ? 'Habis' : 'Menipis'}
@@ -145,34 +130,62 @@ const StockRow = ({ item }: { item: LowStockProduct }) => {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
+const PERIOD_LABELS: Record<Period, string> = {
+  today: 'Hari Ini', '7days': '7 Hari', month: 'Bulan Ini', custom: 'Custom',
+};
+
+const EMPTY_TEXT: Record<Tab, string> = {
+  transaksi: 'Belum ada transaksi pada periode ini',
+  terlaris: 'Belum ada data penjualan',
+  stok: 'Semua stok produk aman',
+};
+
 export default function DetailLaporanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { guardExport, modalType, closeModal } = useLicenseGuard();
 
+  // ── Period state ──────────────────────────────────────────────────────────
   const [period, setPeriod] = useState<Period>('today');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
+  // ── Tab + data state ──────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>('transaksi');
   const [loading, setLoading] = useState(false);
-
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [lowStock, setLowStock] = useState<LowStockProduct[]>([]);
-
   const cacheRef = useRef('');
 
-  const loadData = useCallback(async (p: Period, cs: string, ce: string) => {
-    const [from, to] = periodRange(p, cs, ce);
-    const key = `${from.toISOString()}|${to.toISOString()}`;
+  // ── Compute from/to from period ───────────────────────────────────────────
+  const [from, to] = useMemo((): [Date, Date] => {
+    const now = new Date();
+    if (period === 'today') return [startOfDay(now), endOfDay(now)];
+    if (period === '7days') {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 6);
+      return [startOfDay(d), endOfDay(now)];
+    }
+    if (period === 'month') {
+      return [new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0), endOfDay(now)];
+    }
+    // custom
+    return [startOfDay(startDate), endOfDay(endDate)];
+  }, [period, startDate, endDate]);
+
+  // ── Load data ─────────────────────────────────────────────────────────────
+  const loadData = useCallback(async (fromDate: Date, toDate: Date) => {
+    const key = `${fromDate.toISOString()}|${toDate.toISOString()}`;
     if (key === cacheRef.current) return;
     cacheRef.current = key;
-
     setLoading(true);
     try {
       const [trx, top, stock] = await Promise.all([
-        ReportRepository.getTransactionsByRange(from.toISOString(), to.toISOString(), 50),
-        ReportRepository.getTopProductsByRange(from.toISOString(), to.toISOString(), 50),
+        ReportRepository.getTransactionsByRange(fromDate.toISOString(), toDate.toISOString(), 50),
+        ReportRepository.getTopProductsByRange(fromDate.toISOString(), toDate.toISOString(), 50),
         ReportRepository.getLowStockProducts(50),
       ]);
       setTransactions(trx);
@@ -187,32 +200,56 @@ export default function DetailLaporanScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData(period, customStart, customEnd);
-    }, [loadData, period, customStart, customEnd])
+      loadData(from, to);
+    }, [loadData, from, to])
   );
 
-  // Re-fetch when period/custom changes
+  // ── Period handlers ───────────────────────────────────────────────────────
   const handlePeriod = useCallback((p: Period) => {
     cacheRef.current = '';
     setPeriod(p);
   }, []);
 
-  const handleCustomApply = useCallback(() => {
-    if (!customStart || !customEnd) {
-      Alert.alert('Tanggal tidak lengkap', 'Isi tanggal mulai dan tanggal akhir.');
+  const handleStartDateChange = useCallback(
+    (_event: DateTimePickerEvent, selected?: Date) => {
+      setShowStartPicker(Platform.OS === 'ios'); // iOS keeps picker open
+      if (!selected) return;
+      setStartDate(selected);
+    },
+    []
+  );
+
+  const handleEndDateChange = useCallback(
+    (_event: DateTimePickerEvent, selected?: Date) => {
+      setShowEndPicker(Platform.OS === 'ios');
+      if (!selected) return;
+      if (selected < startDate) {
+        Alert.alert('Tanggal tidak valid', 'Tanggal mulai tidak boleh lebih besar dari tanggal akhir.');
+        return;
+      }
+      setEndDate(selected);
+    },
+    [startDate]
+  );
+
+  const handleApplyCustom = useCallback(() => {
+    if (startDate > endDate) {
+      Alert.alert('Tanggal tidak valid', 'Tanggal mulai tidak boleh lebih besar dari tanggal akhir.');
       return;
     }
     cacheRef.current = '';
-    loadData('custom', customStart, customEnd);
-  }, [customStart, customEnd, loadData]);
+    // Trigger reload by bumping the key — from/to already computed via useMemo
+    loadData(startOfDay(startDate), endOfDay(endDate));
+  }, [startDate, endDate, loadData]);
 
-  // Filtered data is already limited to 50 from DB, useMemo for tab switching
+  // ── Display data ──────────────────────────────────────────────────────────
   const displayData = useMemo(() => {
     if (activeTab === 'transaksi') return transactions;
     if (activeTab === 'terlaris') return topProducts;
     return lowStock;
   }, [activeTab, transactions, topProducts, lowStock]);
 
+  // ── Export ────────────────────────────────────────────────────────────────
   const handleExportExcel = useCallback(() => {
     guardExport(() => Alert.alert('Export Excel', 'Fitur export sedang disiapkan.'));
   }, [guardExport]);
@@ -221,32 +258,28 @@ export default function DetailLaporanScreen() {
     guardExport(() => Alert.alert('Export PDF', 'Fitur export sedang disiapkan.'));
   }, [guardExport]);
 
-  const periodLabel: Record<Period, string> = {
-    today: 'Hari Ini', '7days': '7 Hari', month: 'Bulan Ini', custom: 'Custom',
-  };
+  // ── Render item ───────────────────────────────────────────────────────────
+  const renderItem = useCallback(
+    ({ item, index }: { item: any; index: number }) => {
+      if (activeTab === 'transaksi') {
+        return (
+          <TrxRow
+            item={item}
+            onPress={() => router.push(`/transaksi/detail/${item.id}` as never)}
+          />
+        );
+      }
+      if (activeTab === 'terlaris') return <ProductRow item={item} index={index} />;
+      return <StockRow item={item} />;
+    },
+    [activeTab, router]
+  );
 
-  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => {
-    if (activeTab === 'transaksi') {
-      return (
-        <TrxRow
-          item={item}
-          onPress={() => router.push(`/transaksi/detail/${item.id}` as never)}
-        />
-      );
-    }
-    if (activeTab === 'terlaris') return <ProductRow item={item} index={index} />;
-    return <StockRow item={item} />;
-  }, [activeTab, router]);
-
-  const emptyText: Record<Tab, string> = {
-    transaksi: 'Belum ada transaksi pada periode ini',
-    terlaris: 'Belum ada data penjualan',
-    stok: 'Semua stok produk aman',
-  };
-
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
+
+      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
           <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
@@ -255,8 +288,9 @@ export default function DetailLaporanScreen() {
         <View style={{ width: 38 }} />
       </View>
 
-      {/* Filter + Export — sticky above list */}
+      {/* ── Filter section (non-scrollable) ── */}
       <View style={styles.filterSection}>
+
         {/* Period pills */}
         <View style={styles.periodRow}>
           {(['today', '7days', 'month', 'custom'] as Period[]).map((p) => (
@@ -266,40 +300,41 @@ export default function DetailLaporanScreen() {
               onPress={() => handlePeriod(p)}
             >
               <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
-                {periodLabel[p]}
+                {PERIOD_LABELS[p]}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Custom date inputs */}
+        {/* Custom date pickers */}
         {period === 'custom' && (
           <View style={styles.customRow}>
-            <View style={styles.dateInputWrap}>
-              <Text style={styles.dateInputLabel}>Mulai</Text>
-              <TextInput
-                style={styles.dateInput}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.onSurfaceVariant}
-                value={customStart}
-                onChangeText={setCustomStart}
-                keyboardType="numeric"
-                maxLength={10}
-              />
+            {/* Start date */}
+            <View style={styles.datePickerWrap}>
+              <Text style={styles.datePickerLabel}>Tanggal Mulai</Text>
+              <TouchableOpacity
+                style={styles.datePickerBtn}
+                onPress={() => setShowStartPicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={14} color={colors.primary} />
+                <Text style={styles.datePickerText}>{formatDate(startDate)}</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.dateInputWrap}>
-              <Text style={styles.dateInputLabel}>Akhir</Text>
-              <TextInput
-                style={styles.dateInput}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.onSurfaceVariant}
-                value={customEnd}
-                onChangeText={setCustomEnd}
-                keyboardType="numeric"
-                maxLength={10}
-              />
+
+            {/* End date */}
+            <View style={styles.datePickerWrap}>
+              <Text style={styles.datePickerLabel}>Tanggal Akhir</Text>
+              <TouchableOpacity
+                style={styles.datePickerBtn}
+                onPress={() => setShowEndPicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={14} color={colors.primary} />
+                <Text style={styles.datePickerText}>{formatDate(endDate)}</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.applyBtn} onPress={handleCustomApply}>
+
+            {/* Apply */}
+            <TouchableOpacity style={styles.applyBtn} onPress={handleApplyCustom}>
               <Text style={styles.applyBtnText}>Terapkan</Text>
             </TouchableOpacity>
           </View>
@@ -341,7 +376,7 @@ export default function DetailLaporanScreen() {
         </View>
       </View>
 
-      {/* List */}
+      {/* ── List ── */}
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -351,19 +386,37 @@ export default function DetailLaporanScreen() {
           data={displayData}
           keyExtractor={(item: any, i) => item.id ?? item.name ?? String(i)}
           renderItem={renderItem}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 32 + insets.bottom }]}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={5}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Ionicons name="document-outline" size={40} color={colors.surfaceContainerHigh} />
-              <Text style={styles.emptyText}>{emptyText[activeTab]}</Text>
+              <Text style={styles.emptyText}>{EMPTY_TEXT[activeTab]}</Text>
             </View>
           }
+        />
+      )}
+
+      {/* ── Native date pickers (rendered only when open) ── */}
+      {showStartPicker && (
+        <DateTimePicker
+          value={startDate}
+          mode="date"
+          display="default"
+          maximumDate={endDate}
+          onChange={handleStartDateChange}
+        />
+      )}
+      {showEndPicker && (
+        <DateTimePicker
+          value={endDate}
+          mode="date"
+          display="default"
+          minimumDate={startDate}
+          maximumDate={new Date()}
+          onChange={handleEndDateChange}
         />
       )}
 
@@ -372,10 +425,11 @@ export default function DetailLaporanScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
-  // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.marginMobile, paddingVertical: 10,
@@ -385,7 +439,6 @@ const styles = StyleSheet.create({
   backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface },
 
-  // Filter section
   filterSection: {
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.marginMobile,
@@ -403,23 +456,25 @@ const styles = StyleSheet.create({
   periodText: { ...typography.labelSm, color: colors.onSurfaceVariant, fontSize: 12 },
   periodTextActive: { color: colors.onPrimary, fontWeight: '700' },
 
-  // Custom date
-  customRow: { flexDirection: 'row', gap: 8, marginBottom: spacing.stackSm, alignItems: 'flex-end' },
-  dateInputWrap: { flex: 1 },
-  dateInputLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 4 },
-  dateInput: {
+  customRow: {
+    flexDirection: 'row', gap: 8, marginBottom: spacing.stackSm, alignItems: 'flex-end',
+  },
+  datePickerWrap: { flex: 1 },
+  datePickerLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: 4 },
+  datePickerBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     borderWidth: 1, borderColor: colors.outlineVariant,
-    borderRadius: borderRadius.md, paddingHorizontal: 10, paddingVertical: 8,
-    ...typography.bodyMd, color: colors.onSurface,
+    borderRadius: borderRadius.md, paddingHorizontal: 10, paddingVertical: 9,
     backgroundColor: colors.surfaceContainerLow,
   },
+  datePickerText: { ...typography.bodyMd, color: colors.onSurface, fontSize: 13 },
+
   applyBtn: {
     backgroundColor: colors.primary, borderRadius: borderRadius.md,
     paddingHorizontal: 14, paddingVertical: 9,
   },
   applyBtnText: { ...typography.labelSm, color: colors.onPrimary, fontWeight: '700' },
 
-  // Export
   exportRow: { flexDirection: 'row', gap: 8, marginBottom: spacing.stackSm },
   exportBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -435,7 +490,6 @@ const styles = StyleSheet.create({
   },
   premiumTagText: { fontSize: 9, fontWeight: '700', color: colors.tertiary },
 
-  // Tabs
   tabRow: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceContainerLow,
@@ -446,13 +500,11 @@ const styles = StyleSheet.create({
   tabText: { ...typography.labelSm, color: colors.onSurfaceVariant, fontSize: 11 },
   tabTextActive: { color: colors.primary, fontWeight: '700' },
 
-  // List
   listContent: { padding: spacing.marginMobile, gap: 8 },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyWrap: { alignItems: 'center', paddingTop: 48, gap: 12 },
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
 
-  // Row cards
   rowCard: {
     flexDirection: 'row', justifyContent: 'space-between',
     backgroundColor: colors.surface, borderRadius: borderRadius.md,

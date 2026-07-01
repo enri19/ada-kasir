@@ -1,0 +1,492 @@
+﻿
+node_modules\react-native-paper-dates\lib\commonjs\Date\Calendar.js:21:    loca
+le,
+node_modules\react-native-paper-dates\lib\commonjs\Date\Calendar.js:94:        
+locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\Calendar.js:116:       
+ onNext
+node_modules\react-native-paper-dates\lib\commonjs\Date\Calendar.js:118:       
+ locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\Calendar.js:120:       
+ onNext: onNext,
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarEdit.js:22:  lo
+cale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarEdit.js:51:    
+// TODO: close modal and persist range
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarEdit.js:54:    
+// TODO: close modal and persist range
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarEdit.js:70:    
+  locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarEdit.js:88:    
+    returnKeyType: 'next',
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarEdit.js:91:    
+    locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarEdit.js:111:   
+     locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarHeader.js:11:va
+r _utils = require("../translations/utils");
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarHeader.js:28:  
+onNext,
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarHeader.js:30:  
+locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarHeader.js:50:  
+        accessibilityLabel: (0, _utils.getTranslation)(locale, 'previous'),
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarHeader.js:60:  
+        accessibilityLabel: (0, _utils.getTranslation)(locale, 'next'),
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarHeader.js:61:  
+        onPress: onNext,
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarHeader.js:62:  
+        testID: "react-native-paper-dates-next-month"
+node_modules\react-native-paper-dates\lib\commonjs\Date\CalendarHeader.js:67:  
+    locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerInput.js:51: 
+   // eslint-disable-next-line react/no-unstable-nested-components
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerInput.js:55: 
+     locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerInput.js:73: 
+     locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerInputWithoutM
+odal.js:19:  locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerInputWithoutM
+odal.js:47:    locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerInputWithoutM
+odal.js:93:      locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModal.js:50: 
+     onRequestClose: rest.onDismiss,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContent.
+js:27:    locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContent.
+js:92:        locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContent.
+js:98:        closeIcon: props.closeIcon
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContent.
+js:111:        locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContent.
+js:119:        locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContent.
+js:142:        locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:14:var _utils2 = require("../translations/utils");
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:19:function getLabel(locale, mode, configuredLabel) {
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:24:    return (0, _utils2.getTranslation)(locale, 'selectRange');
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:27:    return (0, _utils2.getTranslation)(locale, 'selectMultiple');
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:30:    return (0, _utils2.getTranslation)(locale, 'selectSingle');
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:46:  const label = getLabel(props.locale, props.mode, props.label);
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:81:      accessibilityLabel: collapsed ? (0, _utils2.getTranslation)(p
+rops.locale, 'typeInDate') : (0, _utils2.getTranslation)(props.locale, 'pickDat
+eFromCalendar'),
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:92:  locale
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:98:    return new Intl.DateTimeFormat(locale, {
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:102:  }, [locale]);
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:116:  locale
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:123:    return new Intl.DateTimeFormat(locale, {
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:127:  }, [locale]);
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:145:  locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:159:    return new Intl.DateTimeFormat(locale, {
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalContentH
+eader.js:163:  }, [locale]);
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalHeader.j
+s:10:var _utils2 = require("../translations/utils");
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalHeader.j
+s:15:    locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalHeader.j
+s:16:    closeIcon = 'close'
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalHeader.j
+s:18:  const saveLabel = props.saveLabel || (0, _utils2.getTranslation)(locale,
+ 'save');
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalHeader.j
+s:31:          icon: closeIcon,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalHeader.j
+s:32:          accessibilityLabel: (0, _utils2.getTranslation)(locale, 'close')
+,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DatePickerModalHeader.j
+s:35:          testID: "react-native-paper-dates-close"
+node_modules\react-native-paper-dates\lib\commonjs\Date\dateUtils.js:214:  loca
+le
+node_modules\react-native-paper-dates\lib\commonjs\Date\dateUtils.js:217:    re
+turn new Intl.DateTimeFormat(locale, {
+node_modules\react-native-paper-dates\lib\commonjs\Date\dateUtils.js:222:  }, [
+locale]);
+node_modules\react-native-paper-dates\lib\commonjs\Date\dateUtils.js:236:  loca
+le
+node_modules\react-native-paper-dates\lib\commonjs\Date\dateUtils.js:244:    re
+turn inputDate.replace('2020', locale === 'pt' ? 'AAAA' : 'YYYY').replace('10',
+ 'MM').replace('01', 'DD');
+node_modules\react-native-paper-dates\lib\commonjs\Date\dateUtils.js:245:  }, [
+formatter, locale]);
+node_modules\react-native-paper-dates\lib\commonjs\Date\DayNames.js:17:  locale
+,
+node_modules\react-native-paper-dates\lib\commonjs\Date\DayNames.js:27:    cons
+t formatter = new Intl.DateTimeFormat(locale, {
+node_modules\react-native-paper-dates\lib\commonjs\Date\DayNames.js:31:  }, [lo
+cale, startWeekOnMonday]);
+node_modules\react-native-paper-dates\lib\commonjs\Date\inputUtils.js:8:var _ut
+ils = require("../translations/utils");
+node_modules\react-native-paper-dates\lib\commonjs\Date\inputUtils.js:11:  loca
+le,
+node_modules\react-native-paper-dates\lib\commonjs\Date\inputUtils.js:19:    lo
+cale
+node_modules\react-native-paper-dates\lib\commonjs\Date\inputUtils.js:23:    lo
+cale
+node_modules\react-native-paper-dates\lib\commonjs\Date\inputUtils.js:36:    co
+nst yearIndex = locale === 'pt' ? inputFormat.indexOf('AAAA') : inputFormat.ind
+exOf('YYYY');
+node_modules\react-native-paper-dates\lib\commonjs\Date\inputUtils.js:41:      
+const inputError = (0, _utils.getTranslation)(locale, 'notAccordingToDateFormat
+', () => 'notAccordingToDateFormat')(inputFormat);
+node_modules\react-native-paper-dates\lib\commonjs\Date\inputUtils.js:48:      
+const inputError = (0, _utils.getTranslation)(locale, 'dateIsDisabled');
+node_modules\react-native-paper-dates\lib\commonjs\Date\inputUtils.js:54:      
+let errors = validStart && validEnd ? [`${(0, _utils.getTranslation)(locale, 'm
+ustBeBetween', () => 'mustBeBetween')(formatter.format(validStart), formatter.f
+ormat(validEnd))}`] : [validStart ? (0, _utils.getTranslation)(locale, 'mustBeH
+igherThan', () => 'mustBeHigherThan')(formatter.format(validStart)) : '', valid
+End ? (0, _utils.getTranslation)(locale, 'mustBeLowerThan', () => 'mustBeLowerT
+han')(formatter.format(validEnd)) : ''];
+node_modules\react-native-paper-dates\lib\commonjs\Date\Month.js:26:    locale,
+node_modules\react-native-paper-dates\lib\commonjs\Date\Month.js:62:    const f
+ormatter = new Intl.DateTimeFormat(locale, {
+node_modules\react-native-paper-dates\lib\commonjs\Date\Month.js:70:  }, [realI
+ndex, locale]);
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.js:43:  const on
+Next = (0, _react.useCallback)(() => {
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.js:56:    onNext
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.js:75:        on
+Next
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.js:147:    // es
+lint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.js:157:      // 
+eslint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.js:168:         
+ // eslint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.js:180:         
+   onNext: empty
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.native.js:90:  c
+onst onNext = (0, _react.useCallback)(() => {
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.native.js:121:  
+  onNext
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.native.js:153:  
+        // eslint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Date\Swiper.native.js:166:  
+          onNext: onNext
+node_modules\react-native-paper-dates\lib\commonjs\Time\AmPmSwitcher.js:28:    
+// eslint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Time\AnalogClock.js:51:     
+ let previousHourType = (0, _timeUtils.getHourType)(hoursRef.current);
+node_modules\react-native-paper-dates\lib\commonjs\Time\AnalogClock.js:52:     
+ let pickedHours = (0, _timeUtils.getHours)(angle, previousHourType);
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInput.js:48:    // 
+eslint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInput.js:60:      /
+/ eslint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInputs.js:14:var _u
+tils2 = require("../translations/utils");
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInputs.js:28:  loca
+le
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInputs.js:42:    //
+ TODO: close modal and persist time
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInputs.js:66:      
+  returnKeyType: 'next',
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInputs.js:82:      
+  children: (0, _utils2.getTranslation)(locale, 'hour', 'Hour')
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInputs.js:86:      
+// eslint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimeInputs.js:132:     
+   children: (0, _utils2.getTranslation)(locale, 'minute', 'Minute')
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePicker.js:22:  loca
+le,
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePicker.js:35:    co
+nst formatter = new Intl.DateTimeFormat(locale, {
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePicker.js:42:  }, [
+locale, use24HourClock]);
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePicker.js:51:    //
+ eslint-disable-next-line react-hooks/exhaustive-deps
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePicker.js:75:      
+  locale: locale
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePickerModal.js:28: 
+ locale,
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePickerModal.js:65: 
+   onRequestClose: onDismiss,
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePickerModal.js:85: 
+           // eslint-disable-next-line react-native/no-inline-styles
+node_modules\react-native-paper-dates\lib\commonjs\Time\TimePickerModal.js:103:
+                locale: locale,
+node_modules\react-native-paper-dates\lib\commonjs\Time\timeUtils.js:196:functi
+on toHourOutputFormat(newHours, previousHours, is24Hour) {
+node_modules\react-native-paper-dates\lib\commonjs\Time\timeUtils.js:200:  if (
+previousHours === 0 && newHours !== 0) {
+node_modules\react-native-paper-dates\lib\commonjs\Time\timeUtils.js:203:  if (
+previousHours >= 12 && newHours < 12) {
+node_modules\react-native-paper-dates\lib\commonjs\translations\ar.js:17:  prev
+ious: 'السابق',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ar.js:18:  next
+: 'التالي',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ar.js:19:  type
+InDate: 'اكتب التاريخ',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ar.js:21:  clos
+e: 'أغلق',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ca.js:17:  prev
+ious: 'Anterior',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ca.js:18:  next
+: 'Següent',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ca.js:19:  type
+InDate: 'Escriu la data',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ca.js:21:  clos
+e: 'Tancar',
+node_modules\react-native-paper-dates\lib\commonjs\translations\cs.js:17:  prev
+ious: 'Předchozí',
+node_modules\react-native-paper-dates\lib\commonjs\translations\cs.js:18:  next
+: 'další  ',
+node_modules\react-native-paper-dates\lib\commonjs\translations\cs.js:19:  type
+InDate: 'Zadejte datum',
+node_modules\react-native-paper-dates\lib\commonjs\translations\cs.js:21:  clos
+e: 'Zavřít',
+node_modules\react-native-paper-dates\lib\commonjs\translations\da.js:17:  prev
+ious: 'Forrige',
+node_modules\react-native-paper-dates\lib\commonjs\translations\da.js:18:  next
+: 'Næste',
+node_modules\react-native-paper-dates\lib\commonjs\translations\da.js:19:  type
+InDate: 'Indtast dato',
+node_modules\react-native-paper-dates\lib\commonjs\translations\da.js:21:  clos
+e: 'Luk',
+node_modules\react-native-paper-dates\lib\commonjs\translations\de.js:17:  prev
+ious: 'Vorheriges',
+node_modules\react-native-paper-dates\lib\commonjs\translations\de.js:18:  next
+: 'Nächstes',
+node_modules\react-native-paper-dates\lib\commonjs\translations\de.js:19:  type
+InDate: 'Datum eingeben',
+node_modules\react-native-paper-dates\lib\commonjs\translations\de.js:21:  clos
+e: 'Schliessen',
+node_modules\react-native-paper-dates\lib\commonjs\translations\el.js:17:  prev
+ious: 'Προηγούμενος',
+node_modules\react-native-paper-dates\lib\commonjs\translations\el.js:18:  next
+: 'Επόμενο',
+node_modules\react-native-paper-dates\lib\commonjs\translations\el.js:19:  type
+InDate: 'Πληκτρολογήστε την ημερομηνία',
+node_modules\react-native-paper-dates\lib\commonjs\translations\el.js:21:  clos
+e: 'Κλείσε',
+node_modules\react-native-paper-dates\lib\commonjs\translations\en.js:17:  prev
+ious: 'Previous',
+node_modules\react-native-paper-dates\lib\commonjs\translations\en.js:18:  next
+: 'Next',
+node_modules\react-native-paper-dates\lib\commonjs\translations\en.js:19:  type
+InDate: 'Type in date',
+node_modules\react-native-paper-dates\lib\commonjs\translations\en.js:21:  clos
+e: 'Close',
+node_modules\react-native-paper-dates\lib\commonjs\translations\enGB.js:17:  pr
+evious: 'Previous',
+node_modules\react-native-paper-dates\lib\commonjs\translations\enGB.js:18:  ne
+xt: 'Next',
+node_modules\react-native-paper-dates\lib\commonjs\translations\enGB.js:19:  ty
+peInDate: 'Type in date',
+node_modules\react-native-paper-dates\lib\commonjs\translations\enGB.js:21:  cl
+ose: 'Close',
+node_modules\react-native-paper-dates\lib\commonjs\translations\es.js:17:  prev
+ious: 'Anterior',
+node_modules\react-native-paper-dates\lib\commonjs\translations\es.js:18:  next
+: 'Siguiente',
+node_modules\react-native-paper-dates\lib\commonjs\translations\es.js:19:  type
+InDate: 'Escribir fecha',
+node_modules\react-native-paper-dates\lib\commonjs\translations\es.js:21:  clos
+e: 'Cerrar',
+node_modules\react-native-paper-dates\lib\commonjs\translations\fi.js:17:  prev
+ious: 'Edellinen',
+node_modules\react-native-paper-dates\lib\commonjs\translations\fi.js:18:  next
+: 'Seuraava',
+node_modules\react-native-paper-dates\lib\commonjs\translations\fi.js:19:  type
+InDate: 'Syötä päivämäärä',
+node_modules\react-native-paper-dates\lib\commonjs\translations\fi.js:21:  clos
+e: 'Sulje',
+node_modules\react-native-paper-dates\lib\commonjs\translations\fr.js:17:  prev
+ious: 'Précédent',
+node_modules\react-native-paper-dates\lib\commonjs\translations\fr.js:18:  next
+: 'Suivant',
+node_modules\react-native-paper-dates\lib\commonjs\translations\fr.js:19:  type
+InDate: 'Entrer la date',
+node_modules\react-native-paper-dates\lib\commonjs\translations\fr.js:21:  clos
+e: 'Fermer',
+node_modules\react-native-paper-dates\lib\commonjs\translations\he.js:17:  prev
+ious: 'הקודם',
+node_modules\react-native-paper-dates\lib\commonjs\translations\he.js:18:  next
+: 'הבא',
+node_modules\react-native-paper-dates\lib\commonjs\translations\he.js:19:  type
+InDate: 'הקש תאריך',
+node_modules\react-native-paper-dates\lib\commonjs\translations\he.js:21:  clos
+e: 'סגור',
+node_modules\react-native-paper-dates\lib\commonjs\translations\hi.js:17:  prev
+ious: 'पिछला',
+node_modules\react-native-paper-dates\lib\commonjs\translations\hi.js:18:  next
+: 'अगला',
+node_modules\react-native-paper-dates\lib\commonjs\translations\hi.js:19:  type
+InDate: 'तारीख़ लिखें',
+node_modules\react-native-paper-dates\lib\commonjs\translations\hi.js:21:  clos
+e: 'बंद करें',
+node_modules\react-native-paper-dates\lib\commonjs\translations\id.js:17:  prev
+ious: 'Sebelumnya',
+node_modules\react-native-paper-dates\lib\commonjs\translations\id.js:18:  next
+: 'Berikutnya',
+node_modules\react-native-paper-dates\lib\commonjs\translations\id.js:19:  type
+InDate: 'Ketik tanggal',
+node_modules\react-native-paper-dates\lib\commonjs\translations\id.js:21:  clos
+e: 'Tutup',
+node_modules\react-native-paper-dates\lib\commonjs\translations\it.js:17:  prev
+ious: 'Precedente',
+node_modules\react-native-paper-dates\lib\commonjs\translations\it.js:18:  next
+: 'Successivo',
+node_modules\react-native-paper-dates\lib\commonjs\translations\it.js:19:  type
+InDate: 'Digita la data',
+node_modules\react-native-paper-dates\lib\commonjs\translations\it.js:21:  clos
+e: 'Chiudi',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ja.js:17:  prev
+ious: '前へ',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ja.js:18:  next
+: '次へ',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ja.js:19:  type
+InDate: '日付を入力',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ja.js:21:  clos
+e: '閉じる',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ko.js:17:  prev
+ious: '이전',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ko.js:18:  next
+: '다음',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ko.js:19:  type
+InDate: '날짜 입력',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ko.js:21:  clos
+e: '닫기',
+node_modules\react-native-paper-dates\lib\commonjs\translations\nl.js:17:  prev
+ious: 'Vorige',
+node_modules\react-native-paper-dates\lib\commonjs\translations\nl.js:18:  next
+: 'Volgende',
+node_modules\react-native-paper-dates\lib\commonjs\translations\nl.js:19:  type
+InDate: 'Typ datum',
+node_modules\react-native-paper-dates\lib\commonjs\translations\nl.js:21:  clos
+e: 'Sluit',
+node_modules\react-native-paper-dates\lib\commonjs\translations\noNO.js:17:  pr
+evious: 'Forrige',
+node_modules\react-native-paper-dates\lib\commonjs\translations\noNO.js:18:  ne
+xt: 'Neste',
+node_modules\react-native-paper-dates\lib\commonjs\translations\noNO.js:19:  ty
+peInDate: 'Skriv inn dato',
+node_modules\react-native-paper-dates\lib\commonjs\translations\noNO.js:21:  cl
+ose: 'Lukk',
+node_modules\react-native-paper-dates\lib\commonjs\translations\pl.js:17:  prev
+ious: 'Poprzedni',
+node_modules\react-native-paper-dates\lib\commonjs\translations\pl.js:18:  next
+: 'Dalej',
+node_modules\react-native-paper-dates\lib\commonjs\translations\pl.js:19:  type
+InDate: 'Wpisz datę',
+node_modules\react-native-paper-dates\lib\commonjs\translations\pl.js:21:  clos
+e: 'Zamknij',
+node_modules\react-native-paper-dates\lib\commonjs\translations\pt.js:17:  prev
+ious: 'Anterior',
+node_modules\react-native-paper-dates\lib\commonjs\translations\pt.js:18:  next
+: 'Próximo',
+node_modules\react-native-paper-dates\lib\commonjs\translations\pt.js:19:  type
+InDate: 'Digite a data',
+node_modules\react-native-paper-dates\lib\commonjs\translations\pt.js:21:  clos
+e: 'Fechar',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ro.js:17:  prev
+ious: 'Anterior',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ro.js:18:  next
+: 'Următorul',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ro.js:19:  type
+InDate: 'Tipul în dată',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ro.js:21:  clos
+e: 'Închide',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ru.js:17:  prev
+ious: 'Предыдущий',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ru.js:18:  next
+: 'Следующий',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ru.js:19:  type
+InDate: 'Ввод в дате',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ru.js:21:  clos
+e: 'Закрыть',
+node_modules\react-native-paper-dates\lib\commonjs\translations\sv.js:17:  prev
+ious: 'Föregående',
+node_modules\react-native-paper-dates\lib\commonjs\translations\sv.js:18:  next
+: 'Nästa',
+node_modules\react-native-paper-dates\lib\commonjs\translations\sv.js:19:  type
+InDate: 'Skriv datum',
+node_modules\react-native-paper-dates\lib\commonjs\translations\sv.js:21:  clos
+e: 'Stäng',
+node_modules\react-native-paper-dates\lib\commonjs\translations\th.js:17:  prev
+ious: 'ก่อนหน้า',
+node_modules\react-native-paper-dates\lib\commonjs\translations\th.js:18:  next
+: 'ถัดไป',
+node_modules\react-native-paper-dates\lib\commonjs\translations\th.js:19:  type
+InDate: 'พิมพ์วันที่',
+node_modules\react-native-paper-dates\lib\commonjs\translations\th.js:21:  clos
+e: 'ปิด',
+node_modules\react-native-paper-dates\lib\commonjs\translations\tr.js:17:  prev
+ious: 'Önceki',
+node_modules\react-native-paper-dates\lib\commonjs\translations\tr.js:18:  next
+: 'Sonraki',
+node_modules\react-native-paper-dates\lib\commonjs\translations\tr.js:19:  type
+InDate: 'Tarihi yazın',
+node_modules\react-native-paper-dates\lib\commonjs\translations\tr.js:21:  clos
+e: 'Kapat',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ukUA.js:17:  pr
+evious: 'Попередній',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ukUA.js:18:  ne
+xt: 'Наступний',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ukUA.js:19:  ty
+peInDate: 'Введіть дату',
+node_modules\react-native-paper-dates\lib\commonjs\translations\ukUA.js:21:  cl
+ose: 'Закрити',
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:7:expo
+rts.registerTranslation = registerTranslation;
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:8:let 
+translationsPerLocale = {};
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:9:func
+tion getTranslation(locale, key, fallback) {
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:10:  c
+onst l = locale || 'en';
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:11:  c
+onst translationForLocale = translationsPerLocale[l];
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:12:  i
+f (!translationForLocale) {
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:13:   
+ console.warn(`[react-native-paper-dates] The locale ${locale} is not registere
+d, see README!, key: ${key}`);
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:16:  c
+onst translation = typeof translationForLocale === 'function' ? translationForL
+ocale(locale)[key] : translationForLocale[key];
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:18:   
+ console.warn(`[react-native-paper-dates] The locale ${locale} is registered, b
+ut ${key} is missing`);
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:22:fun
+ction registerTranslation(locale, translations) {
+node_modules\react-native-paper-dates\lib\commonjs\translations\utils.js:23:  t
+ranslationsPerLocale[locale] = translations;
+node_modules\react-native-paper-dates\lib\commonjs\translations\zh.js:17:  prev
+ious: '上一个',
+node_modules\react-native-paper-dates\lib\commonjs\translations\zh.js:18:  next
+: '下一个',
+node_modules\react-native-paper-dates\lib\commonjs\translations\zh.js:19:  type
+InDate: '输入日期',
+node_modules\react-native-paper-dates\lib\commonjs\translations\zh.js:21:  clos
+e: '关闭',
+node_modules\react-native-paper-dates\lib\commonjs\translations\zhTW.js:17:  pr
+evious: '上一個',
+node_modules\react-native-paper-dates\lib\commonjs\translations\zhTW.js:18:  ne
+xt: '下一個',
+node_modules\react-native-paper-dates\lib\commonjs\translations\zhTW.js:19:  ty
+peInDate: '輸入日期',
+node_modules\react-native-paper-dates\lib\commonjs\translations\zhTW.js:21:  cl
+ose: '關閉',
+
+
