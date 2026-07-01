@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
 import { Card } from '../../../src/components/Card';
 import { CustomHeader } from '../../../src/components/CustomHeader';
 import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
+import { AppImages } from '../../../src/constants/assets';
 
 const HELP_STEPS = [
   { title: 'Cara Transaksi', description: 'Pilih produk, masukkan jumlah, lalu selesaikan pembayaran dengan tunai, QRIS, atau bon.' },
@@ -31,6 +32,12 @@ export default function HelpScreen() {
     <View style={styles.container}>      
       <CustomHeader title="Bantuan" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.logoSection}>
+          <Image source={AppImages.logo} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.appName}>AdaKasir</Text>
+          <Text style={styles.tagline}>Jualan cepat, laporan rapi.</Text>
+        </View>
+
         {HELP_STEPS.map((step) => (
           <Card key={step.title} style={styles.helpCard}>
             <Text style={styles.helpTitle}>{step.title}</Text>
@@ -57,6 +64,10 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   scrollContent: { padding: spacing.marginMobile, paddingBottom: 16 },
   headerTitle: { ...typography.headlineLg, color: colors.onSurface, marginBottom: spacing.stackLg },
+  logoSection: { alignItems: 'center', paddingVertical: spacing.stackMd, marginBottom: spacing.stackMd },
+  logo: { width: 64, height: 64, marginBottom: spacing.stackSm },
+  appName: { ...typography.bodyLg, color: colors.primary, fontWeight: '700' },
+  tagline: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
   helpCard: { padding: spacing.stackMd, marginBottom: spacing.stackSm },
   helpTitle: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '700', marginBottom: spacing.stackSm },
   helpDescription: { ...typography.bodyMd, color: colors.onSurfaceVariant },

@@ -156,4 +156,5 @@ export const ALL_MIGRATIONS = [
   'ALTER TABLE products ADD COLUMN allow_negative_stock INTEGER NOT NULL DEFAULT 1',
   "ALTER TABLE products ADD COLUMN image_key TEXT DEFAULT 'default'",
   "ALTER TABLE debts ADD COLUMN source TEXT NOT NULL DEFAULT 'transaction'",
+  'ALTER TABLE customers ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
 ];

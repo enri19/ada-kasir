@@ -352,7 +352,7 @@ export default function ProdukScreen() {
                     router.push(`/produk/edit/${selectedActionProduct.id}`);
                   }}
                 >
-                  <Text style={styles.modalOptionText}>Edit Produk</Text>
+                  <Text style={styles.modalOptionText}>Ubah Produk</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.modalOption}

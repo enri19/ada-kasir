@@ -2,10 +2,11 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Image, Text } from 'react-native';
 import { useAppStore } from '../src/stores/app.store';
 import { useLicenseStore } from '../src/stores/license.store';
-import { colors } from '../src/config/theme';
+import { colors, typography } from '../src/config/theme';
+import { AppImages } from '../src/constants/assets';
 
 export default function RootLayout() {
   const isReady = useAppStore((state) => state.isReady);
@@ -21,7 +22,9 @@ export default function RootLayout() {
     return (
       <SafeAreaProvider>
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <Image source={AppImages.logo} style={styles.loadingLogo} resizeMode="contain" />
+          <ActivityIndicator size="large" color={colors.onPrimary} style={{ marginTop: 24 }} />
+          <Text style={styles.loadingText}>Memuat aplikasi...</Text>
         </View>
       </SafeAreaProvider>
     );
@@ -44,6 +47,7 @@ export default function RootLayout() {
         <Stack.Screen name="produk" />
         <Stack.Screen name="laporan/detail" />
         <Stack.Screen name="kategori" />
+        <Stack.Screen name="pelanggan" />
         <Stack.Screen name="pelanggan/tambah" />
         <Stack.Screen name="pelanggan/detail/[id]" />
         <Stack.Screen name="pelanggan/pilih" />
@@ -57,6 +61,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.primary,
   },
+  loadingLogo: { width: 120, height: 120 },
+  loadingText: { ...typography.bodyMd, color: colors.onPrimary, marginTop: 12, opacity: 0.85 },
 });

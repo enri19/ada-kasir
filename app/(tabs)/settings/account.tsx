@@ -14,6 +14,7 @@ import { CustomHeader } from '../../../src/components/CustomHeader';
 import { Input } from '../../../src/components/Input';
 import { Button } from '../../../src/components/Button';
 import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
+import { AppImages } from '../../../src/constants/assets';
 
 const STATUS_LABELS: Record<string, string> = {
   trial_active: 'Trial Aktif',
@@ -214,6 +215,15 @@ export default function AccountScreen() {
         </Card>
 
         <Card style={styles.licenseCard}>
+          {/* Logo + identitas app */}
+          <View style={styles.licenseHeader}>
+            <Image source={AppImages.logo} style={styles.licenceLogo} resizeMode="contain" />
+            <View style={styles.licenseHeaderText}>
+              <Text style={styles.licenseAppName}>AdaKasir</Text>
+              <Text style={styles.licenseStatusBadge}>{STATUS_LABELS[licenseStatus] ?? licenseStatus}</Text>
+            </View>
+          </View>
+
           <Text style={styles.sectionTitle}>Lisensi</Text>
 
           <Text style={styles.infoLabel}>Nama Warung</Text>
@@ -262,6 +272,11 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
+  licenseHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackMd, marginBottom: spacing.stackMd },
+  licenceLogo: { width: 56, height: 56 },
+  licenseHeaderText: { flex: 1 },
+  licenseAppName: { ...typography.headlineMobile, color: colors.primary, fontWeight: '700' },
+  licenseStatusBadge: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
   scrollContent: { padding: spacing.marginMobile, paddingBottom: 32 },

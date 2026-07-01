@@ -18,12 +18,16 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.adakasir.app"
     },
+    "splash": {
+      "image": "./assets/icons/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#7A1F1F"
+    },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/icons/receipt.png",
-        "monochromeImage": "./assets/icons/receipt.png"
+        "foregroundImage": "./assets/icons/logo.png",
+        "backgroundColor": "#7A1F1F"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.adakasir.app"

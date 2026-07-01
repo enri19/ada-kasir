@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Network from 'expo-network';
 import Constants from 'expo-constants';
@@ -12,6 +12,7 @@ import { useLicenseStore } from '../../../src/stores/license.store';
 import { useCartStore } from '../../../src/stores/cart.store';
 import { resetDatabase } from '../../../src/database/db';
 import { APP_NAME, APP_VERSION, STORAGE_KEYS } from '../../../src/utils/constants';
+import { AppImages } from '../../../src/constants/assets';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -88,7 +89,12 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container}>      
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.headerTitle}>Pengaturan</Text>
+        {/* Logo + nama app */}
+        <View style={styles.logoSection}>
+          <Image source={AppImages.logo} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.appNameText}>{APP_NAME}</Text>
+          <Text style={styles.tagline}>Jualan cepat, laporan rapi.</Text>
+        </View>
 
         <Card style={styles.badgeCard}>
           <View style={styles.statusRow}>
@@ -166,6 +172,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
   scrollContent: { padding: spacing.marginMobile, paddingBottom: 16 },
+  logoSection: { alignItems: 'center', paddingVertical: spacing.stackLg, marginBottom: spacing.stackMd },
+  logo: { width: 72, height: 72, marginBottom: spacing.stackSm },
+  appNameText: { ...typography.headlineMobile, color: colors.primary, fontWeight: '700' },
+  tagline: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2 },
   headerTitle: { ...typography.headlineLg, color: colors.onSurface, marginBottom: spacing.stackLg },
   badgeCard: { padding: spacing.stackMd, marginBottom: spacing.stackLg },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm, marginBottom: spacing.stackSm },
