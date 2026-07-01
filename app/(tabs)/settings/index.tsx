@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Network from 'expo-network';
+import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,20 +21,21 @@ export default function SettingsScreen() {
   const appVersion = Constants.expoConfig?.version ?? APP_VERSION;
 
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
+    // initial fetch
+    NetInfo.fetch().then((s) => {
+      if (!mounted) return;
+      setIsOnline(s.isConnected ?? false);
+    }).catch(() => {});
 
-    const fetchNetworkState = async () => {
-      const state = await Network.getNetworkStateAsync();
-      if (!isMounted) return;
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      if (!mounted) return;
       setIsOnline(state.isConnected ?? false);
-    };
+    });
 
-    fetchNetworkState();
-
-    const interval = setInterval(fetchNetworkState, 5000);
     return () => {
-      isMounted = false;
-      clearInterval(interval);
+      mounted = false;
+      unsubscribe();
     };
   }, []);
 

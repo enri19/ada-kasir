@@ -224,7 +224,7 @@ export default function BonScreen() {
         </View>
         <TouchableOpacity
           style={styles.kelolaBtn}
-          onPress={() => router.push('/pelanggan/index' as never)}
+          onPress={() => router.push('/pelanggan')}
         >
           <Ionicons name="people-outline" size={14} color={colors.primary} />
           <Text style={styles.kelolaBtnText}>Kelola Pelanggan</Text>

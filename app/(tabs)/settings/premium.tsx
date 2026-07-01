@@ -76,7 +76,7 @@ export default function PremiumScreen() {
           <Input
             value={licenseCode}
             onChangeText={setLicenseCode}
-            placeholder="Kode lisensi"
+            placeholder="ADK-PREM-XXXX-YYYY"
           />
           <Button
             title="Aktifkan Lisensi"
