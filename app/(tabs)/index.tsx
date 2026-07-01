@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image, FlatList } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,42 @@ import { Product } from '../../src/types/product';
 import { Category } from '../../src/types/category';
 import { useCartStore } from '../../src/stores/cart.store';
 import { useAppStore } from '../../src/stores/app.store';
+import { getProductImage } from '../../src/utils/product-images';
+
+type ProductGridItemProps = {
+  product: Product;
+  onPress: (product: Product) => void;
+  onLongPress: (product: Product) => void;
+};
+
+const ProductGridItem = memo(function ProductGridItem({ product, onPress, onLongPress }: ProductGridItemProps) {
+  return (
+    <TouchableOpacity
+      style={styles.productCard}
+      onPress={() => onPress(product)}
+      onLongPress={() => onLongPress(product)}
+      activeOpacity={0.75}
+    >
+      <View style={styles.productImage}>
+        <Image
+          source={getProductImage(product.imageKey)}
+          style={styles.productImageContent}
+          resizeMode="cover"
+        />
+      </View>
+      <View style={styles.productInfo}>
+        <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+        <View style={styles.productFooter}>
+          <Text style={styles.productUnit}>{product.unit}</Text>
+          <CurrencyText amount={product.sellPrice} size="sm" color={colors.primary} />
+        </View>
+        {product.trackStock && product.stock <= 5 && (
+          <Text style={styles.stockWarning}>Stok: {product.stock}</Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export default function KasirScreen() {
   const router = useRouter();
@@ -23,11 +59,7 @@ export default function KasirScreen() {
 
   const cartItems = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
-  const getTotal = useCartStore((state) => state.getTotal);
-  const getItemCount = useCartStore((state) => state.getItemCount);
-
-  const activeStore = useAppStore((state) => state.activeStore);
-  const storeName = activeStore?.name || 'AdaKasir';
+  const discount = useCartStore((state) => state.discount);
 
   const [needsRefresh, setNeedsRefresh] = useState(true);
 
@@ -53,43 +85,64 @@ export default function KasirScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setNeedsRefresh(true);
-    }, [])
+      if (products.length === 0) {
+        setNeedsRefresh(true);
+      }
+    }, [products.length])
   );
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
-  };
+  }, [loadData]);
 
-  const totalItems = getItemCount();
-  const totalPrice = getTotal();
-
-  const availableCategories = categories.filter((category) =>
-    products.some((product) => product.categoryId === category.id)
+  const totalItems = useMemo(
+    () => cartItems.reduce((sum, item) => sum + item.qty, 0),
+    [cartItems]
   );
-  const categoryChips = [{ id: null, name: 'Semua' }, ...availableCategories.map(c => ({ id: c.id, name: c.name }))];
+  const totalPrice = useMemo(
+    () => Math.max(0, cartItems.reduce((sum, item) => sum + item.subtotal, 0) - discount),
+    [cartItems, discount]
+  );
 
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === null || product.categoryId === selectedCategory;
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const availableCategories = useMemo(() => {
+    const productCategoryIds = new Set(products.map((p) => p.categoryId));
+    return categories.filter((category) => productCategoryIds.has(category.id));
+  }, [categories, products]);
+
+  const categoryChips = useMemo(() => [
+    { id: null, name: 'Semua' },
+    ...availableCategories.map((c) => ({ id: c.id, name: c.name })),
+  ], [availableCategories]);
+
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return products.filter((product) => {
+      const matchesCategory = selectedCategory === null || product.categoryId === selectedCategory;
+      const matchesSearch = query.length === 0 || product.name.toLowerCase().includes(query);
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, selectedCategory, searchQuery]);
+
+  const handleProductPress = useCallback((product: Product) => {
+    addItem(product);
+  }, [addItem]);
+
+  const handleProductLongPress = useCallback((product: Product) => {
+    router.push(`/produk/detail/${product.id}`);
+  }, [router]);
+
+  const renderProductItem = useCallback(({ item }: { item: Product }) => (
+    <ProductGridItem
+      product={item}
+      onPress={handleProductPress}
+      onLongPress={handleProductLongPress}
+    />
+  ), [handleProductPress, handleProductLongPress]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Ionicons name="storefront" size={24} color={colors.primary} />
-          <Text style={styles.headerTitle}>{storeName}</Text>
-        </View>
-        <View style={styles.statusBadge}>
-          <View style={styles.statusDot} />
-          <Text style={styles.statusText}>Online</Text>
-        </View>
-      </View>
-
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={colors.onSurfaceVariant} />
         <TextInput
@@ -122,50 +175,31 @@ export default function KasirScreen() {
         </ScrollView>
       )}
 
-      <ScrollView 
-        style={styles.productsContainer} 
-        contentContainerStyle={[styles.productsContent, { paddingBottom: 80 }]}
+      <FlatList
+        style={styles.productsContainer}
+        contentContainerStyle={[styles.productsContent, { paddingBottom: totalItems > 0 ? 96 : 24 }]}
+        data={filteredProducts}
+        keyExtractor={(item) => item.id}
+        renderItem={renderProductItem}
+        numColumns={2}
+        columnWrapperStyle={styles.productRow}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
-      >
-        {filteredProducts.length === 0 ? (
+        ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="cube-outline" size={64} color={colors.surfaceContainerHigh} />
             <Text style={styles.emptyTitle}>Belum ada produk</Text>
             <Text style={styles.emptyText}>Tambahkan produk di halaman Produk</Text>
           </View>
-        ) : (
-          <View style={styles.productGrid}>
-            {filteredProducts.map((product) => (
-              <TouchableOpacity 
-                key={product.id} 
-                style={styles.productCard}
-                onPress={() => router.push(`/produk/detail/${product.id}`)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.productImage}>
-                  {product.imageUri ? (
-                    <Image source={{ uri: product.imageUri }} style={styles.productImageContent} />
-                  ) : (
-                    <Text style={styles.productImageText}>img</Text>
-                  )}
-                </View>
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-                  <View style={styles.productFooter}>
-                    <Text style={styles.productUnit}>{product.unit}</Text>
-                    <CurrencyText amount={product.sellPrice} size="sm" color={colors.primary} />
-                  </View>
-                  {product.stock <= 5 && (
-                    <Text style={styles.stockWarning}>Stok: {product.stock}</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        }
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        updateCellsBatchingPeriod={80}
+        windowSize={3}
+        removeClippedSubviews
+        showsVerticalScrollIndicator={false}
+      />
 
       {totalItems > 0 && (
         <TouchableOpacity 
@@ -196,20 +230,6 @@ export default function KasirScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: spacing.marginMobile, paddingVertical: spacing.stackSm,
-    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant,
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
-  headerTitle: { ...typography.headlineMobile, color: colors.primary },
-  statusBadge: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.secondaryContainer, paddingHorizontal: spacing.stackSm, paddingVertical: 4,
-    borderRadius: borderRadius.full,
-  },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.secondary, marginRight: 6 },
-  statusText: { ...typography.labelSm, color: colors.secondary },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
     marginHorizontal: spacing.marginMobile, marginTop: spacing.stackSm, marginBottom: spacing.stackSm,
@@ -232,13 +252,16 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyTitle: { ...typography.headlineMobile, color: colors.onSurface, marginTop: spacing.stackMd },
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm },
-  productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.stackMd },
+  productRow: { gap: spacing.stackMd },
   productCard: {
-    width: '47%', backgroundColor: colors.surface, borderRadius: borderRadius.lg,
-    overflow: 'hidden', borderWidth: 1, borderColor: colors.outlineVariant,
+    flex: 1, maxWidth: '50%', backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+    overflow: 'hidden', borderWidth: 1, borderColor: colors.outlineVariant, marginBottom: spacing.stackMd,
   },
   productImage: {
-    height: 120, backgroundColor: colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    height: 84,
+    backgroundColor: colors.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
   },
   productImageContent: { width: '100%', height: '100%' },

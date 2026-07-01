@@ -1,3 +1,15 @@
+export type ProductImageKey =
+  | 'mie'
+  | 'minuman'
+  | 'rokok'
+  | 'sembako'
+  | 'snack'
+  | 'kopi'
+  | 'sabun'
+  | 'obat'
+  | 'pulsa'
+  | 'default';
+
 export interface Product {
   id: string;
   categoryId: string | null;
@@ -12,6 +24,7 @@ export interface Product {
   allowNegativeStock: boolean;
   unit: string;
   imageUri: string | null;
+  imageKey: ProductImageKey;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -30,6 +43,7 @@ export interface ProductFormData {
   allowNegativeStock: boolean;
   unit: string;
   imageUri: string | null;
+  imageKey: ProductImageKey;
   isActive: boolean;
 }
 

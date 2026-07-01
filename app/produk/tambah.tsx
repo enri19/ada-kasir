@@ -9,9 +9,11 @@ import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { ProductRepository } from '../../src/database/product.repo';
 import { CategoryRepository } from '../../src/database/category.repo';
-import { ProductFormData, PRODUCT_UNITS, ProductUnit } from '../../src/types/product';
+import { ProductFormData, PRODUCT_UNITS, ProductUnit, ProductImageKey } from '../../src/types/product';
 import { Category } from '../../src/types/category';
 import { formatRupiah, parseRupiah } from '../../src/utils/currency';
+import { getProductImage } from '../../src/utils/product-images';
+import { compressImage } from '../../src/utils/compress-image';
 
 export default function TambahProdukScreen() {
   const router = useRouter();
@@ -19,6 +21,7 @@ export default function TambahProdukScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageKey, setImageKey] = useState<ProductImageKey>('default');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
 
@@ -38,6 +41,26 @@ export default function TambahProdukScreen() {
     CategoryRepository.getAll().then(setCategories).catch(console.error);
   }, []);
 
+  const getCategoryImageKey = (categoryName?: string): ProductImageKey => {
+    const normalized = categoryName?.toLowerCase() ?? '';
+    if (normalized.includes('mie')) return 'mie';
+    if (normalized.includes('minum')) return 'minuman';
+    if (normalized.includes('rokok')) return 'rokok';
+    if (normalized.includes('sembako')) return 'sembako';
+    if (normalized.includes('snack')) return 'snack';
+    if (normalized.includes('kopi')) return 'kopi';
+    if (normalized.includes('sabun')) return 'sabun';
+    if (normalized.includes('obat')) return 'obat';
+    if (normalized.includes('pulsa') || normalized.includes('token')) return 'pulsa';
+    return 'default';
+  };
+
+  const selectedCategory = categories.find(c => c.id === categoryId);
+
+  useEffect(() => {
+    setImageKey(getCategoryImageKey(selectedCategory?.name));
+  }, [selectedCategory?.id, selectedCategory?.name]);
+
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -48,10 +71,11 @@ export default function TambahProdukScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      const compressed = await compressImage(result.assets[0].uri);
+      setImageUri(compressed);
     }
   };
 
@@ -80,6 +104,7 @@ export default function TambahProdukScreen() {
         allowNegativeStock,
         unit,
         imageUri,
+        imageKey,
         isActive: true,
       };
       await ProductRepository.create(data);
@@ -93,8 +118,6 @@ export default function TambahProdukScreen() {
       setSaving(false);
     }
   };
-
-  const selectedCategory = categories.find(c => c.id === categoryId);
 
   return (
     <KeyboardAvoidingView
@@ -112,11 +135,13 @@ export default function TambahProdukScreen() {
       <View style={styles.imageSection}>
         <TouchableOpacity style={styles.imageBox} onPress={pickImage}>
           {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+            <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
           ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="camera-outline" size={40} color={colors.onSurfaceVariant} />
-            </View>
+            <Image
+              source={getProductImage(imageKey)}
+              style={styles.imagePreview}
+              resizeMode="contain"
+            />
           )}
         </TouchableOpacity>
         <TouchableOpacity style={styles.imageEditButton} onPress={pickImage}>

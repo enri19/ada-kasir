@@ -40,6 +40,7 @@ export const CREATE_PRODUCTS_TABLE = `
     allow_negative_stock INTEGER NOT NULL DEFAULT 1,
     unit TEXT DEFAULT 'pcs',
     image_uri TEXT,
+    image_key TEXT DEFAULT 'default',
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -152,4 +153,5 @@ export const ALL_MIGRATIONS = [
   'ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE products ADD COLUMN track_stock INTEGER NOT NULL DEFAULT 1',
   'ALTER TABLE products ADD COLUMN allow_negative_stock INTEGER NOT NULL DEFAULT 1',
+  "ALTER TABLE products ADD COLUMN image_key TEXT DEFAULT 'default'",
 ];

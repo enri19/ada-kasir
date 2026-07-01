@@ -9,9 +9,11 @@ import { Button } from '../../../src/components/Button';
 import { Card } from '../../../src/components/Card';
 import { ProductRepository } from '../../../src/database/product.repo';
 import { CategoryRepository } from '../../../src/database/category.repo';
-import { Product, ProductFormData, PRODUCT_UNITS, ProductUnit } from '../../../src/types/product';
+import { Product, ProductFormData, PRODUCT_UNITS, ProductUnit, ProductImageKey } from '../../../src/types/product';
 import { Category } from '../../../src/types/category';
 import { formatRupiah, parseRupiah } from '../../../src/utils/currency';
+import { getProductImage } from '../../../src/utils/product-images';
+import { compressImage } from '../../../src/utils/compress-image';
 
 export default function EditProdukScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,6 +23,7 @@ export default function EditProdukScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageKey, setImageKey] = useState<ProductImageKey>('default');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
 
@@ -36,6 +39,20 @@ export default function EditProdukScreen() {
   const [trackStock, setTrackStock] = useState(true);
   const [allowNegativeStock, setAllowNegativeStock] = useState(true);
   const [isActive, setIsActive] = useState(true);
+
+  const getCategoryImageKey = (categoryName?: string): ProductImageKey => {
+    const normalized = categoryName?.toLowerCase() ?? '';
+    if (normalized.includes('mie')) return 'mie';
+    if (normalized.includes('minum')) return 'minuman';
+    if (normalized.includes('rokok')) return 'rokok';
+    if (normalized.includes('sembako')) return 'sembako';
+    if (normalized.includes('snack')) return 'snack';
+    if (normalized.includes('kopi')) return 'kopi';
+    if (normalized.includes('sabun')) return 'sabun';
+    if (normalized.includes('obat')) return 'obat';
+    if (normalized.includes('pulsa') || normalized.includes('token')) return 'pulsa';
+    return 'default';
+  };
 
   useEffect(() => {
     if (id) {
@@ -58,6 +75,7 @@ export default function EditProdukScreen() {
           setAllowNegativeStock(prod.allowNegativeStock);
           setIsActive(prod.isActive);
           setImageUri(prod.imageUri);
+          setImageKey(prod.imageKey || getCategoryImageKey(prod.name));
         }
         setCategories(cats);
       }).catch(console.error);
@@ -74,10 +92,11 @@ export default function EditProdukScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      const compressed = await compressImage(result.assets[0].uri);
+      setImageUri(compressed);
     }
   };
 
@@ -145,6 +164,10 @@ export default function EditProdukScreen() {
   const selectedCategory = categories.find(c => c.id === categoryId);
   const unitIndex = PRODUCT_UNITS.indexOf(unit);
 
+  useEffect(() => {
+    setImageKey(getCategoryImageKey(selectedCategory?.name));
+  }, [selectedCategory?.id, selectedCategory?.name]);
+
   if (!product) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -169,11 +192,13 @@ export default function EditProdukScreen() {
       <View style={styles.imageSection}>
         <TouchableOpacity style={styles.imageBox} onPress={pickImage}>
           {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+            <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
           ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="camera-outline" size={40} color={colors.onSurfaceVariant} />
-            </View>
+            <Image
+              source={getProductImage(imageKey)}
+              style={styles.imagePreview}
+              resizeMode="contain"
+            />
           )}
         </TouchableOpacity>
         <TouchableOpacity style={styles.imageEditButton} onPress={pickImage}>

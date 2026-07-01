@@ -13,6 +13,7 @@ import { Product } from '../../../src/types/product';
 import { Category } from '../../../src/types/category';
 import { useCartStore } from '../../../src/stores/cart.store';
 import { CustomHeader } from '../../../src/components/CustomHeader';
+import { getProductImage } from '../../../src/utils/product-images';
 
 export default function DetailProdukKasirScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -99,11 +100,13 @@ export default function DetailProdukKasirScreen() {
         <View style={styles.imageContainer}>
           <View style={styles.imageBox}>
             {product.imageUri ? (
-              <Image source={{ uri: product.imageUri }} style={styles.image} />
+              <Image source={{ uri: product.imageUri }} style={styles.image} resizeMode="cover" />
             ) : (
-              <View style={styles.imagePlaceholder}>
-                <Text style={styles.imagePlaceholderText}>img</Text>
-              </View>
+              <Image
+                source={getProductImage(product.imageKey)}
+                style={styles.image}
+                resizeMode="cover"
+              />
             )}
           </View>
           <View style={styles.stockBadge}>
@@ -211,7 +214,7 @@ const styles = StyleSheet.create({
     height: 220, borderRadius: borderRadius.lg,
     backgroundColor: colors.surfaceContainerHigh, overflow: 'hidden',
   },
-  image: { width: '100%', height: '100%' },
+  image: { width: '100%', height: '100%', borderRadius: borderRadius.lg },
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   imagePlaceholderText: { ...typography.bodyLg, color: colors.onSurfaceVariant },
   stockBadge: {

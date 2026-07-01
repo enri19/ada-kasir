@@ -8,6 +8,7 @@ import { Card } from '../../src/components/Card';
 import { CurrencyText } from '../../src/components/CurrencyText';
 import { ProductRepository } from '../../src/database/product.repo';
 import { Product } from '../../src/types/product';
+import { getProductImage } from '../../src/utils/product-images';
 
 export default function StokMenipisScreen() {
   const router = useRouter();
@@ -65,11 +66,11 @@ export default function StokMenipisScreen() {
               activeOpacity={0.8}
             >
               <View style={styles.productImage}>
-                {product.imageUri ? (
-                  <Image source={{ uri: product.imageUri }} style={styles.productImageContent} />
-                ) : (
-                  <Text style={styles.productImageText}>img</Text>
-                )}
+                <Image
+                  source={getProductImage(product.imageKey)}
+                  style={styles.productImageContent}
+                  resizeMode="contain"
+                />
               </View>
               <View style={styles.productInfo}>
                 <Text style={styles.productName}>{product.name}</Text>
@@ -103,8 +104,8 @@ const styles = StyleSheet.create({
   emptyTitle: { ...typography.headlineMobile, color: colors.onSurface, marginTop: spacing.stackMd },
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm, textAlign: 'center' },
   productCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.stackMd, marginBottom: spacing.stackMd, borderWidth: 1, borderColor: colors.outlineVariant },
-  productImage: { width: 72, height: 72, borderRadius: borderRadius.md, backgroundColor: colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center', marginRight: spacing.stackMd, overflow: 'hidden' },
-  productImageContent: { width: '100%', height: '100%' },
+  productImage: { width: 56, height: 56, borderRadius: 12, backgroundColor: colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center', marginRight: spacing.stackMd, overflow: 'hidden' },
+  productImageContent: { width: 48, height: 48, borderRadius: 12 },
   productImageText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
   productInfo: { flex: 1 },
   productName: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface, marginBottom: spacing.stackSm },
