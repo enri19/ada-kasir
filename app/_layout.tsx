@@ -47,7 +47,7 @@ export default function RootLayout() {
         <Stack.Screen name="produk" />
         <Stack.Screen name="laporan/detail" />
         <Stack.Screen name="kategori" />
-        <Stack.Screen name="pelanggan" />
+        <Stack.Screen name="pelanggan/index" />
         <Stack.Screen name="pelanggan/tambah" />
         <Stack.Screen name="pelanggan/detail/[id]" />
         <Stack.Screen name="pelanggan/pilih" />

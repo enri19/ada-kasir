@@ -253,7 +253,7 @@ export default function ProdukScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="storefront" size={24} color={colors.primary} />
+          <Ionicons name="storefront" size={22} color={colors.primary} />
           <Text style={styles.headerTitle}>{storeName}</Text>
         </View>
       </View>
@@ -434,11 +434,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: spacing.marginMobile, paddingVertical: spacing.stackSm,
+    paddingHorizontal: spacing.marginMobile, paddingVertical: 10,
     backgroundColor: colors.surface,
     borderBottomWidth: 1, borderBottomColor: colors.outlineVariant,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { ...typography.headlineMobile, color: colors.primary },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center',

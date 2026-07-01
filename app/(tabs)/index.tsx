@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image, FlatList } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image, FlatList } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -56,6 +56,7 @@ export default function KasirScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const cartItems = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
@@ -74,6 +75,8 @@ export default function KasirScreen() {
       setNeedsRefresh(false);
     } catch (error) {
       console.error('Error loading products:', error);
+    } finally {
+      setIsInitialLoading(false);
     }
   }, []);
 
@@ -175,31 +178,38 @@ export default function KasirScreen() {
         </ScrollView>
       )}
 
-      <FlatList
-        style={styles.productsContainer}
-        contentContainerStyle={[styles.productsContent, { paddingBottom: totalItems > 0 ? 96 : 24 }]}
-        data={filteredProducts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderProductItem}
-        numColumns={2}
-        columnWrapperStyle={styles.productRow}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="cube-outline" size={64} color={colors.surfaceContainerHigh} />
-            <Text style={styles.emptyTitle}>Belum ada produk</Text>
-            <Text style={styles.emptyText}>Tambahkan produk di halaman Produk</Text>
-          </View>
-        }
-        initialNumToRender={4}
-        maxToRenderPerBatch={4}
-        updateCellsBatchingPeriod={80}
-        windowSize={3}
-        removeClippedSubviews
-        showsVerticalScrollIndicator={false}
-      />
+      {isInitialLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Memuat produk kasir...</Text>
+        </View>
+      ) : (
+        <FlatList
+          style={styles.productsContainer}
+          contentContainerStyle={[styles.productsContent, { paddingBottom: totalItems > 0 ? 96 : 24 }]}
+          data={filteredProducts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderProductItem}
+          numColumns={2}
+          columnWrapperStyle={styles.productRow}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="cube-outline" size={64} color={colors.surfaceContainerHigh} />
+              <Text style={styles.emptyTitle}>Belum ada produk</Text>
+              <Text style={styles.emptyText}>Tambahkan produk di halaman Produk</Text>
+            </View>
+          }
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          updateCellsBatchingPeriod={80}
+          windowSize={3}
+          removeClippedSubviews
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {totalItems > 0 && (
         <TouchableOpacity 
@@ -252,6 +262,8 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyTitle: { ...typography.headlineMobile, color: colors.onSurface, marginTop: spacing.stackMd },
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.marginMobile },
+  loadingText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm },
   productRow: { gap: spacing.stackMd },
   productCard: {
     flex: 1, maxWidth: '50%', backgroundColor: colors.surface, borderRadius: borderRadius.lg,
