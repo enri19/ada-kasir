@@ -11,6 +11,7 @@ import { useAppStore } from '../../src/stores/app.store';
 import { SaleRepository } from '../../src/database/sales.repo';
 import { WhatsAppService } from '../../src/services/whatsapp.service';
 import { PrinterService } from '../../src/services/printer.service';
+import { useLicenseStore } from '../../src/stores/license.store';
 import { APP_NAME, APP_VERSION } from '../../src/utils/constants';
 import { SaleWithItems } from '../../src/types/sale';
 
@@ -26,6 +27,8 @@ export default function TransaksiBerhasilScreen() {
   }>();
 
   const activeStore = useAppStore((state) => state.activeStore);
+  const licenseStatus = useLicenseStore((state) => state.status);
+  const isPremium = licenseStatus === 'premium_active';
   const [saleData, setSaleData] = useState<SaleWithItems | null>(null);
   const changeAmount = parseInt(change || '0', 10) || 0;
   const totalAmount = parseInt(total, 10) || 0;
@@ -57,6 +60,10 @@ export default function TransaksiBerhasilScreen() {
   };
 
   const handlePrintReceipt = async () => {
+    if (!isPremium) {
+      Alert.alert('Fitur Premium', 'Cetak struk adalah fitur Premium. Aktifkan Premium di menu Akun & Lisensi.');
+      return;
+    }
     try {
       const sale = await SaleRepository.getByInvoiceNumber(invoiceNumber);
       if (!sale || !activeStore) {
@@ -100,9 +107,14 @@ export default function TransaksiBerhasilScreen() {
 
       const result = await PrinterService.printReceiptFromData(receiptParams);
       if (!result.success) {
-        Alert.alert('Gagal Cetak', result.message);
+        // Jika gagal karena printer tidak terhubung, tampilkan preview
+        Alert.alert(
+          'Cetak Struk',
+          'Printer belum terhubung. Gunakan fitur Test Print di halaman Printer Struk untuk melihat preview.\n\nAtur printer di: Pengaturan > Printer Struk'
+        );
+      } else {
+        Alert.alert('Berhasil', 'Struk berhasil dicetak.');
       }
-      // Jika berhasil, tidak perlu alert — struk sudah keluar
     } catch (error) {
       console.error('Print error:', error);
       Alert.alert('Gagal Cetak', 'Struk gagal dicetak. Periksa koneksi printer.');

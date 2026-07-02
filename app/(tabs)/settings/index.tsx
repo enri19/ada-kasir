@@ -163,6 +163,26 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.menuCard} onPress={() => router.push('/settings/printer')}>
+          <View style={styles.menuIcon}>
+            <Ionicons
+              name={isPremium ? 'print-outline' : 'lock-closed-outline'}
+              size={24}
+              color={isPremium ? colors.primary : colors.onSurfaceVariant}
+            />
+          </View>
+          <View style={styles.menuLabelArea}>
+            <Text style={styles.menuLabel}>Printer Struk</Text>
+            <Text style={styles.menuDescription}>
+              {isPremium ? 'Atur printer thermal untuk cetak struk' : 'Fitur Premium untuk cetak struk thermal'}
+            </Text>
+          </View>
+          <Text style={[styles.menuSubLabel, { color: isPremium ? '#FFA000' : colors.onSurfaceVariant }]}>
+            {isPremium ? 'Tahap 1' : 'Premium'}
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuCard} onPress={() => router.push('/settings/device')}>
           <View style={styles.menuIcon}><Ionicons name="hardware-chip-outline" size={24} color={colors.primary} /></View>
           <Text style={styles.menuLabel}>Perangkat</Text>

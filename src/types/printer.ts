@@ -57,6 +57,56 @@ export interface PrintResult {
   message: string;
 }
 
+// ─── Printer Receipt Types (untuk format struk thermal) ────
+
+/** Satu item dalam struk printer */
+export interface PrinterReceiptItem {
+  name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+}
+
+/** Alias ukuran kertas printer (sama dengan PrinterSize) */
+export type PrinterPaperSize = PrinterSize;
+
+/** Pengaturan printer yang disederhanakan untuk halaman Printer Struk */
+export interface PrinterSettings {
+  paperSize: PrinterPaperSize;
+  autoPrintAfterSale: boolean;
+  lastPrinterName?: string | null;
+  lastPrinterAddress?: string | null;
+}
+
+/** Status printer yang kaya informasi untuk ditampilkan di UI */
+export interface PrinterStatus {
+  available: boolean;
+  connected: boolean;
+  message: string;
+  device?: PrinterDevice | null;
+}
+
+/** Data transaksi lengkap untuk format struk printer */
+export interface PrinterReceiptData {
+  storeName?: string;
+  storeAddress?: string;
+  storePhone?: string;
+  invoiceNumber: string;
+  date: string;
+  time?: string;
+  cashierName?: string;
+  customerName?: string;
+  items: PrinterReceiptItem[];
+  subtotal: number;
+  discount?: number;
+  total: number;
+  paymentMethod: string;
+  paidAmount?: number;
+  changeAmount?: number;
+  debtAmount?: number;
+  note?: string;
+}
+
 /** Data struk yang akan dicetak */
 export interface ReceiptData {
   storeName: string;

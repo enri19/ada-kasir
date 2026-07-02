@@ -11,6 +11,8 @@ import { SaleRepository } from '../../../src/database/sales.repo';
 import { SaleWithItems } from '../../../src/types/sale';
 import { useAppStore } from '../../../src/stores/app.store';
 import { WhatsAppService } from '../../../src/services/whatsapp.service';
+import { PrinterService } from '../../../src/services/printer.service';
+import { useLicenseStore } from '../../../src/stores/license.store';
 
 export default function DetailTransaksiScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -18,6 +20,8 @@ export default function DetailTransaksiScreen() {
   const insets = useSafeAreaInsets();
   const [sale, setSale] = useState<SaleWithItems | null>(null);
   const activeStore = useAppStore((state) => state.activeStore);
+  const licenseStatus = useLicenseStore((state) => state.status);
+  const isPremium = licenseStatus === 'premium_active';
 
   useEffect(() => {
     if (id) {
@@ -40,6 +44,58 @@ export default function DetailTransaksiScreen() {
       const receiptText = WhatsAppService.generateReceiptText(activeStore, sale);
       const encoded = encodeURIComponent(receiptText);
       await Linking.openURL(`https://wa.me/?text=${encoded}`);
+    }
+  };
+
+  const handlePrintReceipt = async () => {
+    if (!isPremium) {
+      Alert.alert('Fitur Premium', 'Cetak struk adalah fitur Premium. Aktifkan Premium untuk mencetak struk thermal.');
+      return;
+    }
+
+    if (!sale || !activeStore) {
+      Alert.alert('Error', 'Data transaksi tidak ditemukan');
+      return;
+    }
+
+    try {
+      const subtotal = sale.items.reduce((sum, item) => sum + item.subtotal, 0);
+      const discount = Math.max(0, subtotal - sale.totalAmount);
+      const paymentLabel = (() => {
+        switch (sale.paymentMethod) {
+          case 'qris_static': return 'QRIS';
+          case 'debt': return 'Bon';
+          default: return 'Tunai';
+        }
+      })();
+
+      const receiptParams = {
+        storeName: activeStore.name,
+        storeAddress: activeStore.address || undefined,
+        storePhone: activeStore.phone || undefined,
+        invoiceNumber: sale.invoiceNumber,
+        createdAt: sale.createdAt,
+        cashierName: undefined,
+        customerName: sale.customerName || undefined,
+        items: sale.items.map((i) => ({
+          productName: i.productName,
+          qty: i.qty,
+          price: i.price,
+          subtotal: i.subtotal,
+        })),
+        subtotal,
+        discount,
+        total: sale.totalAmount,
+        paymentMethod: paymentLabel,
+        paidAmount: sale.paidAmount,
+        changeAmount: sale.changeAmount,
+        receiptNote: activeStore.receiptNote || undefined,
+      };
+
+      const result = await PrinterService.printReceiptPreview(receiptParams);
+      Alert.alert('Preview Struk', result);
+    } catch (error: any) {
+      Alert.alert('Gagal Cetak', error?.message || 'Struk gagal dicetak.');
     }
   };
 
@@ -124,13 +180,27 @@ export default function DetailTransaksiScreen() {
       </ScrollView>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom }]}>
-        <Button
-          title="Kirim Nota WhatsApp"
-          onPress={handleShareWhatsApp}
-          size="lg"
-          fullWidth
-          icon={<Ionicons name="share-social-outline" size={20} color={colors.onPrimary} />}
-        />
+        <View style={styles.bottomButtonRow}>
+          <View style={styles.bottomButtonCol}>
+            <Button
+              title="Kirim Nota WhatsApp"
+              onPress={handleShareWhatsApp}
+              size="sm"
+              fullWidth
+              icon={<Ionicons name="share-social-outline" size={18} color={colors.onPrimary} />}
+            />
+          </View>
+          <View style={styles.bottomButtonCol}>
+            <Button
+              title={isPremium ? "Cetak Struk" : "Cetak Struk (Premium)"}
+              onPress={handlePrintReceipt}
+              size="sm"
+              fullWidth
+              variant={isPremium ? "outline" : "outline"}
+              icon={<Ionicons name="print-outline" size={18} color={isPremium ? colors.primary : colors.onSurfaceVariant} />}
+            />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -182,4 +252,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface, paddingHorizontal: spacing.marginMobile,
     paddingTop: spacing.stackMd, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
   },
+  bottomButtonRow: { flexDirection: 'row', gap: spacing.stackSm },
+  bottomButtonCol: { flex: 1 },
 });

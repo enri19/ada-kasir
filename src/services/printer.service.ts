@@ -45,10 +45,19 @@
  * ────────────────────────────────────────────────────────────
  */
 import { Platform } from 'react-native';
-import { PrinterDevice, PrintResult, PrinterConnectionStatus } from '../types/printer';
+import {
+  PrinterDevice,
+  PrintResult,
+  PrinterConnectionStatus,
+  PrinterConfig,
+  PrinterSize,
+  PrinterSettings,
+  PrinterPaperSize,
+  PrinterStatus,
+} from '../types/printer';
 import { PrinterConfigService } from './printer-config.service';
 import { buildReceiptData, buildReceiptText, buildTestPrintText } from '../utils/receipt';
-import { PrinterConfig, PrinterSize } from '../types/printer';
+import { formatTestReceipt } from '../utils/receipt-printer-format';
 
 // ─── Type untuk native module ─────────────────────────────
 // Definisi type yang diharapkan dari react-native-bluetooth-escpos-printer
@@ -461,6 +470,143 @@ export const PrinterService = {
    */
   async saveConfig(config: PrinterConfig): Promise<void> {
     await PrinterConfigService.save(config);
+  },
+
+  // ─── Method tambahan untuk Printer Struk settings page ───
+
+  /**
+   * Dapatkan pengaturan printer yang disederhanakan (PrinterSettings).
+   */
+  async getPrinterSettings(): Promise<PrinterSettings> {
+    const config = await PrinterConfigService.load();
+    return {
+      paperSize: config.printerSize,
+      autoPrintAfterSale: config.autoReconnect,
+      lastPrinterName: config.printerName || null,
+      lastPrinterAddress: config.printerAddress || null,
+    };
+  },
+
+  /**
+   * Simpan pengaturan printer dari halaman Printer Struk.
+   */
+  async savePrinterSettings(settings: PrinterSettings): Promise<void> {
+    const config = await PrinterConfigService.load();
+    await PrinterConfigService.save({
+      ...config,
+      printerSize: settings.paperSize,
+      characterWidth: settings.paperSize === '58mm' ? 32 : 48,
+      autoReconnect: settings.autoPrintAfterSale,
+      printerName: settings.lastPrinterName ?? config.printerName,
+      printerAddress: settings.lastPrinterAddress ?? config.printerAddress,
+    });
+  },
+
+  /**
+   * Pindai printer Bluetooth (Tahap 1: placeholder ramah).
+   */
+  async scanPrinters(): Promise<PrinterDevice[]> {
+    if (!isPlatformSupported()) {
+      throw new Error('Fitur printer Bluetooth hanya tersedia di Android.');
+    }
+    if (!isNativeModuleAvailable()) {
+      throw new Error('Fitur scan printer Bluetooth membutuhkan development build dan belum tersedia di Expo Go.');
+    }
+    return NativePrinter.scan();
+  },
+
+  /**
+   * Dapatkan status printer saat ini.
+   */
+  async getPrinterStatus(): Promise<PrinterStatus> {
+    const config = await PrinterConfigService.load();
+    const nativeAvailable = isNativeModuleAvailable();
+    const platformSupported = isPlatformSupported();
+    const status = await this.getConnectionStatus();
+
+    return {
+      available: nativeAvailable && platformSupported,
+      connected: status === 'connected',
+      message: !platformSupported
+        ? 'Fitur printer hanya tersedia di Android.'
+        : !nativeAvailable
+          ? 'Printer Bluetooth membutuhkan development build dan belum tersedia di Expo Go.'
+          : status === 'connected'
+            ? 'Printer terhubung dan siap digunakan.'
+            : status === 'connecting'
+              ? 'Menghubungkan ke printer...'
+              : 'Printer belum terhubung. Silakan scan dan pilih printer.',
+      device: config.printerName
+        ? { name: config.printerName, address: config.printerAddress, connectionType: config.connectionType, isPaired: status === 'connected' }
+        : null,
+    };
+  },
+
+  /**
+   * Cetak test print (Tahap 1: preview jika native tidak tersedia).
+   */
+  async printTest(): Promise<string> {
+    if (isNativeModuleAvailable()) {
+      const status = await this.getConnectionStatus();
+      if (status !== 'connected') {
+        const cfg = await PrinterConfigService.load();
+        return 'Preview test print:\n\n' + formatTestReceipt({ paperSize: cfg.printerSize });
+      }
+      await NativePrinter.testPrint();
+      return 'Test print berhasil dikirim ke printer.';
+    }
+    const config = await PrinterConfigService.load();
+    const preview = formatTestReceipt({ paperSize: config.printerSize });
+    return '\n── Preview Test Print ──\n' + preview + '\n── Akhir Preview ──\n\nCatatan: Printer Bluetooth membutuhkan development build.';
+  },
+
+  /**
+   * Cetak struk transaksi (Tahap 1: preview jika native tidak tersedia).
+   * Untuk preview/fallback — beda dari printReceipt(text) yang untuk cetak mentah.
+   */
+  async printReceiptPreview(receiptData: any): Promise<string> {
+    if (!receiptData || !receiptData.invoiceNumber) {
+      throw new Error('Data transaksi tidak valid untuk dicetak.');
+    }
+    if (isNativeModuleAvailable()) {
+      const result = await this.printReceiptFromData(receiptData);
+      if (!result.success) throw new Error(result.message);
+      return 'Struk berhasil dikirim ke printer.';
+    }
+    const config = await PrinterConfigService.load();
+    const date = receiptData.createdAt ? new Date(receiptData.createdAt) : new Date();
+    const { formatReceiptForPrinter } = require('../utils/receipt-printer-format');
+    const preview = formatReceiptForPrinter({
+      storeName: receiptData.storeName,
+      storeAddress: receiptData.storeAddress,
+      storePhone: receiptData.storePhone,
+      invoiceNumber: receiptData.invoiceNumber,
+      date: date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+      time: date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      cashierName: receiptData.cashierName,
+      customerName: receiptData.customerName,
+      items: (receiptData.items || []).map((i: any) => ({
+        name: i.productName || i.name,
+        quantity: i.qty || i.quantity || 0,
+        price: i.price,
+        subtotal: i.subtotal,
+      })),
+      subtotal: receiptData.subtotal,
+      discount: receiptData.discount,
+      total: receiptData.total,
+      paymentMethod: receiptData.paymentMethod || 'cash',
+      paidAmount: receiptData.paidAmount,
+      changeAmount: receiptData.changeAmount,
+      note: receiptData.receiptNote,
+    }, { paperSize: config.printerSize });
+    return '\n── Preview Struk ──\n' + preview + '\n── Akhir Preview ──\n\nCatatan: Printer Bluetooth membutuhkan development build.';
+  },
+
+  /**
+   * Cek apakah printer native module tersedia.
+   */
+  isPrinterNativeAvailable(): boolean {
+    return isNativeModuleAvailable() && isPlatformSupported();
   },
 };
 

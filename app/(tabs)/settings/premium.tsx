@@ -1,17 +1,13 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
 import { Card } from '../../../src/components/Card';
-import { Input } from '../../../src/components/Input';
 import { Button } from '../../../src/components/Button';
 import { CustomHeader } from '../../../src/components/CustomHeader';
 import { useLicenseStore } from '../../../src/stores/license.store';
-import { LicenseService } from '../../../src/services/license.service';
-import { useAppStore } from '../../../src/stores/app.store';
-import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
 
 // ============================================================
 // Data fitur Premium
@@ -22,7 +18,7 @@ interface PremiumFeature {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   /** Status di halaman Fitur Premium */
-  getStatus: (isPremium: boolean) => 'aktif' | 'premium' | 'coming_soon';
+  getStatus: (isPremium: boolean) => 'aktif' | 'premium' | 'coming_soon' | 'tahap1';
   /** Route tujuan saat tombol navigasi diklik (hanya untuk Premium) */
   route?: string;
 }
@@ -59,17 +55,25 @@ const PREMIUM_FEATURES: PremiumFeature[] = [
     icon: 'chatbubble-ellipses-outline',
     getStatus: (p) => p ? 'aktif' : 'premium',
   },
+  {
+    key: 'printer',
+    label: 'Printer Struk',
+    icon: 'print-outline',
+    getStatus: (p) => p ? 'tahap1' : 'premium',
+    route: '/settings/printer',
+  },
 ];
 
 // ============================================================
 // Helper tampilan status
 // ============================================================
 
-function StatusBadge({ status }: { status: 'aktif' | 'premium' | 'coming_soon' }) {
+function StatusBadge({ status }: { status: 'aktif' | 'premium' | 'coming_soon' | 'tahap1' }) {
   const config = {
     aktif: { icon: 'checkmark-circle' as const, color: colors.secondary, label: 'Aktif' },
     premium: { icon: 'lock-closed-outline' as const, color: colors.onSurfaceVariant, label: 'Premium' },
     coming_soon: { icon: 'time-outline' as const, color: '#FFA000', label: 'Segera Hadir' },
+    tahap1: { icon: 'construct-outline' as const, color: '#FFA000', label: 'Tahap 1' },
   }[status];
 
   return (
@@ -100,13 +104,7 @@ export default function PremiumScreen() {
   const status = useLicenseStore((s) => s.status);
   const activatedAt = useLicenseStore((s) => s.activatedAt);
   const expiresAt = useLicenseStore((s) => s.expiresAt);
-  const activateLicense = useLicenseStore((s) => s.activateLicense);
   const refreshStatus = useLicenseStore((s) => s.refreshStatus);
-  const activeStore = useAppStore((s) => s.activeStore);
-
-  const [licenseCode, setLicenseCode] = useState('');
-  const [isActivating, setIsActivating] = useState(false);
-  const [showLicenseForm, setShowLicenseForm] = useState(false);
 
   // Refresh status setiap halaman difokuskan
   useFocusEffect(
@@ -116,56 +114,6 @@ export default function PremiumScreen() {
   );
 
   const isPremium = status === 'premium_active';
-
-  const handleActivate = async () => {
-    if (!licenseCode.trim()) {
-      Alert.alert('Kode kosong', 'Masukkan kode lisensi terlebih dahulu.');
-      return;
-    }
-
-    setIsActivating(true);
-    try {
-      const result = await activateLicense(licenseCode.trim().toUpperCase());
-
-      if (result === 'device_mismatch') {
-        Alert.alert('Kode tidak cocok', 'Kode lisensi tidak cocok dengan perangkat ini.');
-        return;
-      }
-      if (result === 'expired') {
-        Alert.alert('Kode kedaluwarsa', 'Kode lisensi Premium sudah melewati tanggal berlaku.');
-        return;
-      }
-      if (result !== 'ok') {
-        Alert.alert('Kode tidak valid', 'Format kode lisensi tidak dikenali.');
-        return;
-      }
-
-      // Refresh status agar UI langsung berubah
-      await refreshStatus();
-      setLicenseCode('');
-      setShowLicenseForm(false);
-      Alert.alert('Berhasil', 'Lisensi Premium berhasil diaktifkan.');
-    } finally {
-      setIsActivating(false);
-    }
-  };
-
-  const handleContactAdmin = async () => {
-    const message = LicenseService.buildPremiumMessage(
-      activeStore?.name ?? '',
-      deviceCode ?? '',
-      'Premium',
-      activeStore?.ownerName,
-      activeStore?.phone,
-    );
-    const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
-
-    try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert('Gagal membuka WhatsApp', 'Pastikan WhatsApp tersedia di perangkat Anda.');
-    }
-  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -216,11 +164,18 @@ export default function PremiumScreen() {
                 <View style={styles.statusTextArea}>
                   <Text style={styles.statusTitle}>Aktifkan Premium</Text>
                   <Text style={styles.statusDescription}>
-                    Masukkan kode lisensi untuk membuka fitur Premium seperti Cadangan Data Cloud dan Export
-                    Laporan.
+                    Aktifkan Premium untuk membuka fitur seperti Cadangan Data Cloud, Export
+                    Laporan, dan lainnya.
                   </Text>
                 </View>
               </View>
+
+              <Button
+                title="Aktifkan Premium"
+                onPress={() => router.push('/(tabs)/settings/account')}
+                fullWidth
+                icon={<Ionicons name="diamond-outline" size={18} color={colors.onPrimary} />}
+              />
             </View>
           )}
         </Card>
@@ -253,59 +208,6 @@ export default function PremiumScreen() {
             </TouchableOpacity>
           );
         })}
-
-        {/* ── Form lisensi ── */}
-        <Card style={styles.licenseCard}>
-          {isPremium && !showLicenseForm ? (
-            <Button
-              title="Ganti / Perbarui Lisensi"
-              onPress={() => setShowLicenseForm(true)}
-              variant="outline"
-              fullWidth
-              size="sm"
-            />
-          ) : (
-            <View>
-              <Input
-                label={isPremium ? 'Kode Lisensi Baru' : 'Kode Lisensi'}
-                value={licenseCode}
-                onChangeText={(value) => setLicenseCode(value.toUpperCase())}
-                placeholder="ADK-LIFE-XXXX-YYYY"
-                editable={!isActivating}
-              />
-
-              <View style={styles.licenseButtonRow}>
-                <View style={styles.licenseBtnWrapper}>
-                  <Button
-                    title={isPremium ? 'Simpan' : 'Aktifkan Premium'}
-                    onPress={handleActivate}
-                    fullWidth
-                    size="sm"
-                    loading={isActivating}
-                  />
-                </View>
-
-                {isPremium && (
-                  <View style={styles.licenseBtnWrapper}>
-                    <Button
-                      title="Batal"
-                      onPress={() => { setShowLicenseForm(false); setLicenseCode(''); }}
-                      variant="outline"
-                      fullWidth
-                      size="sm"
-                    />
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-        </Card>
-
-        {/* ── Tombol Hubungi Admin ── */}
-        <TouchableOpacity style={styles.contactButton} onPress={handleContactAdmin}>
-          <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.onPrimary} />
-          <Text style={styles.contactButtonText}>Hubungi Admin</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -372,21 +274,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusBadgeText: { ...typography.labelSm, fontSize: 11, fontWeight: '700' },
-
-  // ── License form ──
-  licenseCard: { padding: spacing.stackMd, marginBottom: spacing.stackMd },
-  licenseButtonRow: { flexDirection: 'row', gap: spacing.stackSm, marginTop: spacing.stackSm },
-  licenseBtnWrapper: { flex: 1 },
-
-  // ── Contact ──
-  contactButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.stackSm,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.stackMd,
-    borderRadius: borderRadius.md,
-  },
-  contactButtonText: { ...typography.bodyLg, color: colors.onPrimary, fontWeight: '700' },
 });

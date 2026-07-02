@@ -166,19 +166,29 @@ function validateBackupData(data: BackupData): string | null {
  * Membersihkan data lokal sebelum restore.
  * Data dihapus dengan urutan aman untuk foreign key.
  * Menerima db instance langsung (dari transaksi aktif).
+ *
+ * SQLite foreign key constraint sementara dinonaktifkan agar
+ * DELETE berjalan tanpa error, karena urutan hapus mungkin
+ * berbeda dengan urutan foreign key (misal customer masih
+ * direferensi oleh sales yang sudah dihapus sebelumnya).
  */
 async function clearLocalData(db: SQLite.SQLiteDatabase): Promise<void> {
-  await db.execAsync(`
-    DELETE FROM stock_movements;
-    DELETE FROM debt_payments;
-    DELETE FROM debts;
-    DELETE FROM sale_items;
-    DELETE FROM sales;
-    DELETE FROM customers;
-    DELETE FROM products;
-    DELETE FROM categories;
-    DELETE FROM stores;
-  `);
+  await db.execAsync('PRAGMA foreign_keys = OFF');
+  try {
+    await db.execAsync(`
+      DELETE FROM stock_movements;
+      DELETE FROM debt_payments;
+      DELETE FROM debts;
+      DELETE FROM sale_items;
+      DELETE FROM sales;
+      DELETE FROM customers;
+      DELETE FROM products;
+      DELETE FROM categories;
+      DELETE FROM stores;
+    `);
+  } finally {
+    await db.execAsync('PRAGMA foreign_keys = ON');
+  }
 }
 
 /**
