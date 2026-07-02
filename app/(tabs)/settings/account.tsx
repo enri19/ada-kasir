@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImageFromSource } from '../../../src/utils/pick-image';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../../src/stores/app.store';
@@ -17,6 +17,7 @@ import { Button } from '../../../src/components/Button';
 import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
 import { AppImages } from '../../../src/constants/assets';
 
+// ─── Constants ──────────────────────────────────────────────────────────
 const STATUS_LABELS: Record<string, string> = {
   trial_active: 'Trial Aktif',
   trial_expired: 'Trial Berakhir',
@@ -29,6 +30,7 @@ function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleDateString('id-ID') : '-';
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 export default function AccountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -41,20 +43,24 @@ export default function AccountScreen() {
   const activateLicense = useLicenseStore((state) => state.activateLicense);
   const refreshLicenseStatus = useLicenseStore((state) => state.refreshStatus);
 
+  // ── Store form state ──
   const [storeName, setStoreName] = useState(activeStore?.name || '');
   const [ownerName, setOwnerName] = useState(activeStore?.ownerName || '');
   const [phone, setPhone] = useState(activeStore?.phone || '');
   const [address, setAddress] = useState(activeStore?.address || '');
   const [logoUri, setLogoUri] = useState<string | null>(activeStore?.logoUri ?? null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // ── License state ──
   const [licenseCode, setLicenseCode] = useState('');
   const [isActivating, setIsActivating] = useState(false);
-
-  /** Apakah user sedang dalam status Premium aktif */
-  const isPremium = licenseStatus === 'premium_active';
-  /** Toggle untuk menampilkan form ganti lisensi (hanya saat Premium) */
   const [showLicenseForm, setShowLicenseForm] = useState(false);
+  const [copiedDevice, setCopiedDevice] = useState(false);
+  const [showPaketPicker, setShowPaketPicker] = useState(false);
 
+  const isPremium = licenseStatus === 'premium_active';
+
+  // ── Init ──
   useEffect(() => {
     if (activeStore) {
       setStoreName(activeStore.name);
@@ -69,36 +75,65 @@ export default function AccountScreen() {
     refreshLicenseStatus();
   }, [refreshLicenseStatus]);
 
+  // ── Pick logo ──
   const pickLogo = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Izin Ditolak', 'Aplikasi membutuhkan akses ke galeri foto.');
+    const uri = await pickImageFromSource({ aspect: [1, 1], quality: 0.7 }, 'Pilih Logo');
+    if (uri) setLogoUri(uri);
+  };
+
+  // ── Salin Kode Perangkat ──
+  const handleCopyDeviceCode = () => {
+    if (!deviceCode) {
+      Alert.alert('Kode Perangkat', 'Kode perangkat belum tersedia.');
       return;
     }
+    // Tampilkan di Alert agar user bisa salin manual (React Native tanpa clipboard library)
+    Alert.alert('Kode Perangkat', deviceCode, [
+      { text: 'Tutup', style: 'cancel' },
+    ]);
+    setCopiedDevice(true);
+    setTimeout(() => setCopiedDevice(false), 2000);
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+  // ── Hubungi Admin ──
+  const handleContactAdmin = () => {
+    setShowPaketPicker(true);
+  };
 
-    if (!result.canceled && result.assets[0]) {
-      setLogoUri(result.assets[0].uri);
+  const sendWaMessage = async (plan: string) => {
+    const message = plan === 'Lifetime'
+      ? LicenseService.buildActivationMessage(
+          activeStore?.name ?? '',
+          deviceCode ?? '',
+          activeStore?.ownerName,
+          activeStore?.phone,
+        )
+      : LicenseService.buildPremiumMessage(
+          activeStore?.name ?? '',
+          deviceCode ?? '',
+          'Premium',
+          activeStore?.ownerName,
+          activeStore?.phone,
+        );
+
+    const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Gagal membuka WhatsApp', 'Pastikan WhatsApp tersedia di perangkat Anda.');
     }
   };
 
+  // ── Simpan Data Toko ──
   const handleSave = async () => {
     if (!activeStore) {
       Alert.alert('Toko tidak ditemukan', 'Silakan kembali dan coba lagi.');
       return;
     }
-
     if (!storeName.trim()) {
       Alert.alert('Nama toko wajib diisi', 'Isi nama toko sebelum menyimpan.');
       return;
     }
-
     setIsSaving(true);
     try {
       const updatedStore = await StoreRepository.update(activeStore.id, {
@@ -108,7 +143,6 @@ export default function AccountScreen() {
         address: address.trim(),
         logoUri,
       });
-
       if (updatedStore) {
         setActiveStore(updatedStore);
         Alert.alert('Berhasil', 'Data toko berhasil diperbarui.');
@@ -122,15 +156,15 @@ export default function AccountScreen() {
     }
   };
 
+  // ── Aktivasi Lisensi ──
   const handleActivateLicense = async () => {
     if (!licenseCode.trim()) {
       Alert.alert('Kode kosong', 'Masukkan kode lisensi terlebih dahulu.');
       return;
     }
-
     setIsActivating(true);
     try {
-      const result = await activateLicense(licenseCode);
+      const result = await activateLicense(licenseCode.trim().toUpperCase());
       if (result === 'device_mismatch') {
         Alert.alert('Kode tidak cocok', 'Kode lisensi tidak cocok dengan perangkat ini.');
         return;
@@ -143,9 +177,7 @@ export default function AccountScreen() {
         Alert.alert('Kode tidak valid', 'Format kode lisensi tidak dikenali.');
         return;
       }
-
       setLicenseCode('');
-      // Refresh status lisensi agar UI langsung berubah
       await refreshLicenseStatus();
       setShowLicenseForm(false);
       Alert.alert('Berhasil', 'Lisensi berhasil diaktifkan.');
@@ -154,31 +186,192 @@ export default function AccountScreen() {
     }
   };
 
-  // Paket user saat ini untuk dikirim ke admin
-  const userPlan = licenseStatus === 'premium_active' ? 'Premium' : 'Lifetime';
-
-  const handleContactAdmin = async () => {
-    const message = LicenseService.buildActivationMessage(
-      activeStore?.name ?? '',
-      deviceCode ?? '',
-      activeStore?.ownerName,
-      activeStore?.phone,
-    );
-    const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
-
-    try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert('Gagal membuka WhatsApp', 'Pastikan WhatsApp tersedia di perangkat Anda.');
-    }
-  };
-
+  // ── Render ──
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <CustomHeader title="Akun & Lisensi" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        <Card style={styles.formCard}>
-          <Text style={styles.sectionTitle}>Informasi Warung</Text>
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 1: Status Paket
+            ════════════════════════════════════════════════════════════ */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.statusHeader}>
+            <Image source={AppImages.logo} style={styles.statusLogo} resizeMode="contain" />
+            <View style={styles.statusHeaderText}>
+              <Text style={styles.appName}>AdaKasir</Text>
+              <View style={styles.statusBadgeRow}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    { backgroundColor: isPremium ? colors.secondary : colors.onSurfaceVariant },
+                  ]}
+                />
+                <Text style={styles.statusLabel}>
+                  {STATUS_LABELS[licenseStatus] ?? licenseStatus}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {isPremium && expiresAt && (
+            <View style={styles.statusMetaRow}>
+              <Text style={styles.statusMetaLabel}>Berlaku sampai</Text>
+              <Text style={styles.statusMetaValue}>{formatDate(expiresAt)}</Text>
+            </View>
+          )}
+
+          {!isPremium && (
+            <View style={styles.statusMetaRow}>
+              <Text style={styles.statusMetaLabel}>Trial berakhir</Text>
+              <Text style={styles.statusMetaValue}>{formatDate(trialEndsAt)}</Text>
+            </View>
+          )}
+        </Card>
+
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 2: Kode Perangkat
+            ════════════════════════════════════════════════════════════ */}
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Kode Perangkat</Text>
+
+          <View style={styles.deviceCodeBox}>
+            <Text selectable style={styles.deviceCodeText}>
+              {deviceCode || 'Memuat...'}
+            </Text>
+          </View>
+
+          <Text style={styles.deviceCodeHint}>
+            Kode ini diperlukan admin untuk membuat kode lisensi.
+          </Text>
+
+          <View style={styles.deviceActions}>
+            <Button
+              title={copiedDevice ? 'Tersalin!' : 'Salin Kode Perangkat'}
+              onPress={handleCopyDeviceCode}
+              variant="outline"
+              size="sm"
+              icon={<Ionicons name="copy-outline" size={16} color={colors.primary} />}
+            />
+            <Button
+              title="Hubungi Admin"
+              onPress={handleContactAdmin}
+              variant="outline"
+              size="sm"
+              icon={<Ionicons name="logo-whatsapp" size={16} color={colors.primary} />}
+            />
+          </View>
+        </Card>
+
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 3: Aktivasi Premium / Kelola Lisensi
+            ════════════════════════════════════════════════════════════ */}
+        <Card style={styles.sectionCard}>
+          {isPremium ? (
+            <>
+              <View style={styles.premiumActiveHeader}>
+                <Ionicons name="checkmark-circle" size={22} color={colors.secondary} />
+                <Text style={styles.sectionTitle}>Premium Aktif</Text>
+              </View>
+              <Text style={styles.premiumActiveDesc}>
+                Semua fitur Premium tersedia untuk akun ini.
+              </Text>
+
+              {!showLicenseForm ? (
+                <Button
+                  title="Ganti / Perbarui Lisensi"
+                  onPress={() => setShowLicenseForm(true)}
+                  variant="outline"
+                  fullWidth
+                  size="sm"
+                />
+              ) : (
+                <View>
+                  <Input
+                    label="Kode Lisensi Baru"
+                    value={licenseCode}
+                    onChangeText={(v) => setLicenseCode(v.toUpperCase())}
+                    placeholder="ADK-XXXX-XXXX-YYYY"
+                    editable={!isActivating}
+                  />
+                  <View style={styles.licenseButtonRow}>
+                    <View style={styles.licenseBtnWrapper}>
+                      <Button
+                        title="Simpan"
+                        onPress={handleActivateLicense}
+                        fullWidth
+                        size="sm"
+                        loading={isActivating}
+                      />
+                    </View>
+                    <View style={styles.licenseBtnWrapper}>
+                      <Button
+                        title="Batal"
+                        onPress={() => { setShowLicenseForm(false); setLicenseCode(''); }}
+                        variant="outline"
+                        fullWidth
+                        size="sm"
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={styles.sectionTitle}>Aktivasi Lisensi</Text>
+
+              <Text style={styles.activationDesc}>
+                Masukkan kode lisensi Lifetime atau Premium dari admin untuk mengaktifkan.
+              </Text>
+
+              <Input
+                label="Kode Lisensi"
+                value={licenseCode}
+                onChangeText={(v) => setLicenseCode(v.toUpperCase())}
+                placeholder="ADK-XXXX-XXXX-YYYY"
+                editable={!isActivating}
+              />
+
+              <Button
+                title="Aktifkan Lisensi"
+                onPress={handleActivateLicense}
+                fullWidth
+                loading={isActivating}
+              />
+
+              <Text style={styles.activationHelp}>
+                Belum punya kode lisensi?{' '}
+                <Text style={styles.activationHelpBold}>Salin Kode Perangkat</Text> lalu kirim ke admin
+                melalui WhatsApp.
+              </Text>
+            </>
+          )}
+        </Card>
+
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 4: Cara Aktivasi (hanya jika belum Premium)
+            ════════════════════════════════════════════════════════════ */}
+        {!isPremium && (
+          <Card style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Cara Aktivasi Lisensi</Text>
+
+            <View style={styles.stepsList}>
+              <StepItem number={1} text="Salin Kode Perangkat dari halaman ini" />
+              <StepItem number={2} text="Kirim ke admin melalui WhatsApp" />
+              <StepItem number={3} text="Admin akan mengirimkan Kode Lisensi" />
+              <StepItem
+                number={4}
+                text="Masukkan Kode Lisensi di bagian Aktivasi Lisensi di atas"
+              />
+            </View>
+          </Card>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 5: Data Akun / Toko
+            ════════════════════════════════════════════════════════════ */}
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Data Akun / Toko</Text>
 
           <View style={styles.logoUpload}>
             <Text style={styles.label}>Logo Warung</Text>
@@ -220,149 +413,194 @@ export default function AccountScreen() {
           />
 
           <Button
-            title="Simpan Perubahan"
+            title="Update Data Akun"
             onPress={handleSave}
             fullWidth
             loading={isSaving}
           />
         </Card>
 
-        <Card style={styles.licenseCard}>
-          {/* Logo + identitas app */}
-          <View style={styles.licenseHeader}>
-            <Image source={AppImages.logo} style={styles.licenceLogo} resizeMode="contain" />
-            <View style={styles.licenseHeaderText}>
-              <Text style={styles.licenseAppName}>AdaKasir</Text>
-              <Text style={styles.licenseStatusBadge}>{STATUS_LABELS[licenseStatus] ?? licenseStatus}</Text>
-            </View>
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 6: Fitur Premium
+            ════════════════════════════════════════════════════════════ */}
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Fitur Premium</Text>
+
+          <View style={styles.featureList}>
+            <FeatureRow icon="cloud-outline" text="Cadangan Data Cloud" />
+            <FeatureRow icon="download-outline" text="Export laporan PDF/CSV" />
+            <FeatureRow icon="print-outline" text="Printer Struk" />
+            <FeatureRow icon="chatbubble-ellipses-outline" text="Support prioritas" />
           </View>
 
-          <Text style={styles.sectionTitle}>Lisensi</Text>
-
-          <Text style={styles.infoLabel}>Nama Warung</Text>
-          <Text style={styles.infoValue}>{activeStore?.name || '-'}</Text>
-
-          <Text style={styles.infoLabel}>Kode Perangkat</Text>
-          <Text selectable style={styles.infoValue}>{deviceCode || '-'}</Text>
-
-          <Text style={styles.infoLabel}>Status Lisensi</Text>
-          <Text style={styles.infoValue}>{STATUS_LABELS[licenseStatus]}</Text>
-
-          <Text style={styles.infoLabel}>Tanggal Trial Berakhir</Text>
-          <Text style={styles.infoValue}>{formatDate(trialEndsAt)}</Text>
-
-          <Text style={styles.infoLabel}>Tanggal Premium Berakhir</Text>
-          <Text style={styles.infoValue}>{formatDate(expiresAt)}</Text>
-
-          {/* ── Jika Premium aktif → card status + tombol ganti lisensi ── */}
-          {isPremium ? (
-            <View style={styles.premiumActiveCard}>
-              <View style={styles.premiumActiveHeader}>
-                <Ionicons name="checkmark-circle" size={22} color={colors.secondary} />
-                <Text style={styles.premiumActiveTitle}>Premium Aktif</Text>
-              </View>
-              <Text style={styles.premiumActiveDesc}>
-                Semua fitur Premium tersedia untuk akun ini.
-              </Text>
-
-              {!showLicenseForm ? (
-                <Button
-                  title="Ganti / Perbarui Lisensi"
-                  onPress={() => setShowLicenseForm(true)}
-                  variant="outline"
-                  fullWidth
-                  size="sm"
-                />
-              ) : (
-                <View>
-                  <Input
-                    label="Kode Lisensi Baru"
-                    value={licenseCode}
-                    onChangeText={(value) => setLicenseCode(value.toUpperCase())}
-                    placeholder="ADK-LIFE-XXXX-YYYY"
-                    editable={!isActivating}
-                  />
-                  <View style={styles.licenseButtonRow}>
-                    <View style={styles.licenseBtnWrapper}>
-                      <Button
-                        title="Simpan"
-                        onPress={handleActivateLicense}
-                        fullWidth
-                        size="sm"
-                        loading={isActivating}
-                      />
-                    </View>
-                    <View style={styles.licenseBtnWrapper}>
-                      <Button
-                        title="Batal"
-                        onPress={() => { setShowLicenseForm(false); setLicenseCode(''); }}
-                        variant="outline"
-                        fullWidth
-                        size="sm"
-                      />
-                    </View>
-                  </View>
-                </View>
-              )}
-            </View>
-          ) : (
-            /* ── Jika belum Premium → tampilkan form aktivasi ── */
-            <View>
-              <Text style={styles.premiumCtaText}>
-                Aktifkan Premium.{'\n'}
-                Masukkan kode lisensi untuk membuka fitur Premium seperti Cadangan Data Cloud.
-              </Text>
-
-              <Input
-                label="Kode Lisensi"
-                value={licenseCode}
-                onChangeText={(value) => setLicenseCode(value.toUpperCase())}
-                placeholder="ADK-LIFE-XXXX-YYYY"
-                editable={!isActivating}
-              />
-
-              <Button
-                title="Aktifkan Lisensi"
-                onPress={handleActivateLicense}
-                fullWidth
-                loading={isActivating}
-              />
-            </View>
-          )}
-
-          <View style={styles.contactButtonWrapper}>
-            <Button
-              title="Hubungi Admin via WhatsApp"
-              onPress={handleContactAdmin}
-              variant="outline"
-              fullWidth
-              icon={<Ionicons name="logo-whatsapp" size={20} color={colors.primary} />}
-            />
-          </View>
+          <Button
+            title="Lihat Fitur Premium"
+            onPress={() => router.push('/settings/premium')}
+            variant="outline"
+            fullWidth
+            icon={<Ionicons name="diamond-outline" size={18} color={colors.primary} />}
+          />
         </Card>
-
       </ScrollView>
+
+      {/* ── Modal Pilih Paket ── */}
+      <Modal visible={showPaketPicker} transparent animationType="fade" onRequestClose={() => setShowPaketPicker(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPaketPicker(false)}>
+          <Pressable style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Hubungi Admin</Text>
+            <Text style={styles.modalDesc}>Pilih paket yang diinginkan:</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnLifetime]}
+                onPress={() => { setShowPaketPicker(false); sendWaMessage('Lifetime'); }}
+              >
+                <Text style={styles.modalBtnLabel}>Lifetime</Text>
+                <Text style={styles.modalBtnSub}>Aktif selamanya</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPremium]}
+                onPress={() => { setShowPaketPicker(false); sendWaMessage('Premium'); }}
+              >
+                <Text style={styles.modalBtnLabel}>Premium</Text>
+                <Text style={styles.modalBtnSub}>Bulanan / Tahunan</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowPaketPicker(false)}>
+              <Text style={styles.modalCloseBtnText}>Batal</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
+// ─── Sub-komponen ────────────────────────────────────────────────────────
+function StepItem({ number, text }: { number: number; text: string }) {
+  return (
+    <View style={styles.stepRow}>
+      <View style={styles.stepCircle}>
+        <Text style={styles.stepNumber}>{number}</Text>
+      </View>
+      <Text style={styles.stepText}>{text}</Text>
+    </View>
+  );
+}
+
+function FeatureRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  return (
+    <View style={styles.featureRow}>
+      <Ionicons name={icon} size={18} color={colors.secondary} />
+      <Text style={styles.featureText}>{text}</Text>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  licenseHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackMd, marginBottom: spacing.stackMd },
-  licenceLogo: { width: 56, height: 56 },
-  licenseHeaderText: { flex: 1 },
-  licenseAppName: { ...typography.headlineMobile, color: colors.primary, fontWeight: '700' },
-  licenseStatusBadge: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
   scrollContent: { padding: spacing.marginMobile, paddingBottom: 32 },
-  formCard: { padding: spacing.stackMd, margin: spacing.marginMobile, marginTop: spacing.stackMd },
-  licenseCard: { padding: spacing.stackMd, marginHorizontal: spacing.marginMobile, marginBottom: spacing.stackLg },
-  sectionTitle: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '700', marginBottom: spacing.stackMd },
-  infoLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: spacing.stackMd },
-  infoValue: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '600', marginTop: 4 },
-  contactButtonWrapper: { marginTop: spacing.stackMd },
-  logoUpload: { alignItems: 'center', marginBottom: spacing.stackLg },
+  sectionCard: { padding: spacing.stackMd, marginBottom: spacing.stackMd },
+
+  // ── Status Paket ──
+  statusHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackMd },
+  statusLogo: { width: 48, height: 48 },
+  statusHeaderText: { flex: 1 },
+  appName: { ...typography.headlineMobile, color: colors.primary, fontWeight: '700' },
+  statusBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusLabel: { ...typography.labelSm, color: colors.onSurfaceVariant },
+  statusMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.stackMd,
+    paddingTop: spacing.stackMd,
+    borderTopWidth: 1,
+    borderTopColor: colors.outlineVariant,
+  },
+  statusMetaLabel: { ...typography.labelSm, color: colors.onSurfaceVariant },
+  statusMetaValue: { ...typography.labelSm, color: colors.onSurface, fontWeight: '600' },
+
+  // ── Kode Perangkat ──
+  deviceCodeBox: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: borderRadius.md,
+    padding: spacing.stackMd,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    marginBottom: spacing.stackSm,
+  },
+  deviceCodeText: {
+    ...typography.bodyLg,
+    fontFamily: 'monospace',
+    color: colors.primary,
+    fontWeight: '700',
+    letterSpacing: 1,
+    fontSize: 16,
+  },
+  deviceCodeHint: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginBottom: spacing.stackMd,
+  },
+  deviceActions: {
+    flexDirection: 'column',
+    gap: spacing.stackSm,
+  },
+
+  // ── Aktivasi Premium ──
+  activationDesc: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    marginBottom: spacing.stackMd,
+    lineHeight: 20,
+  },
+  activationHelp: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
+    marginTop: spacing.stackMd,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  activationHelpBold: { fontWeight: '700', color: colors.primary },
+
+  // ── Premium Active ──
+  premiumActiveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.stackSm,
+    marginBottom: spacing.stackSm,
+  },
+  premiumActiveDesc: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    marginBottom: spacing.stackMd,
+    lineHeight: 20,
+  },
+
+  // ── Cara Aktivasi ──
+  stepsList: { gap: spacing.stackSm },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
+  stepCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumber: { ...typography.labelSm, color: colors.primary, fontWeight: '700', fontSize: 13 },
+  stepText: { ...typography.bodyMd, color: colors.onSurface, flex: 1 },
+
+  // ── Section title ──
+  sectionTitle: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '700' },
+
+  // ── Data Akun ──
   label: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm, alignSelf: 'flex-start' },
+  logoUpload: { alignItems: 'center', marginBottom: spacing.stackLg },
   logoBox: {
     width: 104,
     height: 104,
@@ -375,28 +613,57 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLow,
     overflow: 'hidden',
   },
-  logoPreview: {
-    width: '100%',
-    height: '100%',
-  },
-  // ── Premium active section ──
-  premiumActiveCard: {
-    marginTop: spacing.stackMd,
-    padding: spacing.stackMd,
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.secondary + '40',
-  },
-  premiumActiveHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.stackSm,
-    marginBottom: spacing.stackSm,
-  },
-  premiumActiveTitle: { ...typography.bodyLg, color: colors.secondary, fontWeight: '700' },
-  premiumActiveDesc: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackMd },
-  premiumCtaText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.stackMd, lineHeight: 20 },
+  logoPreview: { width: '100%', height: '100%' },
+
+  // ── Fitur Premium ──
+  featureList: { gap: spacing.stackSm, marginBottom: spacing.stackMd },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
+  featureText: { ...typography.bodyMd, color: colors.onSurface },
+
+  // ── License button row ──
   licenseButtonRow: { flexDirection: 'row', gap: spacing.stackSm, marginTop: spacing.stackSm },
   licenseBtnWrapper: { flex: 1 },
+
+  // ── Modal Pilih Paket ──
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalBox: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: 24,
+  },
+  modalTitle: { ...typography.headlineMobile, color: colors.onSurface, fontWeight: '700', marginBottom: 4 },
+  modalDesc: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: 20 },
+  modalButtons: { flexDirection: 'row', gap: 12 },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    borderWidth: 1.5,
+  },
+  modalBtnLifetime: {
+    backgroundColor: '#ede7f6',
+    borderColor: '#6a4e9c',
+  },
+  modalBtnPremium: {
+    backgroundColor: '#fce4ec',
+    borderColor: colors.primary,
+  },
+  modalBtnLabel: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface },
+  modalBtnSub: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
+  modalCloseBtn: {
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: { ...typography.bodyMd, color: colors.onSurfaceVariant, fontWeight: '600' },
 });

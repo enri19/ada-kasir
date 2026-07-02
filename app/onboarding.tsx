@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } fr
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
+import { pickImageFromSource } from '../src/utils/pick-image';
 import { colors, spacing, typography, borderRadius } from '../src/config/theme';
 import { Button } from '../src/components/Button';
 import { Input } from '../src/components/Input';
@@ -28,20 +28,8 @@ export default function OnboardingScreen() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const pickLogo = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Izin Ditolak', 'Aplikasi membutuhkan akses ke galeri foto');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setLogoUri(result.assets[0].uri);
-    }
+    const uri = await pickImageFromSource({ aspect: [1, 1], quality: 0.7 });
+    if (uri) setLogoUri(uri);
   };
 
   const handleStartSelling = async () => {

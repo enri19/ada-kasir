@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput,
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
 import { Button } from '../../../src/components/Button';
 import { Card } from '../../../src/components/Card';
@@ -14,6 +13,7 @@ import { Category } from '../../../src/types/category';
 import { formatRupiah, parseRupiah } from '../../../src/utils/currency';
 import { getProductImage } from '../../../src/utils/product-images';
 import { compressImage } from '../../../src/utils/compress-image';
+import { pickImageFromSource } from '../../../src/utils/pick-image';
 
 export default function EditProdukScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,19 +83,9 @@ export default function EditProdukScreen() {
   }, [id]);
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Izin Ditolak', 'Aplikasi membutuhkan akses ke galeri foto');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-    if (!result.canceled && result.assets[0]) {
-      const compressed = await compressImage(result.assets[0].uri);
+    const uri = await pickImageFromSource({ aspect: [1, 1], quality: 1 });
+    if (uri) {
+      const compressed = await compressImage(uri);
       setImageUri(compressed);
     }
   };
