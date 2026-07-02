@@ -526,7 +526,17 @@ export default function DetailLaporanScreen() {
         />
       )}
 
-      <PremiumUpsellModal visible={modalType === 'premium_upsell'} onClose={closeModal} />
+      <PremiumUpsellModal
+        visible={modalType === 'premium_upsell'}
+        onClose={closeModal}
+        title="Export Laporan adalah fitur Premium"
+        description="Aktifkan Premium untuk menyimpan dan membagikan laporan penjualan dalam format PDF atau CSV."
+        benefits={[
+          'Export laporan PDF',
+          'Export laporan CSV yang bisa dibuka di Excel',
+          'Bagikan laporan ke WhatsApp, Email, atau Drive',
+        ]}
+      />
     </View>
   );
 }

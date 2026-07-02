@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { pickImageFromSource } from '../src/utils/pick-image';
+import { usePickImage } from '../src/components/PickImageModal';
 import { colors, spacing, typography, borderRadius } from '../src/config/theme';
 import { Button } from '../src/components/Button';
 import { Input } from '../src/components/Input';
@@ -20,6 +20,7 @@ export default function OnboardingScreen() {
   const setIsOnboardingComplete = useAppStore((state) => state.setIsOnboardingComplete);
   const setActiveStore = useAppStore((state) => state.setActiveStore);
 
+  const { pickImage: pickImageModal, modal } = usePickImage();
   const [name, setName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [phone, setPhone] = useState('');
@@ -28,7 +29,7 @@ export default function OnboardingScreen() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const pickLogo = async () => {
-    const uri = await pickImageFromSource({ aspect: [1, 1], quality: 0.7 });
+    const uri = await pickImageModal({ aspect: [1, 1], quality: 0.7 });
     if (uri) setLogoUri(uri);
   };
 
@@ -76,6 +77,7 @@ export default function OnboardingScreen() {
   };
 
   return (
+    <>
     <ScrollView 
       style={styles.container} 
       contentContainerStyle={[styles.content, { paddingBottom: Math.max(100, insets.bottom + 24) }]}
@@ -166,6 +168,8 @@ export default function OnboardingScreen() {
         <Text style={styles.footerLink} onPress={handleContactSupport}>Hubungi Support</Text>
       </Text>
     </ScrollView>
+    {modal}
+    </>
   );
 }
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { pickImageFromSource } from '../../src/utils/pick-image';
+import { usePickImage } from '../../src/components/PickImageModal';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../src/stores/app.store';
@@ -34,6 +34,7 @@ function formatDate(value: string | null): string {
 export default function AccountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { pickImage: openImagePicker, modal } = usePickImage();
   const activeStore = useAppStore((state) => state.activeStore);
   const setActiveStore = useAppStore((state) => state.setActiveStore);
   const deviceCode = useLicenseStore((state) => state.deviceCode);
@@ -77,7 +78,7 @@ export default function AccountScreen() {
 
   // ── Pick logo ──
   const pickLogo = async () => {
-    const uri = await pickImageFromSource({ aspect: [1, 1], quality: 0.7 }, 'Pilih Logo');
+    const uri = await openImagePicker({ aspect: [1, 1], quality: 0.7 }, 'Pilih Logo');
     if (uri) setLogoUri(uri);
   };
 
@@ -471,6 +472,7 @@ export default function AccountScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      {modal}
     </View>
   );
 }

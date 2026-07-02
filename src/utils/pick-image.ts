@@ -42,6 +42,7 @@ export async function pickImageFromSource(
           }
         },
       },
+      { text: 'Batal', style: 'cancel', onPress: () => resolve(null) },
       {
         text: 'Galeri',
         onPress: async () => {
@@ -64,7 +65,6 @@ export async function pickImageFromSource(
           }
         },
       },
-      { text: 'Batal', style: 'cancel', onPress: () => resolve(null) },
     ]);
   });
 }

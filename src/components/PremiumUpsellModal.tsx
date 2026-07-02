@@ -5,36 +5,30 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Linking,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, borderRadius, typography } from '../config/theme';
-import { ADMIN_WHATSAPP } from '../utils/constants';
-import { LicenseService } from '../services/license.service';
-import { useLicenseStore } from '../stores/license.store';
-import { useAppStore } from '../stores/app.store';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
+  title?: string;
+  description?: string;
+  benefits?: string[];
 }
 
-export default function PremiumUpsellModal({ visible, onClose }: Props) {
-  const deviceCode = useLicenseStore((s) => s.deviceCode) ?? '';
-  const store = useAppStore((s) => s.activeStore);
+export default function PremiumUpsellModal({ visible, onClose, title, description, benefits }: Props) {
+  const router = useRouter();
 
   function handleUpgrade() {
-    const msg = LicenseService.buildPremiumMessage(
-      store?.name ?? '',
-      deviceCode,
-      'Premium',
-      store?.ownerName,
-      store?.phone,
-    );
-    const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(msg)}`;
-    Linking.openURL(url);
+    router.push('/settings/account');
     onClose();
   }
+
+  const displayTitle = title || 'Export tersedia untuk Premium';
+  const displayDescription = description || 'Aktifkan Premium untuk menyimpan laporan ke Excel/PDF, backup data, dan mendapatkan fitur lanjutan.';
+  const displayBenefits = benefits || ['Export Excel & PDF', 'Backup & Restore data', 'Laporan bulanan', 'Support prioritas'];
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -44,25 +38,20 @@ export default function PremiumUpsellModal({ visible, onClose }: Props) {
             <Ionicons name="star" size={28} color={colors.tertiary} />
           </View>
 
-          <Text style={styles.title}>Export tersedia untuk Premium</Text>
-          <Text style={styles.message}>
-            Aktifkan Premium untuk menyimpan laporan ke Excel/PDF, backup data, dan
-            mendapatkan fitur lanjutan.
-          </Text>
+          <Text style={styles.title}>{displayTitle}</Text>
+          <Text style={styles.message}>{displayDescription}</Text>
 
           <View style={styles.featureList}>
-            {['Export Excel & PDF', 'Backup & Restore data', 'Laporan bulanan', 'Support prioritas'].map(
-              (f) => (
-                <View key={f} style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.secondary} />
-                  <Text style={styles.featureText}>{f}</Text>
-                </View>
-              )
-            )}
+            {displayBenefits.map((f) => (
+              <View key={f} style={styles.featureRow}>
+                <Ionicons name="checkmark-circle" size={16} color={colors.secondary} />
+                <Text style={styles.featureText}>{f}</Text>
+              </View>
+            ))}
           </View>
 
           <TouchableOpacity style={styles.btnPrimary} onPress={handleUpgrade}>
-            <Ionicons name="logo-whatsapp" size={16} color={colors.onPrimary} />
+            <Ionicons name="diamond-outline" size={16} color={colors.onPrimary} />
             <Text style={styles.btnPrimaryText}>Aktifkan Premium</Text>
           </TouchableOpacity>
 

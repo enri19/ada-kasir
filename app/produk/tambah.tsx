@@ -13,11 +13,12 @@ import { Category } from '../../src/types/category';
 import { formatRupiah, parseRupiah } from '../../src/utils/currency';
 import { getProductImage } from '../../src/utils/product-images';
 import { compressImage } from '../../src/utils/compress-image';
-import { pickImageFromSource } from '../../src/utils/pick-image';
+import { usePickImage } from '../../src/components/PickImageModal';
 
 export default function TambahProdukScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { pickImage: openImagePicker, modal } = usePickImage();
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -62,7 +63,7 @@ export default function TambahProdukScreen() {
   }, [selectedCategory?.id, selectedCategory?.name]);
 
   const pickImage = async () => {
-    const uri = await pickImageFromSource({ aspect: [1, 1], quality: 1 });
+    const uri = await openImagePicker({ aspect: [1, 1], quality: 1 });
     if (uri) {
       const compressed = await compressImage(uri);
       setImageUri(compressed);
@@ -363,6 +364,7 @@ export default function TambahProdukScreen() {
           </View>
         </View>
       </Modal>
+      {modal}
     </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -178,7 +178,7 @@ export default function KeranjangScreen() {
               <Text style={styles.discountPrefix}>Rp</Text>
               <TextInput
                 style={styles.discountTextInput}
-                value={discountInput}
+                value={discountInput ? Number(discountInput).toLocaleString('id-ID') : ''}
                 onChangeText={(text) => {
                   const num = text.replace(/[^0-9]/g, '');
                   setDiscountInput(num);
@@ -189,25 +189,26 @@ export default function KeranjangScreen() {
                 autoFocus
               />
             </View>
-            {discountInput ? (
-              <Text style={styles.discountPreview}>
-                Diskon: {formatRupiah(parseRupiah(discountInput))}
-              </Text>
-            ) : null}
             <View style={styles.modalButtons}>
               {discount > 0 && (
-                <Button
-                  title="Hapus Diskon"
-                  onPress={handleRemoveDiscount}
-                  variant="outline"
-                  size="lg"
-                />
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Button
+                    title="Hapus Diskon"
+                    onPress={handleRemoveDiscount}
+                    variant="outline"
+                    size="lg"
+                    fullWidth
+                  />
+                </View>
               )}
-              <Button
-                title="Terapkan"
-                onPress={handleApplyDiscount}
-                size="lg"
-              />
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Terapkan"
+                  onPress={handleApplyDiscount}
+                  size="lg"
+                  fullWidth
+                />
+              </View>
             </View>
             <TouchableOpacity 
               style={styles.modalClose}
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
   discountPrefix: { ...typography.headlineMobile, color: colors.onSurfaceVariant, marginRight: spacing.stackSm },
   discountTextInput: { flex: 1, ...typography.headlineMobile, fontWeight: '700', color: colors.onSurface },
   discountPreview: { ...typography.bodyLg, color: colors.primary, fontWeight: '600', textAlign: 'center', marginTop: spacing.stackSm },
-  modalButtons: { flexDirection: 'row', gap: spacing.stackSm, marginTop: spacing.stackLg },
+  modalButtons: { flexDirection: 'row', marginTop: spacing.stackLg },
   modalClose: { marginTop: spacing.stackMd, alignItems: 'center' },
   modalCloseText: { ...typography.bodyLg, color: colors.primary, fontWeight: '600' },
 });

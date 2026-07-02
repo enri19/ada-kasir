@@ -12,6 +12,7 @@ import { SaleRepository } from '../../src/database/sales.repo';
 import { WhatsAppService } from '../../src/services/whatsapp.service';
 import { PrinterService } from '../../src/services/printer.service';
 import { useLicenseStore } from '../../src/stores/license.store';
+import PremiumUpsellModal from '../../src/components/PremiumUpsellModal';
 import { APP_NAME, APP_VERSION } from '../../src/utils/constants';
 import { SaleWithItems } from '../../src/types/sale';
 
@@ -30,6 +31,7 @@ export default function TransaksiBerhasilScreen() {
   const licenseStatus = useLicenseStore((state) => state.status);
   const isPremium = licenseStatus === 'premium_active';
   const [saleData, setSaleData] = useState<SaleWithItems | null>(null);
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const changeAmount = parseInt(change || '0', 10) || 0;
   const totalAmount = parseInt(total, 10) || 0;
   const receivedAmount = parseInt(received || '0', 10) || 0;
@@ -61,7 +63,7 @@ export default function TransaksiBerhasilScreen() {
 
   const handlePrintReceipt = async () => {
     if (!isPremium) {
-      Alert.alert('Fitur Premium', 'Cetak struk adalah fitur Premium. Aktifkan Premium di menu Akun & Lisensi.');
+      setPremiumModalVisible(true);
       return;
     }
     try {
@@ -223,6 +225,18 @@ export default function TransaksiBerhasilScreen() {
       </View>
 
       <Text style={styles.footer}>Sistem Kasir {activeStore?.name || APP_NAME} v{APP_VERSION}</Text>
+
+      <PremiumUpsellModal
+        visible={premiumModalVisible}
+        onClose={() => setPremiumModalVisible(false)}
+        title="Printer Struk adalah fitur Premium"
+        description="Aktifkan Premium untuk menyiapkan printer thermal dan mencetak struk transaksi."
+        benefits={[
+          'Cetak struk transaksi',
+          'Format struk 58mm dan 80mm',
+          'Cocok untuk toko dan UMKM',
+        ]}
+      />
     </View>
   );
 }

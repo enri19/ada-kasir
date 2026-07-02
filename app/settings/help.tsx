@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
 import { Card } from '../../src/components/Card';
@@ -17,9 +18,10 @@ const HELP_STEPS = [
 
 export default function HelpScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const handleContactAdmin = async () => {
-    const message = 'Halo Admin, saya butuh bantuan penggunaan aplikasi Warungr Rapi.';
+    const message = 'Halo Admin, saya butuh bantuan penggunaan aplikasi AdaKasir.';
     const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
     try {
       await Linking.openURL(url);
@@ -29,7 +31,7 @@ export default function HelpScreen() {
   };
 
   return (
-    <View style={styles.container}>      
+    <View style={[styles.container, { paddingTop: insets.top }]}>      
       <CustomHeader title="Bantuan" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <View style={styles.logoSection}>

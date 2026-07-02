@@ -11,6 +11,7 @@ interface ButtonProps {
   loading?: boolean;
   fullWidth?: boolean;
   icon?: React.ReactNode;
+  style?: any;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -22,6 +23,7 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   fullWidth = false,
   icon,
+  style: customStyle,
 }) => {
   const getBackgroundColor = () => {
     if (disabled) return colors.surfaceContainerHigh;
@@ -68,6 +70,7 @@ export const Button: React.FC<ButtonProps> = ({
           height: getHeight(),
           width: fullWidth ? '100%' : 'auto',
         },
+        customStyle,
       ]}
       onPress={onPress}
       disabled={disabled || loading}

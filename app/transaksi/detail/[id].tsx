@@ -13,12 +13,14 @@ import { useAppStore } from '../../../src/stores/app.store';
 import { WhatsAppService } from '../../../src/services/whatsapp.service';
 import { PrinterService } from '../../../src/services/printer.service';
 import { useLicenseStore } from '../../../src/stores/license.store';
+import PremiumUpsellModal from '../../../src/components/PremiumUpsellModal';
 
 export default function DetailTransaksiScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [sale, setSale] = useState<SaleWithItems | null>(null);
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const activeStore = useAppStore((state) => state.activeStore);
   const licenseStatus = useLicenseStore((state) => state.status);
   const isPremium = licenseStatus === 'premium_active';
@@ -49,7 +51,7 @@ export default function DetailTransaksiScreen() {
 
   const handlePrintReceipt = async () => {
     if (!isPremium) {
-      Alert.alert('Fitur Premium', 'Cetak struk adalah fitur Premium. Aktifkan Premium untuk mencetak struk thermal.');
+      setPremiumModalVisible(true);
       return;
     }
 
@@ -180,28 +182,35 @@ export default function DetailTransaksiScreen() {
       </ScrollView>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom }]}>
-        <View style={styles.bottomButtonRow}>
-          <View style={styles.bottomButtonCol}>
-            <Button
-              title="Kirim Nota WhatsApp"
-              onPress={handleShareWhatsApp}
-              size="sm"
-              fullWidth
-              icon={<Ionicons name="share-social-outline" size={18} color={colors.onPrimary} />}
-            />
-          </View>
-          <View style={styles.bottomButtonCol}>
-            <Button
-              title={isPremium ? "Cetak Struk" : "Cetak Struk (Premium)"}
-              onPress={handlePrintReceipt}
-              size="sm"
-              fullWidth
-              variant={isPremium ? "outline" : "outline"}
-              icon={<Ionicons name="print-outline" size={18} color={isPremium ? colors.primary : colors.onSurfaceVariant} />}
-            />
-          </View>
-        </View>
+        <Button
+          title="Kirim Nota WhatsApp"
+          onPress={handleShareWhatsApp}
+          size="lg"
+          fullWidth
+          icon={<Ionicons name="share-social-outline" size={20} color={colors.onPrimary} />}
+        />
+        <View style={styles.bottomButtonSpacing} />
+        <Button
+          title={isPremium ? "Cetak Struk" : "Cetak Struk (Premium)"}
+          onPress={handlePrintReceipt}
+          size="lg"
+          fullWidth
+          variant="outline"
+          icon={<Ionicons name="print-outline" size={20} color={colors.primary} />}
+        />
       </View>
+
+      <PremiumUpsellModal
+        visible={premiumModalVisible}
+        onClose={() => setPremiumModalVisible(false)}
+        title="Printer Struk adalah fitur Premium"
+        description="Aktifkan Premium untuk menyiapkan printer thermal dan mencetak struk transaksi."
+        benefits={[
+          'Cetak struk transaksi',
+          'Format struk 58mm dan 80mm',
+          'Cocok untuk toko dan UMKM',
+        ]}
+      />
     </View>
   );
 }
@@ -250,8 +259,8 @@ const styles = StyleSheet.create({
   bottomBar: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
     backgroundColor: colors.surface, paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.stackMd, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
+    paddingTop: spacing.stackMd, paddingBottom: spacing.stackSm,
+    borderTopWidth: 1, borderTopColor: colors.outlineVariant,
   },
-  bottomButtonRow: { flexDirection: 'row', gap: spacing.stackSm },
-  bottomButtonCol: { flex: 1 },
+  bottomButtonSpacing: { height: spacing.stackSm },
 });
