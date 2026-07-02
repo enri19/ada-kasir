@@ -12,6 +12,7 @@ import { StockService } from '../../src/services/stock.service';
 import { generateInvoiceNumber } from '../../src/utils/invoice-number';
 import { useAppStore } from '../../src/stores/app.store';
 import { CustomHeader } from '../../src/components/CustomHeader';
+import { BottomActionBar } from '../../src/components/BottomActionBar';
 
 export default function PembayaranQRISScreen() {
   const router = useRouter();
@@ -102,7 +103,7 @@ export default function PembayaranQRISScreen() {
 
   if (!qrisImage) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <CustomHeader title="Pembayaran QRIS" onBack={() => router.back()} />
 
         <View style={styles.content}>
@@ -125,7 +126,7 @@ export default function PembayaranQRISScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Pembayaran QRIS" onBack={() => router.back()} />
 
       <View style={styles.content}>
@@ -150,7 +151,7 @@ export default function PembayaranQRISScreen() {
         </View>
       </View>
 
-      <View style={styles.bottomBar}>
+      <BottomActionBar>
         <Button
           title="Sudah Dibayar"
           onPress={handleProcessPayment}
@@ -159,7 +160,7 @@ export default function PembayaranQRISScreen() {
           loading={processing}
           icon={<Ionicons name="checkmark-circle-outline" size={20} color={colors.onPrimary} />}
         />
-      </View>
+      </BottomActionBar>
     </View>
   );
 }
@@ -194,10 +195,5 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.marginMobile },
   emptyTitle: { ...typography.headlineMobile, color: colors.onSurface, marginTop: spacing.stackMd, marginBottom: spacing.stackSm },
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', marginBottom: spacing.stackLg },
-  bottomBar: {
-    paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.stackMd,
-    borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-    backgroundColor: colors.surface,
-  },
+
 });

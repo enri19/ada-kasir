@@ -14,6 +14,7 @@ import { WhatsAppService } from '../../../src/services/whatsapp.service';
 import { PrinterService } from '../../../src/services/printer.service';
 import { useLicenseStore } from '../../../src/stores/license.store';
 import PremiumUpsellModal from '../../../src/components/PremiumUpsellModal';
+import { BottomActionBar } from '../../../src/components/BottomActionBar';
 
 export default function DetailTransaksiScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -110,7 +111,7 @@ export default function DetailTransaksiScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
@@ -181,7 +182,7 @@ export default function DetailTransaksiScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom }]}>
+      <BottomActionBar>
         <Button
           title="Kirim Nota WhatsApp"
           onPress={handleShareWhatsApp}
@@ -198,7 +199,7 @@ export default function DetailTransaksiScreen() {
           variant="outline"
           icon={<Ionicons name="print-outline" size={20} color={colors.primary} />}
         />
-      </View>
+      </BottomActionBar>
 
       <PremiumUpsellModal
         visible={premiumModalVisible}
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { ...typography.headlineMobile, color: colors.primary, fontWeight: '700' },
   content: { flex: 1 },
-  contentContainer: { padding: spacing.marginMobile, paddingBottom: 100 },
+  contentContainer: { padding: spacing.marginMobile, paddingBottom: 140 },
   loadingText: { ...typography.bodyLg, color: colors.onSurfaceVariant },
 
   infoCard: { padding: spacing.stackLg, marginBottom: spacing.stackLg, alignItems: 'center' },
@@ -256,11 +257,5 @@ const styles = StyleSheet.create({
   statusTextPaid: { color: colors.secondary },
   statusTextUnpaid: { color: colors.error },
 
-  bottomBar: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.surface, paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.stackMd, paddingBottom: spacing.stackSm,
-    borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-  },
   bottomButtonSpacing: { height: spacing.stackSm },
 });

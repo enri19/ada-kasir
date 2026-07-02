@@ -51,14 +51,7 @@ export default function RootLayout() {
         <Stack.Screen name="pelanggan/tambah" />
         <Stack.Screen name="pelanggan/detail/[id]" />
         <Stack.Screen name="pelanggan/pilih" />
-        <Stack.Screen name="settings/account" />
-        <Stack.Screen name="settings/premium" />
-        <Stack.Screen name="settings/cloud-backup" />
-        <Stack.Screen name="settings/printer" />
-        <Stack.Screen name="settings/qris" />
-        <Stack.Screen name="settings/device" />
-        <Stack.Screen name="settings/help" />
-        <Stack.Screen name="settings/about" />
+        <Stack.Screen name="settings" />
       </Stack>
     </SafeAreaProvider>
   );

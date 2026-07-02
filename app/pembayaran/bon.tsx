@@ -14,6 +14,7 @@ import { DebtRepository } from '../../src/database/debt.repo';
 import { StockService } from '../../src/services/stock.service';
 import { generateInvoiceNumber } from '../../src/utils/invoice-number';
 import { CustomHeader } from '../../src/components/CustomHeader';
+import { BottomActionBar } from '../../src/components/BottomActionBar';
 import { Customer } from '../../src/types/customer';
 
 export default function PembayaranBonScreen() {
@@ -125,7 +126,7 @@ export default function PembayaranBonScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Pembayaran Bon" onBack={() => router.back()} />
 
       <View style={styles.totalBar}>
@@ -201,7 +202,7 @@ export default function PembayaranBonScreen() {
       </ScrollView>
 
       {selectedCustomer && (
-        <View style={[styles.bottomBar, { paddingBottom: spacing.stackMd + insets.bottom }] }>
+        <BottomActionBar>
           <Button
             title={`Simpan Bon - ${selectedCustomer.name}`}
             onPress={handleConfirm}
@@ -209,7 +210,7 @@ export default function PembayaranBonScreen() {
             fullWidth
             loading={processing}
           />
-        </View>
+        </BottomActionBar>
       )}
     </View>
   );
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
   },
   totalLabel: { ...typography.labelSm, color: colors.onPrimary },
   content: { flex: 1 },
-  contentContainer: { padding: spacing.marginMobile, paddingBottom: 180 },
+  contentContainer: { padding: spacing.marginMobile, paddingBottom: 120 },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
@@ -263,10 +264,5 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.outlineVariant,
     padding: spacing.stackMd, minHeight: 60,
   },
-  bottomBar: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.surface, paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.stackMd, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-    zIndex: 10,
-  },
+
 });

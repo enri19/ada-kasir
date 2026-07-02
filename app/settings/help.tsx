@@ -33,7 +33,7 @@ export default function HelpScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>      
       <CustomHeader title="Bantuan" onBack={() => router.back()} />
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
         <View style={styles.logoSection}>
           <Image source={AppImages.logo} style={styles.logo} resizeMode="contain" />
           <Text style={styles.appName}>AdaKasir</Text>

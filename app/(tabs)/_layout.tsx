@@ -15,9 +15,9 @@ export default function TabLayout() {
         tabBarStyle: {
           borderTopColor: colors.outlineVariant,
           borderTopWidth: 1,
-          paddingBottom: 4,
-          paddingTop: 4,
-          height: 52 + insets.bottom,
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 8),
+          height: 60 + insets.bottom,
           elevation: 8,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
@@ -27,6 +27,9 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
+          marginBottom: 0,
+        },
+        tabBarIconStyle: {
           marginTop: 2,
         },
         headerShown: false,

@@ -26,14 +26,21 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icons/logo.png",
-        "backgroundColor": "#7A1F1F"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "backgroundColor": "#8f000d"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.adakasir.app"
     },
     "web": {
       "favicon": "./assets/icons/logo.png"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "821b50e0-2061-4a69-92a1-4ae251081382"
+      }
     }
   }
 }

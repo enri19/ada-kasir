@@ -65,7 +65,7 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Cadangan Data Cloud" onBack={() => router.back()} />
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
         {/* Lock icon */}
         <View style={styles.lockSection}>
           <View style={styles.lockIconCircle}>
@@ -264,7 +264,7 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Cadangan Data Cloud" onBack={() => router.back()} />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
         {/* Header info */}
         <View style={styles.headerSection}>
           <View style={styles.headerIconCircle}>

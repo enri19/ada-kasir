@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../src/config/theme';
 import { CurrencyText } from '../src/components/CurrencyText';
 import { Button } from '../src/components/Button';
+import { BottomActionBar } from '../src/components/BottomActionBar';
 import { useCartStore } from '../src/stores/cart.store';
 import { formatRupiah, parseRupiah } from '../src/utils/currency';
 import { getProductImage } from '../src/utils/product-images';
@@ -159,7 +160,7 @@ export default function KeranjangScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom }]}>
+      <BottomActionBar>
         <Button 
           title="PILIH PEMBAYARAN" 
           onPress={() => router.push('/pembayaran')}
@@ -167,7 +168,7 @@ export default function KeranjangScreen() {
           fullWidth
           icon={<Ionicons name="wallet-outline" size={20} color={colors.onPrimary} />}
         />
-      </View>
+      </BottomActionBar>
 
       {/* Discount Modal */}
       <Modal visible={showDiscountModal} transparent animationType="fade">
@@ -232,7 +233,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { ...typography.headlineMobile, color: colors.primary, fontWeight: '700' },
   content: { flex: 1 },
-  contentContainer: { padding: spacing.marginMobile, paddingBottom: 100 },
+  contentContainer: { padding: spacing.marginMobile, paddingBottom: 120 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.marginMobile },
   emptyTitle: { ...typography.headlineMobile, color: colors.onSurface, marginTop: spacing.stackMd },
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm, marginBottom: spacing.stackLg },
@@ -277,11 +278,7 @@ const styles = StyleSheet.create({
     padding: spacing.stackLg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   totalLabel: { ...typography.headlineMobile, fontWeight: '700', color: colors.onPrimary },
-  bottomBar: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.surface, paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.stackMd, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-  },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
     backgroundColor: colors.surface, borderRadius: borderRadius.lg,

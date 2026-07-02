@@ -191,7 +191,7 @@ export default function AccountScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Akun & Lisensi" onBack={() => router.back()} />
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
         {/* ════════════════════════════════════════════════════════════
             SECTION 1: Status Paket
             ════════════════════════════════════════════════════════════ */}

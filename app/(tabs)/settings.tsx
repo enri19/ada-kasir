@@ -5,14 +5,14 @@ import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { Card } from '../../../src/components/Card';
-import { useAppStore } from '../../../src/stores/app.store';
-import { useLicenseStore } from '../../../src/stores/license.store';
-import { useCartStore } from '../../../src/stores/cart.store';
-import { resetDatabase } from '../../../src/database/db';
-import { APP_NAME, APP_VERSION, STORAGE_KEYS } from '../../../src/utils/constants';
-import { AppImages } from '../../../src/constants/assets';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Card } from '../../src/components/Card';
+import { useAppStore } from '../../src/stores/app.store';
+import { useLicenseStore } from '../../src/stores/license.store';
+import { useCartStore } from '../../src/stores/cart.store';
+import { resetDatabase } from '../../src/database/db';
+import { APP_NAME, APP_VERSION, STORAGE_KEYS } from '../../src/utils/constants';
+import { AppImages } from '../../src/constants/assets';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -20,12 +20,10 @@ export default function SettingsScreen() {
   const [isClearing, setIsClearing] = useState(false);
   const appVersion = Constants.expoConfig?.version ?? APP_VERSION;
 
-  // Status premium untuk menyesuaikan UI menu cloud backup
   const licenseStatus = useLicenseStore((s) => s.status);
   const refreshLicenseStatus = useLicenseStore((s) => s.refreshStatus);
   const isPremium = licenseStatus === 'premium_active';
 
-  // Refresh status lisensi setiap kali halaman difokuskan
   useFocusEffect(
     useCallback(() => {
       refreshLicenseStatus();
@@ -34,7 +32,6 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     let mounted = true;
-    // initial fetch
     NetInfo.fetch().then((s) => {
       if (!mounted) return;
       setIsOnline(s.isConnected ?? false);
@@ -68,12 +65,7 @@ export default function SettingsScreen() {
       Alert.alert(
         'Data Berhasil Dihapus',
         'Semua data lokal telah dihapus. Silakan atur kembali data warung Anda.',
-        [
-          {
-            text: 'Mulai Ulang',
-            onPress: () => router.replace('/onboarding'),
-          },
-        ],
+        [{ text: 'Mulai Ulang', onPress: () => router.replace('/onboarding') }],
         { cancelable: false }
       );
     } catch (error) {
@@ -90,19 +82,14 @@ export default function SettingsScreen() {
       'Tindakan ini akan menghapus data warung, produk, transaksi, pelanggan, pengaturan, serta lisensi lokal. Kode perangkat akan dibuat ulang dan data tidak dapat dikembalikan.',
       [
         { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus Data',
-          style: 'destructive',
-          onPress: clearAllData,
-        },
+        { text: 'Hapus Data', style: 'destructive', onPress: clearAllData },
       ]
     );
   };
 
   return (
-    <View style={styles.container}>      
+    <View style={styles.container}>
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {/* Logo + nama app */}
         <View style={styles.logoSection}>
           <Image source={AppImages.logo} style={styles.logo} resizeMode="contain" />
           <Text style={styles.appNameText}>{APP_NAME}</Text>
@@ -229,7 +216,6 @@ const styles = StyleSheet.create({
   logo: { width: 72, height: 72, marginBottom: spacing.stackSm },
   appNameText: { ...typography.headlineMobile, color: colors.primary, fontWeight: '700' },
   tagline: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2 },
-  headerTitle: { ...typography.headlineLg, color: colors.onSurface, marginBottom: spacing.stackLg },
   badgeCard: { padding: spacing.stackMd, marginBottom: spacing.stackLg },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm, marginBottom: spacing.stackSm },
   statusDot: { width: 10, height: 10, borderRadius: 5 },

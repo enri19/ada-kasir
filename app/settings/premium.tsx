@@ -119,7 +119,7 @@ const isPremium = status === 'premium_active';
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Fitur Premium" onBack={() => router.back()} />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
         {/* ── Card status paket ── */}
         <Card style={styles.statusCard}>
           {isPremium ? (

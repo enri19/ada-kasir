@@ -12,6 +12,7 @@ import { StockService } from '../../src/services/stock.service';
 import { generateInvoiceNumber } from '../../src/utils/invoice-number';
 import { formatRupiah } from '../../src/utils/currency';
 import { useAppStore } from '../../src/stores/app.store';
+import { BottomActionBar } from '../../src/components/BottomActionBar';
 import { CustomHeader } from '../../src/components/CustomHeader';
 
 const QUICK_AMOUNTS = [20000, 50000, 100000];
@@ -117,7 +118,7 @@ export default function PembayaranTunaiScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Pembayaran Tunai" onBack={() => router.back()} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -183,7 +184,7 @@ export default function PembayaranTunaiScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.bottomBar}>
+      <BottomActionBar>
         <Button
           title="Simpan Transaksi"
           onPress={handleProcessPayment}
@@ -192,7 +193,7 @@ export default function PembayaranTunaiScreen() {
           disabled={!isPaid}
           loading={processing}
         />
-      </View>
+      </BottomActionBar>
     </View>
   );
 }
@@ -200,7 +201,7 @@ export default function PembayaranTunaiScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
-  contentContainer: { padding: spacing.marginMobile, paddingBottom: 80 },
+  contentContainer: { padding: spacing.marginMobile, paddingBottom: 120 },
   totalCard: {
     backgroundColor: colors.surface, borderRadius: borderRadius.lg,
     borderWidth: 1, borderColor: colors.outlineVariant, padding: spacing.stackMd, marginBottom: spacing.stackMd,
@@ -246,10 +247,5 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.outlineVariant,
   },
   numpadText: { ...typography.bodyLg, fontWeight: '600', color: colors.onSurface },
-  bottomBar: {
-    paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.stackSm,
-    borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-    backgroundColor: colors.surface,
-  },
+
 });
