@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { Card } from '../../../src/components/Card';
-import { CustomHeader } from '../../../src/components/CustomHeader';
-import { Button } from '../../../src/components/Button';
-import { useLicenseStore } from '../../../src/stores/license.store';
-import { PrinterService } from '../../../src/services/printer.service';
-import { PrinterPaperSize, PrinterSettings } from '../../../src/types/printer';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Card } from '../../src/components/Card';
+import { CustomHeader } from '../../src/components/CustomHeader';
+import { Button } from '../../src/components/Button';
+import { useLicenseStore } from '../../src/stores/license.store';
+import { PrinterService } from '../../src/services/printer.service';
+import { PrinterPaperSize, PrinterSettings } from '../../src/types/printer';
 
 // ============================================================
 // Premium gate hook
@@ -43,7 +42,7 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
   const router = useRouter();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Printer Struk" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* Lock icon */}
@@ -185,7 +184,7 @@ function PrinterSettingsView({ insets }: { insets: { top: number; bottom: number
 
   if (!isLoaded) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <CustomHeader title="Printer Struk" onBack={() => router.back()} />
         <View style={styles.loadingFullScreen}>
           <Text style={styles.loadingText}>Memuat pengaturan...</Text>
@@ -195,7 +194,7 @@ function PrinterSettingsView({ insets }: { insets: { top: number; bottom: number
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Printer Struk" onBack={() => router.back()} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
@@ -342,7 +341,7 @@ export default function PrinterScreen() {
 
   if (isChecking) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <CustomHeader title="Printer Struk" onBack={() => {}} />
         <View style={styles.loadingFullScreen}>
           <Text style={styles.loadingText}>Memeriksa status lisensi...</Text>

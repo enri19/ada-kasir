@@ -2,11 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { Card } from '../../../src/components/Card';
-import { CustomHeader } from '../../../src/components/CustomHeader';
-import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
-import { AppImages } from '../../../src/constants/assets';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Card } from '../../src/components/Card';
+import { CustomHeader } from '../../src/components/CustomHeader';
+import { ADMIN_WHATSAPP } from '../../src/utils/constants';
+import { AppImages } from '../../src/constants/assets';
 
 const HELP_STEPS = [
   { title: 'Cara Transaksi', description: 'Pilih produk, masukkan jumlah, lalu selesaikan pembayaran dengan tunai, QRIS, atau bon.' },

@@ -4,13 +4,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { Card } from '../../../src/components/Card';
-import { Input } from '../../../src/components/Input';
-import { Button } from '../../../src/components/Button';
-import { CustomHeader } from '../../../src/components/CustomHeader';
-import { StoreRepository } from '../../../src/database/store.repo';
-import { useAppStore } from '../../../src/stores/app.store';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Card } from '../../src/components/Card';
+import { Input } from '../../src/components/Input';
+import { Button } from '../../src/components/Button';
+import { CustomHeader } from '../../src/components/CustomHeader';
+import { StoreRepository } from '../../src/database/store.repo';
+import { useAppStore } from '../../src/stores/app.store';
 
 export default function QrisSettingsScreen() {
   const router = useRouter();
@@ -86,7 +86,7 @@ export default function QrisSettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="QRIS Toko" onBack={() => router.back()} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>

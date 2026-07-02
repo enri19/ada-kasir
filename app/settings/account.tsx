@@ -2,20 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { pickImageFromSource } from '../../../src/utils/pick-image';
+import { pickImageFromSource } from '../../src/utils/pick-image';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppStore } from '../../../src/stores/app.store';
-import { useLicenseStore } from '../../../src/stores/license.store';
-import { LicenseService } from '../../../src/services/license.service';
-import { StoreRepository } from '../../../src/database/store.repo';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { Card } from '../../../src/components/Card';
-import { CustomHeader } from '../../../src/components/CustomHeader';
-import { Input } from '../../../src/components/Input';
-import { Button } from '../../../src/components/Button';
-import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
-import { AppImages } from '../../../src/constants/assets';
+import { useAppStore } from '../../src/stores/app.store';
+import { useLicenseStore } from '../../src/stores/license.store';
+import { LicenseService } from '../../src/services/license.service';
+import { StoreRepository } from '../../src/database/store.repo';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Card } from '../../src/components/Card';
+import { CustomHeader } from '../../src/components/CustomHeader';
+import { Input } from '../../src/components/Input';
+import { Button } from '../../src/components/Button';
+import { ADMIN_WHATSAPP } from '../../src/utils/constants';
+import { AppImages } from '../../src/constants/assets';
 
 // ─── Constants ──────────────────────────────────────────────────────────
 const STATUS_LABELS: Record<string, string> = {
@@ -186,9 +186,9 @@ export default function AccountScreen() {
     }
   };
 
-  // ── Render ──
+// ── Render ──
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Akun & Lisensi" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* ════════════════════════════════════════════════════════════

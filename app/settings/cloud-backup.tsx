@@ -9,19 +9,18 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { Card } from '../../../src/components/Card';
-import { CustomHeader } from '../../../src/components/CustomHeader';
-import { Input } from '../../../src/components/Input';
-import { Button } from '../../../src/components/Button';
-import { useLicenseStore } from '../../../src/stores/license.store';
-import { BackupService } from '../../../src/services/backup.service';
-import { signIn, signUp, signOut } from '../../../src/services/supabase.client';
-import { BackupStatus } from '../../../src/types/backup';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Card } from '../../src/components/Card';
+import { CustomHeader } from '../../src/components/CustomHeader';
+import { Input } from '../../src/components/Input';
+import { Button } from '../../src/components/Button';
+import { useLicenseStore } from '../../src/stores/license.store';
+import { BackupService } from '../../src/services/backup.service';
+import { signIn, signUp, signOut } from '../../src/services/supabase.client';
+import { BackupStatus } from '../../src/types/backup';
 
 // ============================================================
 // Premium gate check
@@ -64,7 +63,7 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
   const router = useRouter();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Cadangan Data Cloud" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* Lock icon */}
@@ -262,7 +261,7 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Cadangan Data Cloud" onBack={() => router.back()} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
@@ -496,7 +495,7 @@ export default function CloudBackupScreen() {
   // Loading state agar tidak flash tampilan locked saat pengecekan
   if (isChecking) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <CustomHeader title="Cadangan Data Cloud" onBack={() => {}} />
         <View style={styles.loadingFullScreen}>
           <ActivityIndicator size="large" color={colors.primary} />

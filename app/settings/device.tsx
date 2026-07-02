@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { Card } from '../../../src/components/Card';
-import { Button } from '../../../src/components/Button';
-import { useLicenseStore } from '../../../src/stores/license.store';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Card } from '../../src/components/Card';
+import { Button } from '../../src/components/Button';
+import { useLicenseStore } from '../../src/stores/license.store';
 import Constants from 'expo-constants';
-import { CustomHeader } from '../../../src/components/CustomHeader';
+import { CustomHeader } from '../../src/components/CustomHeader';
 
 export default function DeviceScreen() {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function DeviceScreen() {
   const deviceCode = useLicenseStore((state) => state.deviceCode);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Perangkat" onBack={() => router.back()} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>

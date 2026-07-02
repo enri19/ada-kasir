@@ -2,17 +2,17 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { APP_NAME, APP_VERSION } from '../../../src/utils/constants';
-import { CustomHeader } from '../../../src/components/CustomHeader';
-import { AppImages } from '../../../src/constants/assets';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { APP_NAME, APP_VERSION } from '../../src/utils/constants';
+import { CustomHeader } from '../../src/components/CustomHeader';
+import { AppImages } from '../../src/constants/assets';
 
 export default function AboutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>      
+    <View style={[styles.container, { paddingTop: insets.top }]}>      
       <CustomHeader title="Tentang Aplikasi" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <View style={styles.logoSection}>

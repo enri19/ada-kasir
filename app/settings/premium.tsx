@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
-import { Card } from '../../../src/components/Card';
-import { Button } from '../../../src/components/Button';
-import { CustomHeader } from '../../../src/components/CustomHeader';
-import { useLicenseStore } from '../../../src/stores/license.store';
+import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
+import { Card } from '../../src/components/Card';
+import { Button } from '../../src/components/Button';
+import { CustomHeader } from '../../src/components/CustomHeader';
+import { useLicenseStore } from '../../src/stores/license.store';
 
 // ============================================================
 // Data fitur Premium
@@ -113,10 +113,10 @@ export default function PremiumScreen() {
     }, [refreshStatus])
   );
 
-  const isPremium = status === 'premium_active';
+const isPremium = status === 'premium_active';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Fitur Premium" onBack={() => router.back()} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
@@ -172,7 +172,7 @@ export default function PremiumScreen() {
 
               <Button
                 title="Aktifkan Premium"
-                onPress={() => router.push('/(tabs)/settings/account')}
+                onPress={() => router.push('/settings/account')}
                 fullWidth
                 icon={<Ionicons name="diamond-outline" size={18} color={colors.onPrimary} />}
               />
