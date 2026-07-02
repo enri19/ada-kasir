@@ -12,6 +12,13 @@ export type LicenseStatus =
   | 'premium_active'
   | 'premium_expired';
 
+export type ActivationResult =
+  | 'ok'
+  | 'device_mismatch'
+  | 'invalid'
+  | 'expired'
+  | 'no_internet';
+
 export interface LicenseData {
   deviceCode: string;
   status: LicenseStatus;
@@ -37,8 +44,8 @@ export type LicenseValidationResult =
 
 const DEVICE_CHARACTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const DEVICE_CODE_PATTERN = /^ADK-([A-Z0-9]{4})-([A-Z0-9]{4})$/;
-const LIFETIME_KEY_PATTERN = /^ADK-LIFE-([A-Z0-9]{4})-(\d{4})$/;
-const PREMIUM_KEY_PATTERN = /^ADK-PREM-([A-Z0-9]{4})-(\d{8})$/;
+const LIFETIME_KEY_PATTERN = /^ADK-LIFE-([A-Z0-9]{4})-(\d{4})-([A-Z0-9]{8})$/;
+const PREMIUM_KEY_PATTERN = /^ADK-PREM-([A-Z0-9]{4})-(\d{8})-([A-Z0-9]{8})$/;
 const TRIAL_DAYS = 14;
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -97,6 +104,41 @@ export const LicenseService = {
   },
 
   validateLicenseKey(licenseKey: string, deviceCode: string): LicenseValidationResult {
+    // Fallback offline validation — format-only, no HMAC check
+    return this.validateLicenseKeyOffline(licenseKey, deviceCode);
+  },
+
+  /** Validasi online via Supabase RPC: verifikasi HMAC, expired, device token */
+  async validateOnlineLicenseKey(
+    licenseKey: string,
+    deviceCode: string,
+    supabaseClient: any,
+  ): Promise<LicenseValidationResult> {
+    try {
+      const { data, error } = await supabaseClient.rpc('verify_license', {
+        p_license_code: licenseKey.trim().toUpperCase(),
+        p_device_code: deviceCode.trim().toUpperCase(),
+      });
+      if (error) return { valid: false, reason: 'invalid_format' };
+      if (!data || !data.valid) {
+        const reason = data?.reason || 'invalid_format';
+        if (reason === 'device_mismatch') return { valid: false, reason: 'device_mismatch' };
+        if (reason === 'expired') return { valid: false, reason: 'expired' };
+        return { valid: false, reason: 'invalid_format' };
+      }
+      return {
+        valid: true,
+        status: data.status,
+        licenseKey: licenseKey.trim().toUpperCase(),
+        expiresAt: data.expires_at || null,
+      };
+    } catch {
+      return { valid: false, reason: 'invalid_format' };
+    }
+  },
+
+  /** Validasi offline: cocokkan pola & token perangkat (format-only, tanpa HMAC) */
+  validateLicenseKeyOffline(licenseKey: string, deviceCode: string): LicenseValidationResult {
     const key = licenseKey.trim().toUpperCase();
     const deviceToken = extractDeviceToken(deviceCode);
     if (!deviceToken) return { valid: false, reason: 'invalid_format' };

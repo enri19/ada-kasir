@@ -1,9 +1,11 @@
+import NetInfo from '@react-native-community/netinfo';
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../utils/constants';
-import { LicenseData, LicenseService, LicenseStatus } from '../services/license.service';
+import { LicenseData, LicenseService, LicenseStatus, ActivationResult } from '../services/license.service';
+import { getSupabaseClient } from '../services/supabase.client';
 
-export type { LicenseData, LicenseStatus } from '../services/license.service';
+export type { LicenseData, LicenseStatus, ActivationResult } from '../services/license.service';
 
 interface LicenseState {
   deviceCode: string | null;
@@ -18,7 +20,7 @@ interface LicenseState {
   // Actions
   loadFromStorage: () => Promise<void>;
   refreshStatus: () => Promise<void>;
-  activateLicense: (licenseKey: string) => Promise<'ok' | 'device_mismatch' | 'invalid' | 'expired'>;
+  activateLicense: (licenseKey: string) => Promise<ActivationResult>;
 
   // Permission helpers (computed from status)
   canUseBasicFeatures: () => boolean;
@@ -134,7 +136,14 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
     const s = get();
     if (!s.deviceCode || !s.installedAt || !s.trialEndsAt) return 'invalid';
 
-    const result = LicenseService.validateLicenseKey(licenseKey, s.deviceCode);
+    // Cek koneksi internet — verifikasi lisensi butuh online
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) return 'no_internet';
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return 'no_internet';
+
+    const result = await LicenseService.validateOnlineLicenseKey(licenseKey, s.deviceCode, supabase);
     if (!result.valid) {
       if (result.reason === 'device_mismatch') return 'device_mismatch';
       if (result.reason === 'expired') return 'expired';

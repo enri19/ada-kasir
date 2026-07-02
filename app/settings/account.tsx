@@ -166,6 +166,10 @@ export default function AccountScreen() {
     setIsActivating(true);
     try {
       const result = await activateLicense(licenseCode.trim().toUpperCase());
+      if (result === 'no_internet') {
+        Alert.alert('Tidak ada koneksi', 'Aktivasi lisensi membutuhkan koneksi internet. Periksa jaringan Anda dan coba lagi.');
+        return;
+      }
       if (result === 'device_mismatch') {
         Alert.alert('Kode tidak cocok', 'Kode lisensi tidak cocok dengan perangkat ini.');
         return;
@@ -175,7 +179,7 @@ export default function AccountScreen() {
         return;
       }
       if (result !== 'ok') {
-        Alert.alert('Kode tidak valid', 'Format kode lisensi tidak dikenali.');
+        Alert.alert('Kode tidak valid', 'Format kode lisensi tidak dikenali. Pastikan Anda memasukkan kode lengkap dengan signature.');
         return;
       }
       setLicenseCode('');
@@ -291,7 +295,7 @@ export default function AccountScreen() {
                     label="Kode Lisensi Baru"
                     value={licenseCode}
                     onChangeText={(v) => setLicenseCode(v.toUpperCase())}
-                    placeholder="ADK-XXXX-XXXX-YYYY"
+                    placeholder="ADK-LIFE-XXXX-YYYY-BBBBBBBB"
                     editable={!isActivating}
                   />
                   <View style={styles.licenseButtonRow}>
@@ -322,14 +326,14 @@ export default function AccountScreen() {
               <Text style={styles.sectionTitle}>Aktivasi Lisensi</Text>
 
               <Text style={styles.activationDesc}>
-                Masukkan kode lisensi Lifetime atau Premium dari admin untuk mengaktifkan.
+                Masukkan kode lisensi dari admin untuk mengaktifkan. Kode baru memiliki signature HMAC 8 karakter di akhir.
               </Text>
 
               <Input
                 label="Kode Lisensi"
                 value={licenseCode}
                 onChangeText={(v) => setLicenseCode(v.toUpperCase())}
-                placeholder="ADK-XXXX-XXXX-YYYY"
+                placeholder="ADK-LIFE-XXXX-YYYY-BBBBBBBB"
                 editable={!isActivating}
               />
 

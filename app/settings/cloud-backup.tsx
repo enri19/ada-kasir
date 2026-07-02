@@ -184,17 +184,24 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
 
     setIsCloudLoggingIn(true);
     try {
-      const { error } = await signUp(cloudEmail.trim(), cloudPassword);
+      const { data, error } = await signUp(cloudEmail.trim(), cloudPassword);
       if (error) {
         Alert.alert('Registrasi Gagal', error.message);
         return;
       }
-      Alert.alert(
-        'Registrasi Berhasil',
-        'Akun berhasil dibuat. Silakan cek email Anda untuk verifikasi (jika diperlukan), lalu login.'
-      );
       setCloudEmail('');
       setCloudPassword('');
+      if (data?.session) {
+        // Auto-login ketika email confirmation disabled di Supabase
+        setShowCloudLogin(false);
+        await loadBackupStatus();
+        Alert.alert('Registrasi Berhasil', 'Akun cloud berhasil dibuat dan login.');
+      } else {
+        Alert.alert(
+          'Registrasi Berhasil',
+          'Akun berhasil dibuat. Silakan cek email Anda untuk verifikasi (jika diperlukan), lalu login.'
+        );
+      }
     } catch (err: any) {
       Alert.alert('Gagal', err?.message || 'Terjadi kesalahan saat registrasi.');
     } finally {
