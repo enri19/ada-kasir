@@ -10,6 +10,7 @@ import { formatRupiah } from '../../src/utils/currency';
 import { useAppStore } from '../../src/stores/app.store';
 import { SaleRepository } from '../../src/database/sales.repo';
 import { WhatsAppService } from '../../src/services/whatsapp.service';
+import { PrinterService } from '../../src/services/printer.service';
 import { APP_NAME, APP_VERSION } from '../../src/utils/constants';
 import { SaleWithItems } from '../../src/types/sale';
 
@@ -52,6 +53,59 @@ export default function TransaksiBerhasilScreen() {
       case 'qris_static': return 'QRIS';
       case 'debt': return 'Bon';
       default: return 'Tunai';
+    }
+  };
+
+  const handlePrintReceipt = async () => {
+    try {
+      const sale = await SaleRepository.getByInvoiceNumber(invoiceNumber);
+      if (!sale || !activeStore) {
+        Alert.alert('Error', 'Data transaksi tidak ditemukan');
+        return;
+      }
+
+      const subtotal = sale.items.reduce((sum, item) => sum + item.subtotal, 0);
+      const discount = Math.max(0, subtotal - sale.totalAmount);
+
+      const paymentLabel = (() => {
+        switch (method) {
+          case 'qris_static': return 'QRIS';
+          case 'debt': return 'Bon';
+          default: return 'Tunai';
+        }
+      })();
+
+      const receiptParams = {
+        storeName: activeStore.name,
+        storeAddress: activeStore.address || undefined,
+        storePhone: activeStore.phone || undefined,
+        invoiceNumber: sale.invoiceNumber,
+        createdAt: sale.createdAt,
+        cashierName: undefined,
+        customerName: sale.customerName || undefined,
+        items: sale.items.map((i) => ({
+          productName: i.productName,
+          qty: i.qty,
+          price: i.price,
+          subtotal: i.subtotal,
+        })),
+        subtotal,
+        discount,
+        total: sale.totalAmount,
+        paymentMethod: paymentLabel,
+        paidAmount: sale.paidAmount,
+        changeAmount: sale.changeAmount,
+        receiptNote: activeStore.receiptNote || undefined,
+      };
+
+      const result = await PrinterService.printReceiptFromData(receiptParams);
+      if (!result.success) {
+        Alert.alert('Gagal Cetak', result.message);
+      }
+      // Jika berhasil, tidak perlu alert — struk sudah keluar
+    } catch (error) {
+      console.error('Print error:', error);
+      Alert.alert('Gagal Cetak', 'Struk gagal dicetak. Periksa koneksi printer.');
     }
   };
 
@@ -142,7 +196,7 @@ export default function TransaksiBerhasilScreen() {
           />
           <Button
             title="Cetak Struk"
-            onPress={() => Alert.alert('Coming Soon', 'Fitur cetak struk akan segera tersedia')}
+            onPress={handlePrintReceipt}
             variant="outline"
             size="lg"
             fullWidth

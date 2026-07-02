@@ -49,6 +49,11 @@ export default function AccountScreen() {
   const [licenseCode, setLicenseCode] = useState('');
   const [isActivating, setIsActivating] = useState(false);
 
+  /** Apakah user sedang dalam status Premium aktif */
+  const isPremium = licenseStatus === 'premium_active';
+  /** Toggle untuk menampilkan form ganti lisensi (hanya saat Premium) */
+  const [showLicenseForm, setShowLicenseForm] = useState(false);
+
   useEffect(() => {
     if (activeStore) {
       setStoreName(activeStore.name);
@@ -161,7 +166,7 @@ export default function AccountScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>      
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <CustomHeader title="Akun & Lisensi" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <Card style={styles.formCard}>
@@ -241,20 +246,81 @@ export default function AccountScreen() {
           <Text style={styles.infoLabel}>Tanggal Premium Berakhir</Text>
           <Text style={styles.infoValue}>{formatDate(expiresAt)}</Text>
 
-          <Input
-            label="Kode Lisensi"
-            value={licenseCode}
-            onChangeText={(value) => setLicenseCode(value.toUpperCase())}
-            placeholder="ADK-LIFE-XXXX-YYYY"
-            editable={!isActivating}
-          />
+          {/* ── Jika Premium aktif → card status + tombol ganti lisensi ── */}
+          {isPremium ? (
+            <View style={styles.premiumActiveCard}>
+              <View style={styles.premiumActiveHeader}>
+                <Ionicons name="checkmark-circle" size={22} color={colors.secondary} />
+                <Text style={styles.premiumActiveTitle}>Premium Aktif</Text>
+              </View>
+              <Text style={styles.premiumActiveDesc}>
+                Semua fitur Premium tersedia untuk akun ini.
+              </Text>
 
-          <Button
-            title="Aktifkan Lisensi"
-            onPress={handleActivateLicense}
-            fullWidth
-            loading={isActivating}
-          />
+              {!showLicenseForm ? (
+                <Button
+                  title="Ganti / Perbarui Lisensi"
+                  onPress={() => setShowLicenseForm(true)}
+                  variant="outline"
+                  fullWidth
+                  size="sm"
+                />
+              ) : (
+                <View>
+                  <Input
+                    label="Kode Lisensi Baru"
+                    value={licenseCode}
+                    onChangeText={(value) => setLicenseCode(value.toUpperCase())}
+                    placeholder="ADK-LIFE-XXXX-YYYY"
+                    editable={!isActivating}
+                  />
+                  <View style={styles.licenseButtonRow}>
+                    <View style={styles.licenseBtnWrapper}>
+                      <Button
+                        title="Simpan Lisensi"
+                        onPress={handleActivateLicense}
+                        fullWidth
+                        size="sm"
+                        loading={isActivating}
+                      />
+                    </View>
+                    <View style={styles.licenseBtnWrapper}>
+                      <Button
+                        title="Batal"
+                        onPress={() => { setShowLicenseForm(false); setLicenseCode(''); }}
+                        variant="outline"
+                        fullWidth
+                        size="sm"
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          ) : (
+            /* ── Jika belum Premium → tampilkan form aktivasi ── */
+            <View>
+              <Text style={styles.premiumCtaText}>
+                Aktifkan Premium.{'\n'}
+                Masukkan kode lisensi untuk membuka fitur Premium seperti Cadangan Data Cloud.
+              </Text>
+
+              <Input
+                label="Kode Lisensi"
+                value={licenseCode}
+                onChangeText={(value) => setLicenseCode(value.toUpperCase())}
+                placeholder="ADK-LIFE-XXXX-YYYY"
+                editable={!isActivating}
+              />
+
+              <Button
+                title="Aktifkan Lisensi"
+                onPress={handleActivateLicense}
+                fullWidth
+                loading={isActivating}
+              />
+            </View>
+          )}
 
           <View style={styles.contactButtonWrapper}>
             <Button
@@ -266,6 +332,21 @@ export default function AccountScreen() {
             />
           </View>
         </Card>
+
+        {/* Shortcut ke halaman Cadangan Data Cloud */}
+        <TouchableOpacity
+          style={styles.shortcutCard}
+          onPress={() => router.push('/settings/cloud-backup')}
+        >
+          <View style={styles.shortcutIcon}>
+            <Ionicons name="cloud-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={styles.shortcutTextArea}>
+            <Text style={styles.shortcutTitle}>Kelola Cadangan Data Cloud</Text>
+            <Text style={styles.shortcutDescription}>Backup dan restore data kasir ke cloud</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -304,4 +385,49 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  // ── Shortcut ke Cloud Backup ──
+  shortcutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.stackMd,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    marginHorizontal: spacing.marginMobile,
+    marginBottom: spacing.stackLg,
+  },
+  shortcutIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceContainerLow,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.stackSm,
+  },
+  shortcutTextArea: { flex: 1, marginLeft: spacing.stackSm },
+  shortcutTitle: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '700' },
+  shortcutDescription: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
+
+  // ── Premium active section ──
+  premiumActiveCard: {
+    marginTop: spacing.stackMd,
+    padding: spacing.stackMd,
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.secondary + '40',
+  },
+  premiumActiveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.stackSm,
+    marginBottom: spacing.stackSm,
+  },
+  premiumActiveTitle: { ...typography.bodyLg, color: colors.secondary, fontWeight: '700' },
+  premiumActiveDesc: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackMd },
+  premiumCtaText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.stackMd, lineHeight: 20 },
+  licenseButtonRow: { flexDirection: 'row', gap: spacing.stackSm, marginTop: spacing.stackSm },
+  licenseBtnWrapper: { flex: 1 },
 });

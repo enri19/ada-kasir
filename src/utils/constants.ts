@@ -6,6 +6,9 @@ export const STORAGE_KEYS = {
   ACTIVE_STORE_ID: 'active_store_id',
   LICENSE_DATA: 'license_data',
   THEME_MODE: 'theme_mode',
+  PRINTER_CONFIG: 'printer_config',
+  DEVICE_ID: 'ada_kasir_device_id',
+  BACKUP_METADATA: 'ada_kasir_backup_metadata',
 } as const;
 
 export const ADMIN_WHATSAPP = '6285156846242';

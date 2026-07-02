@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
 import { ReportRepository } from '../../src/database/report.repo';
-import { LowStockProduct } from '../../src/types/report';
+import { LowStockProduct, ReportFilter } from '../../src/types/report';
+import { ReportService } from '../../src/services/report.service';
 import { useLicenseGuard } from '../../src/hooks/useLicenseGuard';
 import PremiumUpsellModal from '../../src/components/PremiumUpsellModal';
 
@@ -155,6 +156,7 @@ export default function DetailLaporanScreen() {
   // ── Tab + data state ──────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>('transaksi');
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState<'pdf' | 'csv' | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [lowStock, setLowStock] = useState<LowStockProduct[]>([]);
@@ -250,13 +252,60 @@ export default function DetailLaporanScreen() {
   }, [activeTab, transactions, topProducts, lowStock]);
 
   // ── Export ────────────────────────────────────────────────────────────────
+
+  /** Buat ReportFilter dari state periode saat ini */
+  const buildFilter = useCallback((): ReportFilter => {
+    if (period === 'custom') {
+      return {
+        startDate: startOfDay(startDate).toISOString(),
+        endDate: endOfDay(endDate).toISOString(),
+      };
+    }
+    return {
+      startDate: from.toISOString(),
+      endDate: to.toISOString(),
+    };
+  }, [period, startDate, endDate, from, to]);
+
   const handleExportExcel = useCallback(() => {
-    guardExport(() => Alert.alert('Export Excel', 'Fitur export sedang disiapkan.'));
-  }, [guardExport]);
+    if (exporting) return;
+    guardExport(async () => {
+      setExporting('csv');
+      try {
+        const filter = buildFilter();
+        const result = await ReportService.exportAndShareCSV(filter);
+        if (result.success) {
+          Alert.alert('Berhasil', result.message);
+        } else {
+          Alert.alert('Gagal', result.message);
+        }
+      } catch (error: any) {
+        Alert.alert('Gagal Export CSV', error?.message || 'Gagal membuat file CSV laporan.');
+      } finally {
+        setExporting(null);
+      }
+    });
+  }, [guardExport, buildFilter, exporting]);
 
   const handleExportPDF = useCallback(() => {
-    guardExport(() => Alert.alert('Export PDF', 'Fitur export sedang disiapkan.'));
-  }, [guardExport]);
+    if (exporting) return;
+    guardExport(async () => {
+      setExporting('pdf');
+      try {
+        const filter = buildFilter();
+        const result = await ReportService.exportAndSharePDF(filter);
+        if (result.success) {
+          Alert.alert('Berhasil', result.message);
+        } else {
+          Alert.alert('Gagal', result.message);
+        }
+      } catch (error: any) {
+        Alert.alert('Gagal Export PDF', error?.message || 'Gagal membuat file PDF laporan.');
+      } finally {
+        setExporting(null);
+      }
+    });
+  }, [guardExport, buildFilter, exporting]);
 
   // ── Render item ───────────────────────────────────────────────────────────
   const renderItem = useCallback(
@@ -342,16 +391,32 @@ export default function DetailLaporanScreen() {
 
         {/* Export buttons */}
         <View style={styles.exportRow}>
-          <TouchableOpacity style={styles.exportBtn} onPress={handleExportExcel}>
-            <Ionicons name="document-text-outline" size={14} color={colors.primary} />
+          <TouchableOpacity
+            style={[styles.exportBtn, exporting === 'csv' && styles.exportBtnDisabled]}
+            onPress={handleExportExcel}
+            disabled={exporting !== null}
+          >
+            {exporting === 'csv' ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Ionicons name="document-text-outline" size={14} color={colors.primary} />
+            )}
             <Text style={styles.exportBtnText}>Export Excel</Text>
             <View style={styles.premiumTag}>
               <Ionicons name="star" size={9} color={colors.tertiary} />
               <Text style={styles.premiumTagText}>Premium</Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.exportBtn} onPress={handleExportPDF}>
-            <Ionicons name="document-outline" size={14} color={colors.primary} />
+          <TouchableOpacity
+            style={[styles.exportBtn, exporting === 'pdf' && styles.exportBtnDisabled]}
+            onPress={handleExportPDF}
+            disabled={exporting !== null}
+          >
+            {exporting === 'pdf' ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Ionicons name="document-outline" size={14} color={colors.primary} />
+            )}
             <Text style={styles.exportBtnText}>Export PDF</Text>
             <View style={styles.premiumTag}>
               <Ionicons name="star" size={9} color={colors.tertiary} />
@@ -483,6 +548,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLow,
   },
   exportBtnText: { ...typography.labelSm, color: colors.primary, fontWeight: '600', fontSize: 12 },
+  exportBtnDisabled: { opacity: 0.6 },
   premiumTag: {
     flexDirection: 'row', alignItems: 'center', gap: 2,
     backgroundColor: colors.tertiaryFixed,

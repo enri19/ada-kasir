@@ -20,6 +20,10 @@ export default function SettingsScreen() {
   const [isClearing, setIsClearing] = useState(false);
   const appVersion = Constants.expoConfig?.version ?? APP_VERSION;
 
+  // Status premium untuk menyesuaikan UI menu cloud backup
+  const licenseStatus = useLicenseStore((s) => s.status);
+  const isPremium = licenseStatus === 'premium_active';
+
   useEffect(() => {
     let mounted = true;
     // initial fetch
@@ -131,6 +135,26 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.menuCard} onPress={() => router.push('/settings/cloud-backup')}>
+          <View style={styles.menuIcon}>
+            <Ionicons
+              name={isPremium ? 'cloud-outline' : 'lock-closed-outline'}
+              size={24}
+              color={isPremium ? colors.primary : colors.onSurfaceVariant}
+            />
+          </View>
+          <View style={styles.menuLabelArea}>
+            <Text style={styles.menuLabel}>Cadangan Data Cloud</Text>
+            <Text style={styles.menuDescription}>
+              {isPremium ? 'Backup dan restore data kasir ke cloud' : 'Fitur Premium untuk melindungi data kasir Anda'}
+            </Text>
+          </View>
+          <Text style={[styles.menuSubLabel, { color: isPremium ? colors.secondary : colors.onSurfaceVariant }]}>
+            {isPremium ? 'Aktif' : 'Premium'}
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuCard} onPress={() => router.push('/settings/device')}>
           <View style={styles.menuIcon}><Ionicons name="hardware-chip-outline" size={24} color={colors.primary} /></View>
           <Text style={styles.menuLabel}>Perangkat</Text>
@@ -185,7 +209,10 @@ const styles = StyleSheet.create({
   statusNote: { ...typography.labelSm, color: colors.onSurfaceVariant },
   menuCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.stackMd, backgroundColor: colors.surface, borderRadius: borderRadius.lg, borderWidth: 1, borderColor: colors.outlineVariant, marginBottom: spacing.stackMd },
   menuIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.surfaceContainerLow, alignItems: 'center', justifyContent: 'center', marginRight: spacing.stackSm },
-  menuLabel: { flex: 1, ...typography.bodyLg, color: colors.onSurface, marginLeft: spacing.stackSm },
+  menuLabel: { ...typography.bodyLg, color: colors.onSurface, marginLeft: spacing.stackSm },
+  menuLabelArea: { flex: 1, marginLeft: spacing.stackSm },
+  menuDescription: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2, marginLeft: spacing.stackSm },
+  menuSubLabel: { ...typography.labelSm, color: colors.primary, fontWeight: '700', marginRight: spacing.stackSm },
   dataCard: { padding: spacing.stackMd, marginTop: spacing.stackSm },
   sectionTitle: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '700', marginBottom: spacing.stackSm },
   dataDescription: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.stackMd },
