@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,7 +22,15 @@ export default function SettingsScreen() {
 
   // Status premium untuk menyesuaikan UI menu cloud backup
   const licenseStatus = useLicenseStore((s) => s.status);
+  const refreshLicenseStatus = useLicenseStore((s) => s.refreshStatus);
   const isPremium = licenseStatus === 'premium_active';
+
+  // Refresh status lisensi setiap kali halaman difokuskan
+  useFocusEffect(
+    useCallback(() => {
+      refreshLicenseStatus();
+    }, [refreshLicenseStatus])
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -207,12 +215,12 @@ const styles = StyleSheet.create({
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   statusText: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface },
   statusNote: { ...typography.labelSm, color: colors.onSurfaceVariant },
-  menuCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.stackMd, backgroundColor: colors.surface, borderRadius: borderRadius.lg, borderWidth: 1, borderColor: colors.outlineVariant, marginBottom: spacing.stackMd },
-  menuIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.surfaceContainerLow, alignItems: 'center', justifyContent: 'center', marginRight: spacing.stackSm },
-  menuLabel: { ...typography.bodyLg, color: colors.onSurface, marginLeft: spacing.stackSm },
-  menuLabelArea: { flex: 1, marginLeft: spacing.stackSm },
-  menuDescription: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2, marginLeft: spacing.stackSm },
-  menuSubLabel: { ...typography.labelSm, color: colors.primary, fontWeight: '700', marginRight: spacing.stackSm },
+  menuCard: { flexDirection: 'row', alignItems: 'center', padding: spacing.stackMd, backgroundColor: colors.surface, borderRadius: borderRadius.lg, borderWidth: 1, borderColor: colors.outlineVariant, marginBottom: spacing.stackMd, gap: spacing.stackSm },
+  menuIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.surfaceContainerLow, alignItems: 'center', justifyContent: 'center' },
+  menuLabel: { flex: 1, ...typography.bodyLg, color: colors.onSurface },
+  menuLabelArea: { flex: 1 },
+  menuDescription: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
+  menuSubLabel: { ...typography.labelSm, color: colors.primary, fontWeight: '700' },
   dataCard: { padding: spacing.stackMd, marginTop: spacing.stackSm },
   sectionTitle: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '700', marginBottom: spacing.stackSm },
   dataDescription: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.stackMd },

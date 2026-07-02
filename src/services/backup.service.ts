@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import * as SQLite from 'expo-sqlite';
 import { getDatabase } from '../database/db';
 import { CategoryRepository } from '../database/category.repo';
 import { ProductRepository } from '../database/product.repo';
@@ -163,10 +164,10 @@ function validateBackupData(data: BackupData): string | null {
 
 /**
  * Membersihkan data lokal sebelum restore.
- * Semua data dihapus dalam satu transaksi SQLite.
+ * Data dihapus dengan urutan aman untuk foreign key.
+ * Menerima db instance langsung (dari transaksi aktif).
  */
-async function clearLocalData(): Promise<void> {
-  const db = await getDatabase();
+async function clearLocalData(db: SQLite.SQLiteDatabase): Promise<void> {
   await db.execAsync(`
     DELETE FROM stock_movements;
     DELETE FROM debt_payments;
@@ -181,10 +182,9 @@ async function clearLocalData(): Promise<void> {
 }
 
 /**
- * Insert data kategori ke SQLite.
+ * Insert data kategori ke SQLite. Menerima db instance langsung.
  */
-async function restoreCategories(categories: Category[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreCategories(db: SQLite.SQLiteDatabase, categories: Category[]): Promise<void> {
   for (const cat of categories) {
     await db.runAsync(
       `INSERT OR REPLACE INTO categories (id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
@@ -194,10 +194,9 @@ async function restoreCategories(categories: Category[]): Promise<void> {
 }
 
 /**
- * Insert data produk ke SQLite.
+ * Insert data produk ke SQLite. Menerima db instance langsung.
  */
-async function restoreProducts(products: Product[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreProducts(db: SQLite.SQLiteDatabase, products: Product[]): Promise<void> {
   for (const p of products) {
     await db.runAsync(
       `INSERT OR REPLACE INTO products (id, category_id, name, sku, barcode, cost_price, sell_price, stock, min_stock, track_stock, allow_negative_stock, unit, image_uri, image_key, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -225,10 +224,9 @@ async function restoreProducts(products: Product[]): Promise<void> {
 }
 
 /**
- * Insert data pelanggan ke SQLite.
+ * Insert data pelanggan ke SQLite. Menerima db instance langsung.
  */
-async function restoreCustomers(customers: Customer[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreCustomers(db: SQLite.SQLiteDatabase, customers: Customer[]): Promise<void> {
   for (const c of customers) {
     await db.runAsync(
       `INSERT OR REPLACE INTO customers (id, name, phone, address, note, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -238,10 +236,9 @@ async function restoreCustomers(customers: Customer[]): Promise<void> {
 }
 
 /**
- * Insert data penjualan ke SQLite.
+ * Insert data penjualan ke SQLite. Menerima db instance langsung.
  */
-async function restoreSales(sales: Sale[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreSales(db: SQLite.SQLiteDatabase, sales: Sale[]): Promise<void> {
   for (const s of sales) {
     await db.runAsync(
       `INSERT OR REPLACE INTO sales (id, invoice_number, customer_id, total_amount, paid_amount, change_amount, payment_method, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -262,10 +259,9 @@ async function restoreSales(sales: Sale[]): Promise<void> {
 }
 
 /**
- * Insert data item penjualan ke SQLite.
+ * Insert data item penjualan ke SQLite. Menerima db instance langsung.
  */
-async function restoreSaleItems(items: SaleItem[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreSaleItems(db: SQLite.SQLiteDatabase, items: SaleItem[]): Promise<void> {
   for (const item of items) {
     await db.runAsync(
       `INSERT OR REPLACE INTO sale_items (id, sale_id, product_id, product_name, qty, price, cost_price, subtotal, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -275,10 +271,9 @@ async function restoreSaleItems(items: SaleItem[]): Promise<void> {
 }
 
 /**
- * Insert data hutang ke SQLite.
+ * Insert data hutang ke SQLite. Menerima db instance langsung.
  */
-async function restoreDebts(debts: Debt[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreDebts(db: SQLite.SQLiteDatabase, debts: Debt[]): Promise<void> {
   for (const d of debts) {
     await db.runAsync(
       `INSERT OR REPLACE INTO debts (id, customer_id, sale_id, source, amount, paid_amount, remaining_amount, status, due_date, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -288,10 +283,9 @@ async function restoreDebts(debts: Debt[]): Promise<void> {
 }
 
 /**
- * Insert data pembayaran hutang ke SQLite.
+ * Insert data pembayaran hutang ke SQLite. Menerima db instance langsung.
  */
-async function restoreDebtPayments(payments: DebtPayment[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreDebtPayments(db: SQLite.SQLiteDatabase, payments: DebtPayment[]): Promise<void> {
   for (const p of payments) {
     await db.runAsync(
       `INSERT OR REPLACE INTO debt_payments (id, debt_id, customer_id, amount, payment_method, note, paid_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -301,10 +295,9 @@ async function restoreDebtPayments(payments: DebtPayment[]): Promise<void> {
 }
 
 /**
- * Insert data pergerakan stok ke SQLite.
+ * Insert data pergerakan stok ke SQLite. Menerima db instance langsung.
  */
-async function restoreStockMovements(movements: StockMovement[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreStockMovements(db: SQLite.SQLiteDatabase, movements: StockMovement[]): Promise<void> {
   for (const m of movements) {
     await db.runAsync(
       `INSERT OR REPLACE INTO stock_movements (id, product_id, type, qty, stock_before, stock_after, reference_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -314,10 +307,9 @@ async function restoreStockMovements(movements: StockMovement[]): Promise<void> 
 }
 
 /**
- * Insert data toko ke SQLite.
+ * Insert data toko ke SQLite. Menerima db instance langsung.
  */
-async function restoreStores(stores: Store[]): Promise<void> {
-  const db = await getDatabase();
+async function restoreStores(db: SQLite.SQLiteDatabase, stores: Store[]): Promise<void> {
   for (const s of stores) {
     await db.runAsync(
       `INSERT OR REPLACE INTO stores (id, name, owner_name, phone, address, receipt_note, logo_uri, qris_image_uri, qris_name, qris_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -540,33 +532,49 @@ export const BackupService = {
 
       const backupData = backups[0].backup_data as BackupData;
 
-      // 2. Validasi data backup
+      // 2. Validasi data backup SEBELUM transaksi dimulai
       const validationError = validateBackupData(backupData);
       if (validationError) {
         throw new Error(validationError);
       }
 
-      // 3. Restore data dalam urutan yang benar
-      //    Gunakan urutan yang aman untuk foreign key
       const { records } = backupData;
+      const db = await getDatabase();
 
-      await clearLocalData();
+      // 3. Restore dalam SQLite transaction — atomic, rollback jika gagal
+      try {
+        await db.execAsync('BEGIN TRANSACTION');
 
-      // Urutan restore (parent table dulu, baru child table)
-      if (records.categories.length > 0) await restoreCategories(records.categories);
-      if (records.products.length > 0) await restoreProducts(records.products);
-      if (records.customers.length > 0) await restoreCustomers(records.customers);
-      if (records.sales.length > 0) await restoreSales(records.sales);
-      if (records.saleItems.length > 0) await restoreSaleItems(records.saleItems);
-      if (records.debts.length > 0) await restoreDebts(records.debts);
-      if (records.debtPayments.length > 0) await restoreDebtPayments(records.debtPayments);
-      if (records.stockMovements.length > 0) await restoreStockMovements(records.stockMovements);
-      if (records.stores.length > 0) await restoreStores(records.stores);
+        // Hapus data lokal dengan urutan aman (child table dulu)
+        await clearLocalData(db);
 
-      // 4. Update metadata backup
-      await saveBackupMetadata(backupData.recordCounts);
+        // Insert ulang dengan urutan aman (parent table dulu)
+        if (records.categories.length > 0) await restoreCategories(db, records.categories);
+        if (records.products.length > 0) await restoreProducts(db, records.products);
+        if (records.customers.length > 0) await restoreCustomers(db, records.customers);
+        if (records.sales.length > 0) await restoreSales(db, records.sales);
+        if (records.saleItems.length > 0) await restoreSaleItems(db, records.saleItems);
+        if (records.debts.length > 0) await restoreDebts(db, records.debts);
+        if (records.debtPayments.length > 0) await restoreDebtPayments(db, records.debtPayments);
+        if (records.stockMovements.length > 0) await restoreStockMovements(db, records.stockMovements);
+        if (records.stores.length > 0) await restoreStores(db, records.stores);
 
-      return true;
+        await db.execAsync('COMMIT');
+
+        // 4. Update metadata backup hanya jika COMMIT sukses
+        await saveBackupMetadata(backupData.recordCounts);
+
+        return true;
+      } catch (txError) {
+        // Rollback jika ada error selama transaksi
+        try {
+          await db.execAsync('ROLLBACK');
+        } catch {
+          // Jika rollback pun gagal, database mungkin dalam state buruk —
+          // lempar error yang jelas
+        }
+        throw new Error('Restore gagal dan perubahan dibatalkan. Data lokal tidak diubah.');
+      }
     } catch (error: any) {
       if (error?.message?.includes('Failed to fetch') || error?.message?.includes('Network')) {
         throw new Error('Restore gagal. Periksa koneksi internet.');

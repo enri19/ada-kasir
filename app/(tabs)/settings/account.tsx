@@ -144,6 +144,9 @@ export default function AccountScreen() {
       }
 
       setLicenseCode('');
+      // Refresh status lisensi agar UI langsung berubah
+      await refreshLicenseStatus();
+      setShowLicenseForm(false);
       Alert.alert('Berhasil', 'Lisensi berhasil diaktifkan.');
     } finally {
       setIsActivating(false);
@@ -333,20 +336,6 @@ export default function AccountScreen() {
           </View>
         </Card>
 
-        {/* Shortcut ke halaman Cadangan Data Cloud */}
-        <TouchableOpacity
-          style={styles.shortcutCard}
-          onPress={() => router.push('/settings/cloud-backup')}
-        >
-          <View style={styles.shortcutIcon}>
-            <Ionicons name="cloud-outline" size={22} color={colors.primary} />
-          </View>
-          <View style={styles.shortcutTextArea}>
-            <Text style={styles.shortcutTitle}>Kelola Cadangan Data Cloud</Text>
-            <Text style={styles.shortcutDescription}>Backup dan restore data kasir ke cloud</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -385,31 +374,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // ── Shortcut ke Cloud Backup ──
-  shortcutCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.stackMd,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    marginHorizontal: spacing.marginMobile,
-    marginBottom: spacing.stackLg,
-  },
-  shortcutIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceContainerLow,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.stackSm,
-  },
-  shortcutTextArea: { flex: 1, marginLeft: spacing.stackSm },
-  shortcutTitle: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '700' },
-  shortcutDescription: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
-
   // ── Premium active section ──
   premiumActiveCard: {
     marginTop: spacing.stackMd,

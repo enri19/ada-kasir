@@ -31,20 +31,29 @@ import { BackupStatus } from '../../../src/types/backup';
  * Cloud Backup hanya tersedia untuk akun Premium (premium_active).
  * Lifetime, trial, expired tidak bisa mengakses fitur ini.
  *
- * `refreshStatus` dipanggil saat komponen mount agar status premium
+ * `refreshStatus` dipanggil saat halaman difokuskan agar status premium
  * selalu up-to-date.
+ *
+ * Mengembalikan { isPremium, isChecking } agar halaman bisa menampilkan
+ * loading state selama pengecekan awal, bukan langsung locked view.
  */
-function useIsPremium(): boolean {
+function usePremiumStatus(): { isPremium: boolean; isChecking: boolean } {
   const status = useLicenseStore((s) => s.status);
   const refreshStatus = useLicenseStore((s) => s.refreshStatus);
+  const [isChecking, setIsChecking] = useState(true);
 
   useFocusEffect(
     React.useCallback(() => {
-      refreshStatus();
+      let active = true;
+      (async () => {
+        await refreshStatus();
+        if (active) setIsChecking(false);
+      })();
+      return () => { active = false; };
     }, [refreshStatus])
   );
 
-  return status === 'premium_active';
+  return { isPremium: status === 'premium_active', isChecking };
 }
 
 // ============================================================
@@ -482,7 +491,20 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
 
 export default function CloudBackupScreen() {
   const insets = useSafeAreaInsets();
-  const isPremium = useIsPremium();
+  const { isPremium, isChecking } = usePremiumStatus();
+
+  // Loading state agar tidak flash tampilan locked saat pengecekan
+  if (isChecking) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <CustomHeader title="Cadangan Data Cloud" onBack={() => {}} />
+        <View style={styles.loadingFullScreen}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Memeriksa status lisensi...</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (!isPremium) {
     return <PremiumLockedView insets={insets} />;
@@ -534,6 +556,7 @@ const styles = StyleSheet.create({
 
   // ── Loading ──
   loadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.stackSm, paddingVertical: spacing.stackLg },
+  loadingFullScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.stackMd },
   loadingText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
 
   // ── Status card ──
