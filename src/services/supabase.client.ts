@@ -1,7 +1,37 @@
 import { createClient, SupabaseClient, AuthChangeEvent, Session } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SupabaseConfig } from '../constants/env';
 
 let client: SupabaseClient | null = null;
+
+/**
+ * Storage adapter untuk React Native.
+ * Supabase JS v2 secara default pakai localStorage (web) — tidak tersedia di RN.
+ * Dengan AsyncStorage, session persist meskipun app ditutup dan dibuka kembali.
+ */
+const AsyncStorageAdapter = {
+  getItem: async (key: string): Promise<string | null> => {
+    try {
+      return await AsyncStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    try {
+      await AsyncStorage.setItem(key, value);
+    } catch {
+      // Ignore storage errors
+    }
+  },
+  removeItem: async (key: string): Promise<void> => {
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch {
+      // Ignore storage errors
+    }
+  },
+};
 
 /**
  * Mendapatkan singleton Supabase client.
@@ -19,6 +49,7 @@ export function getSupabaseClient(): SupabaseClient | null {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,
+      storage: AsyncStorageAdapter,
     },
   });
 
