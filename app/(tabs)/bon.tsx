@@ -16,6 +16,8 @@ import { DebtWithCustomer } from '../../src/types/debt';
 import { Customer } from '../../src/types/customer';
 import { useAppStore } from '../../src/stores/app.store';
 import { useLicenseStore } from '../../src/stores/license.store';
+import { AppModal } from '../../src/components/ui/AppModal';
+import { AppButton } from '../../src/components/ui/AppButton';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -107,6 +109,12 @@ export default function BonScreen() {
   const [totalDebt, setTotalDebt] = useState(0);
   const cacheRef = useRef('');
 
+  // Read-only modal
+  const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
+
+  // Success modal
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -156,7 +164,7 @@ export default function BonScreen() {
 
   const handleOpenModal = useCallback(() => {
     if (isReadOnly) {
-      Alert.alert('Mode read-only', 'Anda tidak dapat menambah bon saat lisensi sudah berakhir.');
+      setShowReadOnlyModal(true);
       return;
     }
     setSelectedCustomer(null);
@@ -202,7 +210,7 @@ export default function BonScreen() {
       cacheRef.current = '';
       await loadData();
       setShowModal(false);
-      Alert.alert('Berhasil', 'Bon manual berhasil ditambahkan.');
+      setShowSuccessModal(true);
     } catch {
       Alert.alert('Gagal', 'Terjadi kesalahan saat menyimpan bon.');
     } finally {
@@ -363,15 +371,42 @@ export default function BonScreen() {
               numberOfLines={2}
             />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              <Text style={styles.saveBtnText}>{saving ? 'Menyimpan...' : 'Simpan Bon Manual'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowModal(false)}>
-              <Text style={styles.cancelBtnText}>Batal</Text>
-            </TouchableOpacity>
+            <AppButton title={saving ? 'Menyimpan...' : 'Simpan Bon Manual'} onPress={handleSave} disabled={saving} fullWidth style={{ marginTop: 4 }} />
+            <View style={{ height: spacing.stackSm }} />
+            <AppButton title="Batal" onPress={() => setShowModal(false)} variant="outline" fullWidth />
           </View>
         </View>
       </Modal>
+
+      {/* Success Modal */}
+      <AppModal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        type="success"
+        title="Bon Berhasil Ditambahkan"
+        icon="checkmark-circle"
+        message="Bon manual berhasil dicatat."
+        primaryAction={{
+          label: 'OK',
+          onPress: () => setShowSuccessModal(false),
+          variant: 'primary',
+        }}
+      />
+
+      {/* Read-only Modal */}
+      <AppModal
+        visible={showReadOnlyModal}
+        onClose={() => setShowReadOnlyModal(false)}
+        type="warning"
+        title="Mode Read-only"
+        icon="lock-closed"
+        message="Anda tidak dapat menambah bon saat lisensi sudah berakhir."
+        primaryAction={{
+          label: 'Mengerti',
+          onPress: () => setShowReadOnlyModal(false),
+          variant: 'primary',
+        }}
+      />
     </View>
   );
 }

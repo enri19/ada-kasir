@@ -11,6 +11,7 @@ import { Button } from '../../src/components/Button';
 import { CustomerRepository } from '../../src/database/customer.repo';
 import { Customer, CustomerDebtSummary } from '../../src/types/customer';
 import { useLicenseStore } from '../../src/stores/license.store';
+import { AppModal } from '../../src/components/ui/AppModal';
 
 // ─── CustomerCard (memo, outside screen) ─────────────────────────────────────
 
@@ -71,6 +72,9 @@ export default function KelolaPelangganScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const cacheRef = useRef('');
 
+  // Read-only modal
+  const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
+
   // Add modal
   const [showAdd, setShowAdd] = useState(false);
   const [addName, setAddName] = useState('');
@@ -112,7 +116,7 @@ export default function KelolaPelangganScreen() {
 
   const handleOpenAdd = useCallback(() => {
     if (isReadOnly) {
-      Alert.alert('Mode read-only', 'Anda tidak dapat mengubah data pelanggan saat lisensi sudah berakhir.');
+      setShowReadOnlyModal(true);
       return;
     }
     setAddName(''); setAddPhone(''); setAddAddress(''); setAddNote('');
@@ -257,6 +261,21 @@ export default function KelolaPelangganScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Read-only Modal */}
+      <AppModal
+        visible={showReadOnlyModal}
+        onClose={() => setShowReadOnlyModal(false)}
+        type="warning"
+        title="Mode Read-only"
+        icon="lock-closed"
+        message="Anda tidak dapat mengubah data pelanggan saat lisensi sudah berakhir."
+        primaryAction={{
+          label: 'Mengerti',
+          onPress: () => setShowReadOnlyModal(false),
+          variant: 'primary',
+        }}
+      />
     </View>
   );
 }

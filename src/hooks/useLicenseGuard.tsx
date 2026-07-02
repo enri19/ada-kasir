@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import { useLicenseStore } from '../stores/license.store';
+import { AppModal } from '../components/ui/AppModal';
 
 type ModalType = 'trial_expired' | 'premium_upsell' | null;
 
@@ -18,6 +20,7 @@ type ModalType = 'trial_expired' | 'premium_upsell' | null;
  *   guardExport(() => doExport());
  */
 export function useLicenseGuard() {
+  const router = useRouter();
   const [modalType, setModalType] = useState<ModalType>(null);
 
   const canCreateTransaction = useLicenseStore((s) => s.canCreateTransaction);
@@ -32,9 +35,6 @@ export function useLicenseGuard() {
    * Guard untuk aksi Basic (transaksi, produk, stok).
    * Jika tidak boleh, tampilkan modal yang sesuai.
    * Jika boleh, jalankan `action`.
-   *
-   * @param type  'transaction' | 'product' | 'stock'
-   * @param action  callback yang dijalankan jika izin OK
    */
   const guard = useCallback(
     (type: 'transaction' | 'product' | 'stock', action: () => void) => {
@@ -54,7 +54,6 @@ export function useLicenseGuard() {
 
   /**
    * Guard khusus export laporan — Premium only.
-   * Jika tidak boleh, tampilkan modal Premium upsell.
    */
   const guardExport = useCallback(
     (action: () => void) => {
@@ -67,6 +66,59 @@ export function useLicenseGuard() {
     [canExportReport]
   );
 
+  /** Render AppModal based on modalType */
+  const modal = modalType === 'trial_expired' ? (
+    <AppModal
+      visible
+      onClose={closeModal}
+      type="warning"
+      title="Masa Trial Berakhir"
+      icon="time-outline"
+      message="Data Anda tetap aman dan masih bisa dilihat. Aktifkan lisensi AdaKasir untuk melanjutkan transaksi dan mengelola data."
+      primaryAction={{
+        label: 'Aktivasi Sekarang',
+        onPress: () => {
+          closeModal();
+          router.push('/(tabs)/settings/lisensi' as never);
+        },
+        variant: 'primary',
+      }}
+      secondaryAction={{
+        label: 'Nanti',
+        onPress: closeModal,
+        variant: 'ghost',
+      }}
+    />
+  ) : modalType === 'premium_upsell' ? (
+    <AppModal
+      visible
+      onClose={closeModal}
+      type="premium"
+      title="Export tersedia untuk Premium"
+      icon="diamond"
+      message="Aktifkan Premium untuk menyimpan laporan ke Excel/PDF, backup data, dan mendapatkan fitur lanjutan."
+      benefits={[
+        'Export Excel & PDF',
+        'Backup & Restore data',
+        'Laporan bulanan',
+        'Support prioritas',
+      ]}
+      primaryAction={{
+        label: 'Aktifkan Premium',
+        onPress: () => {
+          closeModal();
+          router.push('/settings/account');
+        },
+        variant: 'primary',
+      }}
+      secondaryAction={{
+        label: 'Nanti',
+        onPress: closeModal,
+        variant: 'ghost',
+      }}
+    />
+  ) : null;
+
   return {
     /** Tipe modal yang sedang aktif, null jika tidak ada */
     modalType,
@@ -77,5 +129,7 @@ export function useLicenseGuard() {
     guardExport,
     /** Shortcut: apakah mode read-only saat ini */
     isReadOnly: isReadOnly(),
+    /** Render AppModal — pasang di JSX screen */
+    modal,
   };
 }

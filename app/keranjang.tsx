@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../src/config/theme';
 import { CurrencyText } from '../src/components/CurrencyText';
 import { Button } from '../src/components/Button';
+import { AppModal } from '../src/components/ui/AppModal';
 import { BottomActionBar } from '../src/components/BottomActionBar';
 import { useCartStore } from '../src/stores/cart.store';
 import { formatRupiah, parseRupiah } from '../src/utils/currency';
@@ -171,55 +172,40 @@ export default function KeranjangScreen() {
       </BottomActionBar>
 
       {/* Discount Modal */}
-      <Modal visible={showDiscountModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Masukkan Diskon</Text>
-            <View style={styles.discountInputRow}>
-              <Text style={styles.discountPrefix}>Rp</Text>
-              <TextInput
-                style={styles.discountTextInput}
-                value={discountInput ? Number(discountInput).toLocaleString('id-ID') : ''}
-                onChangeText={(text) => {
-                  const num = text.replace(/[^0-9]/g, '');
-                  setDiscountInput(num);
-                }}
-                placeholder="0"
-                placeholderTextColor={colors.onSurfaceVariant}
-                keyboardType="number-pad"
-                autoFocus
-              />
-            </View>
-            <View style={styles.modalButtons}>
-              {discount > 0 && (
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Button
-                    title="Hapus Diskon"
-                    onPress={handleRemoveDiscount}
-                    variant="outline"
-                    size="lg"
-                    fullWidth
-                  />
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Button
-                  title="Terapkan"
-                  onPress={handleApplyDiscount}
-                  size="lg"
-                  fullWidth
-                />
-              </View>
-            </View>
-            <TouchableOpacity 
-              style={styles.modalClose}
-              onPress={() => setShowDiscountModal(false)}
-            >
-              <Text style={styles.modalCloseText}>Tutup</Text>
-            </TouchableOpacity>
-          </View>
+      <AppModal
+        visible={showDiscountModal}
+        onClose={() => setShowDiscountModal(false)}
+        type="info"
+        title="Atur Diskon"
+        icon="pricetag"
+        message="Masukkan diskon untuk transaksi ini."
+        primaryAction={{
+          label: 'Terapkan',
+          onPress: handleApplyDiscount,
+          variant: 'primary',
+        }}
+        secondaryAction={{
+          label: discount > 0 ? 'Hapus Diskon' : 'Batal',
+          onPress: discount > 0 ? handleRemoveDiscount : () => setShowDiscountModal(false),
+          variant: 'outline',
+        }}
+      >
+        <View style={discountStyles.discountInputRow}>
+          <Text style={discountStyles.discountPrefix}>Rp</Text>
+          <TextInput
+            style={discountStyles.discountTextInput}
+            value={discountInput ? Number(discountInput).toLocaleString('id-ID') : ''}
+            onChangeText={(text) => {
+              const num = text.replace(/[^0-9]/g, '');
+              setDiscountInput(num);
+            }}
+            placeholder="0"
+            placeholderTextColor={colors.onSurfaceVariant}
+            keyboardType="number-pad"
+            autoFocus
+          />
         </View>
-      </Modal>
+      </AppModal>
     </View>
   );
 }
@@ -278,22 +264,15 @@ const styles = StyleSheet.create({
     padding: spacing.stackLg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   totalLabel: { ...typography.headlineMobile, fontWeight: '700', color: colors.onPrimary },
+});
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: {
-    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
-    padding: spacing.stackLg, width: '85%',
-  },
-  modalTitle: { ...typography.headlineMobile, fontWeight: '700', color: colors.onSurface, marginBottom: spacing.stackLg, textAlign: 'center' },
+const discountStyles = StyleSheet.create({
   discountInputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.md,
+    flexDirection: 'row', alignItems: 'center', width: '100%',
+    backgroundColor: colors.surfaceContainerLow, borderRadius: 12,
     borderWidth: 1, borderColor: colors.outlineVariant, padding: spacing.stackMd,
+    marginBottom: 16,
   },
   discountPrefix: { ...typography.headlineMobile, color: colors.onSurfaceVariant, marginRight: spacing.stackSm },
   discountTextInput: { flex: 1, ...typography.headlineMobile, fontWeight: '700', color: colors.onSurface },
-  discountPreview: { ...typography.bodyLg, color: colors.primary, fontWeight: '600', textAlign: 'center', marginTop: spacing.stackSm },
-  modalButtons: { flexDirection: 'row', marginTop: spacing.stackLg },
-  modalClose: { marginTop: spacing.stackMd, alignItems: 'center' },
-  modalCloseText: { ...typography.bodyLg, color: colors.primary, fontWeight: '600' },
 });

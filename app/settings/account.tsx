@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, Pressable } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePickImage } from '../../src/components/PickImageModal';
@@ -14,6 +14,7 @@ import { Card } from '../../src/components/Card';
 import { CustomHeader } from '../../src/components/CustomHeader';
 import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
+import { AppModal } from '../../src/components/ui/AppModal';
 import { ADMIN_WHATSAPP } from '../../src/utils/constants';
 import { AppImages } from '../../src/constants/assets';
 
@@ -34,7 +35,7 @@ function formatDate(value: string | null): string {
 export default function AccountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { pickImage: openImagePicker, modal } = usePickImage();
+  const { pickImage: openImagePicker, modal, handleReadOnly } = usePickImage();
   const activeStore = useAppStore((state) => state.activeStore);
   const setActiveStore = useAppStore((state) => state.setActiveStore);
   const deviceCode = useLicenseStore((state) => state.deviceCode);
@@ -43,6 +44,7 @@ export default function AccountScreen() {
   const expiresAt = useLicenseStore((state) => state.expiresAt);
   const activateLicense = useLicenseStore((state) => state.activateLicense);
   const refreshLicenseStatus = useLicenseStore((state) => state.refreshStatus);
+  const isReadOnly = useLicenseStore((s) => s.isReadOnlyMode());
 
   // ── Store form state ──
   const [storeName, setStoreName] = useState(activeStore?.name || '');
@@ -77,10 +79,14 @@ export default function AccountScreen() {
   }, [refreshLicenseStatus]);
 
   // ── Pick logo ──
-  const pickLogo = async () => {
-    const uri = await openImagePicker({ aspect: [1, 1], quality: 0.7 }, 'Pilih Logo');
+  const pickLogo = useCallback(async () => {
+    if (isReadOnly) {
+      handleReadOnly('Anda tidak dapat mengubah foto warung saat lisensi sudah berakhir.');
+      return;
+    }
+    const uri = await openImagePicker({ aspect: [1, 1], quality: 0.7 }, 'Ganti Foto Warung');
     if (uri) setLogoUri(uri);
-  };
+  }, [isReadOnly, handleReadOnly, openImagePicker]);
 
   // ── Salin Kode Perangkat ──
   const handleCopyDeviceCode = () => {
@@ -380,13 +386,17 @@ export default function AccountScreen() {
 
           <View style={styles.logoUpload}>
             <Text style={styles.label}>Logo Warung</Text>
-            <TouchableOpacity style={styles.logoBox} onPress={pickLogo}>
+            <TouchableOpacity style={styles.logoBox} onPress={pickLogo} activeOpacity={0.7}>
               {logoUri ? (
                 <Image source={{ uri: logoUri }} style={styles.logoPreview} />
               ) : (
-                <Ionicons name="camera-outline" size={32} color={colors.onSurfaceVariant} />
+                <Ionicons name="camera-outline" size={28} color={colors.primary} />
               )}
+              <View style={styles.logoCameraBadge}>
+                <Ionicons name="camera" size={14} color={colors.onPrimary} />
+              </View>
             </TouchableOpacity>
+            <Text style={styles.logoHint}>Ganti Foto Warung</Text>
           </View>
 
           <Input
@@ -449,33 +459,31 @@ export default function AccountScreen() {
       </ScrollView>
 
       {/* ── Modal Pilih Paket ── */}
-      <Modal visible={showPaketPicker} transparent animationType="fade" onRequestClose={() => setShowPaketPicker(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowPaketPicker(false)}>
-          <Pressable style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Hubungi Admin</Text>
-            <Text style={styles.modalDesc}>Pilih paket yang diinginkan:</Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnLifetime]}
-                onPress={() => { setShowPaketPicker(false); sendWaMessage('Lifetime'); }}
-              >
-                <Text style={styles.modalBtnLabel}>Lifetime</Text>
-                <Text style={styles.modalBtnSub}>Aktif selamanya</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnPremium]}
-                onPress={() => { setShowPaketPicker(false); sendWaMessage('Premium'); }}
-              >
-                <Text style={styles.modalBtnLabel}>Premium</Text>
-                <Text style={styles.modalBtnSub}>Bulanan / Tahunan</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowPaketPicker(false)}>
-              <Text style={styles.modalCloseBtnText}>Batal</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <AppModal
+        visible={showPaketPicker}
+        onClose={() => setShowPaketPicker(false)}
+        type="info"
+        title="Hubungi Admin"
+        icon="logo-whatsapp"
+        message="Pilih paket yang diinginkan untuk menghubungi admin."
+        actions={[
+          {
+            label: 'Lifetime',
+            onPress: () => { setShowPaketPicker(false); sendWaMessage('Lifetime'); },
+            variant: 'primary',
+          },
+          {
+            label: 'Premium',
+            onPress: () => { setShowPaketPicker(false); sendWaMessage('Premium'); },
+            variant: 'outline',
+          },
+          {
+            label: 'Batal',
+            onPress: () => setShowPaketPicker(false),
+            variant: 'outline',
+          },
+        ]}
+      />
       {modal}
     </View>
   );
@@ -620,6 +628,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   logoPreview: { width: '100%', height: '100%' },
+  logoCameraBadge: {
+    position: 'absolute', bottom: 4, right: 4,
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+  },
+  logoHint: {
+    ...typography.labelSm, color: colors.primary, fontWeight: '600', marginTop: spacing.stackSm, textAlign: 'center',
+  },
 
   // ── Fitur Premium ──
   featureList: { gap: spacing.stackSm, marginBottom: spacing.stackMd },
@@ -630,46 +646,4 @@ const styles = StyleSheet.create({
   licenseButtonRow: { flexDirection: 'row', gap: spacing.stackSm, marginTop: spacing.stackSm },
   licenseBtnWrapper: { flex: 1 },
 
-  // ── Modal Pilih Paket ──
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalBox: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: 24,
-  },
-  modalTitle: { ...typography.headlineMobile, color: colors.onSurface, fontWeight: '700', marginBottom: 4 },
-  modalDesc: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: 20 },
-  modalButtons: { flexDirection: 'row', gap: 12 },
-  modalBtn: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    borderWidth: 1.5,
-  },
-  modalBtnLifetime: {
-    backgroundColor: '#ede7f6',
-    borderColor: '#6a4e9c',
-  },
-  modalBtnPremium: {
-    backgroundColor: '#fce4ec',
-    borderColor: colors.primary,
-  },
-  modalBtnLabel: { ...typography.bodyLg, fontWeight: '700', color: colors.onSurface },
-  modalBtnSub: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
-  modalCloseBtn: {
-    marginTop: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalCloseBtnText: { ...typography.bodyMd, color: colors.onSurfaceVariant, fontWeight: '600' },
 });

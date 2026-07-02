@@ -12,7 +12,6 @@ import { ReportRepository } from '../../src/database/report.repo';
 import { LowStockProduct, ReportFilter } from '../../src/types/report';
 import { ReportService } from '../../src/services/report.service';
 import { useLicenseGuard } from '../../src/hooks/useLicenseGuard';
-import PremiumUpsellModal from '../../src/components/PremiumUpsellModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,7 +143,7 @@ const EMPTY_TEXT: Record<Tab, string> = {
 export default function DetailLaporanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { guardExport, modalType, closeModal } = useLicenseGuard();
+  const { guardExport, modalType, closeModal, modal } = useLicenseGuard();
 
   // ── Period state ──────────────────────────────────────────────────────────
   const [period, setPeriod] = useState<Period>('today');
@@ -526,17 +525,7 @@ export default function DetailLaporanScreen() {
         />
       )}
 
-      <PremiumUpsellModal
-        visible={modalType === 'premium_upsell'}
-        onClose={closeModal}
-        title="Export Laporan adalah fitur Premium"
-        description="Aktifkan Premium untuk menyimpan dan membagikan laporan penjualan dalam format PDF atau CSV."
-        benefits={[
-          'Export laporan PDF',
-          'Export laporan CSV yang bisa dibuka di Excel',
-          'Bagikan laporan ke WhatsApp, Email, atau Drive',
-        ]}
-      />
+      {modal}
     </View>
   );
 }

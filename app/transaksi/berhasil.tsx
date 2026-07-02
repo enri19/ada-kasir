@@ -12,7 +12,7 @@ import { SaleRepository } from '../../src/database/sales.repo';
 import { WhatsAppService } from '../../src/services/whatsapp.service';
 import { PrinterService } from '../../src/services/printer.service';
 import { useLicenseStore } from '../../src/stores/license.store';
-import PremiumUpsellModal from '../../src/components/PremiumUpsellModal';
+import { AppModal } from '../../src/components/ui/AppModal';
 import { APP_NAME, APP_VERSION } from '../../src/utils/constants';
 import { SaleWithItems } from '../../src/types/sale';
 
@@ -226,16 +226,31 @@ export default function TransaksiBerhasilScreen() {
 
       <Text style={styles.footer}>Sistem Kasir {activeStore?.name || APP_NAME} v{APP_VERSION}</Text>
 
-      <PremiumUpsellModal
+      <AppModal
         visible={premiumModalVisible}
         onClose={() => setPremiumModalVisible(false)}
+        type="premium"
         title="Printer Struk adalah fitur Premium"
-        description="Aktifkan Premium untuk menyiapkan printer thermal dan mencetak struk transaksi."
+        icon="diamond"
+        message="Aktifkan Premium untuk menyiapkan printer thermal dan mencetak struk transaksi."
         benefits={[
           'Cetak struk transaksi',
           'Format struk 58mm dan 80mm',
           'Cocok untuk toko dan UMKM',
         ]}
+        primaryAction={{
+          label: 'Aktifkan Premium',
+          onPress: () => {
+            setPremiumModalVisible(false);
+            router.push('/settings/account');
+          },
+          variant: 'primary',
+        }}
+        secondaryAction={{
+          label: 'Nanti',
+          onPress: () => setPremiumModalVisible(false),
+          variant: 'ghost',
+        }}
       />
     </View>
   );

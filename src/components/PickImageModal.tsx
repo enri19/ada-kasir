@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../config/theme';
+import { colors } from '../config/theme';
+import { AppModal } from './ui/AppModal';
 
 interface PickImageOptions {
   aspect?: [number, number];
@@ -13,6 +14,8 @@ interface PickImageOptions {
 export function usePickImage() {
   const [visible, setVisible] = useState(false);
   const [title, setTitle] = useState('Pilih Foto');
+  const [showReadOnly, setShowReadOnly] = useState(false);
+  const [readOnlyMsg, setReadOnlyMsg] = useState('');
   const optionsRef = useRef<PickImageOptions>({});
   const resolveRef = useRef<((value: string | null) => void) | null>(null);
 
@@ -74,62 +77,57 @@ export function usePickImage() {
     resolveRef.current = null;
   }, []);
 
+  const handleReadOnly = useCallback((msg: string) => {
+    setReadOnlyMsg(msg);
+    setShowReadOnly(true);
+  }, []);
+
   const modal = (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleCancel}>
-      <View style={styles.overlay}>
-        <View style={styles.content}>
-          <Text style={styles.title}>{title}</Text>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.sourceButton} onPress={() => handleSelect('camera')}>
-              <Ionicons name="camera-outline" size={16} color={colors.primary} />
-              <Text style={styles.sourceButtonText}>Kamera</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.sourceButton} onPress={() => handleSelect('gallery')}>
-              <Ionicons name="images-outline" size={16} color={colors.primary} />
-              <Text style={styles.sourceButtonText}>Galeri</Text>
-            </TouchableOpacity>
-            <View style={styles.spacer} />
-            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-              <Text style={styles.cancelText}>Batal</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
+    <>
+      {/* Pilih Foto Modal */}
+      <AppModal
+        visible={visible}
+        onClose={handleCancel}
+        type="info"
+        title={title}
+        message="Pilih sumber foto."
+        actions={[
+          {
+            label: 'Ambil Foto',
+            onPress: () => handleSelect('camera'),
+            variant: 'primary',
+            icon: <Ionicons name="camera-outline" size={16} color="#fff" />,
+          },
+          {
+            label: 'Pilih dari Galeri',
+            onPress: () => handleSelect('gallery'),
+            variant: 'outline',
+            icon: <Ionicons name="images-outline" size={16} color={colors.primary} />,
+          },
+          {
+            label: 'Batal',
+            onPress: handleCancel,
+            variant: 'outline',
+          },
+        ]}
+      />
+
+      {/* Read-only warning */}
+      <AppModal
+        visible={showReadOnly}
+        onClose={() => setShowReadOnly(false)}
+        type="warning"
+        title="Mode Read-only"
+        icon="lock-closed"
+        message={readOnlyMsg}
+        primaryAction={{
+          label: 'Mengerti',
+          onPress: () => setShowReadOnly(false),
+          variant: 'primary',
+        }}
+      />
+    </>
   );
 
-  return { pickImage, modal };
+  return { pickImage, modal, handleReadOnly };
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  content: {
-    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
-    padding: spacing.stackMd, width: '90%', maxWidth: 360,
-  },
-  title: {
-    ...typography.headlineMobile, fontWeight: '700',
-    color: colors.onSurface, marginBottom: spacing.stackMd, textAlign: 'center',
-  },
-  buttonRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-  },
-  sourceButton: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 10, paddingHorizontal: 14,
-    borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.primary,
-  },
-  sourceButtonText: {
-    ...typography.bodyMd, fontWeight: '600', color: colors.primary,
-  },
-  spacer: { flex: 1 },
-  cancelButton: {
-    paddingVertical: 10,
-  },
-  cancelText: {
-    ...typography.bodyMd, fontWeight: '600', color: colors.onSurfaceVariant,
-  },
-});

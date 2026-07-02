@@ -184,7 +184,9 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
 
     setIsCloudLoggingIn(true);
     try {
-      const { data, error } = await signUp(cloudEmail.trim(), cloudPassword);
+      const result = await signUp(cloudEmail.trim(), cloudPassword);
+      const data = 'data' in result ? result.data : null;
+      const error = 'error' in result ? result.error : null;
       if (error) {
         Alert.alert('Registrasi Gagal', error.message);
         return;

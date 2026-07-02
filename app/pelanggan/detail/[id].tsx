@@ -19,6 +19,8 @@ import { Debt } from '../../../src/types/debt';
 import { useAppStore } from '../../../src/stores/app.store';
 import { useLicenseStore } from '../../../src/stores/license.store';
 import { WhatsAppService } from '../../../src/services/whatsapp.service';
+import { AppModal } from '../../../src/components/ui/AppModal';
+import { AppButton } from '../../../src/components/ui/AppButton';
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -55,6 +57,17 @@ export default function DetailPelangganScreen() {
   const [editNote, setEditNote] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Read-only modal
+  const [readOnlyMessage, setReadOnlyMessage] = useState('');
+  const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
+  const showReadOnly = useCallback((msg: string) => {
+    setReadOnlyMessage(msg);
+    setShowReadOnlyModal(true);
+  }, []);
+
+  // Payment success modal
+  const [showPaymentSuccessModal, setShowPaymentSuccessModal] = useState(false);
+
   useEffect(() => {
     if (!showPaymentModal) {
       setShowDatePicker(false);
@@ -87,7 +100,7 @@ export default function DetailPelangganScreen() {
 
   const handleOpenEdit = useCallback(() => {
     if (isReadOnly) {
-      Alert.alert('Mode read-only', 'Anda tidak dapat mengubah data pelanggan saat lisensi sudah berakhir.');
+      showReadOnly('Anda tidak dapat mengubah data pelanggan saat lisensi sudah berakhir.');
       return;
     }
     if (!customer) return;
@@ -96,7 +109,7 @@ export default function DetailPelangganScreen() {
     setEditAddress(customer.address ?? '');
     setEditNote(customer.note ?? '');
     setShowEdit(true);
-  }, [isReadOnly, customer]);
+  }, [isReadOnly, customer, showReadOnly]);
 
   const handleSaveEdit = useCallback(async () => {
     if (!editName.trim()) {
@@ -120,7 +133,7 @@ export default function DetailPelangganScreen() {
 
   const handleToggleActive = useCallback(() => {
     if (isReadOnly) {
-      Alert.alert('Mode read-only', 'Anda tidak dapat mengubah data pelanggan saat lisensi sudah berakhir.');
+      showReadOnly('Anda tidak dapat mengubah data pelanggan saat lisensi sudah berakhir.');
       return;
     }
     if (!customer) return;
@@ -158,7 +171,7 @@ export default function DetailPelangganScreen() {
 
   const openPaymentModal = useCallback((debt: Debt) => {
     if (isReadOnly) {
-      Alert.alert('Mode read-only', 'Anda tidak dapat mencatat pembayaran bon saat lisensi sudah berakhir.');
+      showReadOnly('Anda tidak dapat mencatat pembayaran bon saat lisensi sudah berakhir.');
       return;
     }
     setSelectedDebt(debt);
@@ -167,7 +180,7 @@ export default function DetailPelangganScreen() {
     setPaymentDate(new Date());
     setPaymentNote('');
     setShowPaymentModal(true);
-  }, [isReadOnly]);
+  }, [isReadOnly, showReadOnly]);
 
   const handleSavePayment = useCallback(async () => {
     if (!selectedDebt) return;
@@ -176,7 +189,7 @@ export default function DetailPelangganScreen() {
       await DebtRepository.payDebt(selectedDebt.id, amount, paymentMethod, paymentNote || null, paymentDate?.toISOString());
       setShowPaymentModal(false);
       await loadData();
-      Alert.alert('Berhasil', 'Pembayaran bon berhasil dicatat.');
+      setShowPaymentSuccessModal(true);
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Gagal mencatat pembayaran.');
     }
@@ -387,12 +400,11 @@ export default function DetailPelangganScreen() {
               onChangeText={setEditNote} placeholder="Catatan tambahan"
               placeholderTextColor={colors.onSurfaceVariant} multiline numberOfLines={2} />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEdit} disabled={saving}>
-              <Text style={styles.saveBtnText}>{saving ? 'Menyimpan...' : 'Simpan Perubahan'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowEdit(false)}>
-              <Text style={styles.cancelBtnText}>Batal</Text>
-            </TouchableOpacity>
+            <View style={{ marginTop: 4 }}>
+              <AppButton title={saving ? 'Menyimpan...' : 'Simpan Perubahan'} onPress={handleSaveEdit} disabled={saving} fullWidth />
+            </View>
+            <View style={{ height: spacing.stackSm }} />
+            <AppButton title="Batal" onPress={() => setShowEdit(false)} variant="outline" fullWidth />
           </View>
         </View>
       </Modal>
@@ -465,19 +477,45 @@ export default function DetailPelangganScreen() {
                 <TextInput style={[styles.input, styles.inputMultiline]} value={paymentNote} onChangeText={setPaymentNote} placeholder="Catatan" placeholderTextColor={colors.onSurfaceVariant} multiline numberOfLines={2} />
 
                 <View style={{ marginTop: spacing.stackMd }}>
-                  <TouchableOpacity style={styles.saveBtn} onPress={handleSavePayment}>
-                    <Text style={styles.saveBtnText}>Simpan Pembayaran</Text>
-                  </TouchableOpacity>
+                  <AppButton title="Simpan Pembayaran" onPress={handleSavePayment} fullWidth />
                 </View>
                 <View style={{ height: spacing.stackSm }} />
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPaymentModal(false)}>
-                  <Text style={styles.cancelBtnText}>Batal</Text>
-                </TouchableOpacity>
+                <AppButton title="Batal" onPress={() => setShowPaymentModal(false)} variant="outline" fullWidth />
               </>
             )}
           </View>
         </View>
       </Modal>
+
+      {/* Payment Success Modal */}
+      <AppModal
+        visible={showPaymentSuccessModal}
+        onClose={() => setShowPaymentSuccessModal(false)}
+        type="success"
+        title="Pembayaran Berhasil"
+        icon="checkmark-circle"
+        message="Pembayaran bon berhasil dicatat."
+        primaryAction={{
+          label: 'OK',
+          onPress: () => setShowPaymentSuccessModal(false),
+          variant: 'primary',
+        }}
+      />
+
+      {/* Read-only Modal */}
+      <AppModal
+        visible={showReadOnlyModal}
+        onClose={() => setShowReadOnlyModal(false)}
+        type="warning"
+        title="Mode Read-only"
+        icon="lock-closed"
+        message={readOnlyMessage}
+        primaryAction={{
+          label: 'Mengerti',
+          onPress: () => setShowReadOnlyModal(false),
+          variant: 'primary',
+        }}
+      />
     </View>
   );
 }
