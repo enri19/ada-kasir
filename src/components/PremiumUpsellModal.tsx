@@ -21,10 +21,16 @@ interface Props {
 
 export default function PremiumUpsellModal({ visible, onClose }: Props) {
   const deviceCode = useLicenseStore((s) => s.deviceCode) ?? '';
-  const storeName = useAppStore((s) => s.activeStore?.name) ?? '';
+  const store = useAppStore((s) => s.activeStore);
 
   function handleUpgrade() {
-    const msg = LicenseService.buildPremiumMessage(storeName, deviceCode);
+    const msg = LicenseService.buildPremiumMessage(
+      store?.name ?? '',
+      deviceCode,
+      'Premium',
+      store?.ownerName,
+      store?.phone,
+    );
     const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(msg)}`;
     Linking.openURL(url);
     onClose();

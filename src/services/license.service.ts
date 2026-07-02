@@ -199,21 +199,56 @@ export const LicenseService = {
 
   // ─── WhatsApp message builders ──────────────────────────────────────────────
 
-  buildActivationMessage(storeName: string, deviceCode: string): string {
-    return (
-      `Halo Admin AdaKasir, saya ingin aktivasi lisensi.\n\n` +
-      `Nama Warung: ${storeName}\n` +
-      `Kode Perangkat: ${deviceCode}\n` +
-      `Paket: Lifetime`
-    );
+  /**
+   * Pesan aktivasi Lifetime / trial-expired → hubungi admin.
+   * Menerima Store agar semua data terkirim lengkap.
+   */
+  buildActivationMessage(
+    storeName: string,
+    deviceCode: string,
+    ownerName?: string,
+    phone?: string,
+  ): string {
+    const lines = [
+      'Halo Admin AdaKasir, saya ingin aktivasi lisensi.',
+      '',
+      'Data lengkap toko:',
+      '',
+      `Nama Pemilik: ${ownerName || '-'}`,
+      `Nama Toko: ${storeName}`,
+      `No. Telepon: ${phone || '-'}`,
+      `Kode Perangkat: ${deviceCode}`,
+      'Paket: Lifetime',
+      '',
+      'Mohon dibuatkan kode lisensi. Terima kasih.',
+    ];
+    return lines.join('\n');
   },
 
-  buildPremiumMessage(storeName: string, deviceCode: string): string {
-    return (
-      `Halo Admin AdaKasir, saya ingin mengaktifkan Premium.\n\n` +
-      `Nama Warung: ${storeName}\n` +
-      `Kode Perangkat: ${deviceCode}\n` +
-      `Paket: Premium`
-    );
+  /**
+   * Pesan upgrade Premium → hubungi admin.
+   * Menerima Store agar semua data terkirim lengkap.
+   */
+  buildPremiumMessage(
+    storeName: string,
+    deviceCode: string,
+    plan: string = 'Premium',
+    ownerName?: string,
+    phone?: string,
+  ): string {
+    const lines = [
+      'Halo Admin AdaKasir, saya ingin mengaktifkan Premium.',
+      '',
+      'Data lengkap toko:',
+      '',
+      `Nama Pemilik: ${ownerName || '-'}`,
+      `Nama Toko: ${storeName}`,
+      `No. Telepon: ${phone || '-'}`,
+      `Kode Perangkat: ${deviceCode}`,
+      `Paket: ${plan}`,
+      '',
+      'Mohon dibuatkan kode lisensi. Terima kasih.',
+    ];
+    return lines.join('\n');
   },
 };

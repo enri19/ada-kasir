@@ -7,6 +7,8 @@ import {
   generatePdf,
   generateCsvFile,
   shareFile,
+  saveFileToDevice,
+  buildFileName,
   getFullDailyReport,
   formatFilterPeriod,
 } from '../utils/report-export';
@@ -17,84 +19,63 @@ export const ReportService = {
   },
 
   /**
-   * Export laporan ke file Excel/CSV.
+   * Export laporan ke file CSV.
    *
-   * ⚠️ Karena pustaka .xlsx murni tidak kompatibel dengan React Native
-   * tanpa native module, export menggunakan format **CSV** yang:
-   *   - Bisa dibuka di Microsoft Excel, Google Sheets, LibreOffice Calc
-   *   - Ringan (text-based)
-   *   - Kompatibel dengan Expo managed (tidak perlu prebuild)
-   *   - Bisa langsung dishare via expo-sharing
+   * ⚠️ Karena pustaka .xlsx murni tidak kompatibel dengan React Native,
+   * export menggunakan format **CSV** yang bisa dibuka di Excel.
    *
-   * @param filter - Filter laporan (date atau startDate/endDate)
-   * @returns Path file CSV, atau null jika gagal
+   * @param filter - Filter laporan
+   * @returns Path file CSV yang tersimpan di cache, atau null jika gagal
    */
   async generateExcelReport(filter: ReportFilter): Promise<string | null> {
     try {
-      // Validasi tanggal
       if (filter.startDate && filter.endDate && filter.startDate > filter.endDate) {
         throw new Error('Tanggal mulai tidak boleh lebih besar dari tanggal akhir.');
       }
 
-      // Ambil data toko
       const store = await StoreRepository.getActiveStore();
       const storeName = store?.name || 'AdaKasir';
 
-      // Ambil data laporan lengkap
       const { summary, transactions } = await getFullDailyReport(filter, storeName);
 
-      // Cek apakah ada data
       if (transactions.length === 0 && summary.totalSales === 0) {
         throw new Error('Tidak ada transaksi pada periode ini.');
       }
 
-      // Bangun CSV
       const filterPeriod = formatFilterPeriod(filter);
       const csv = buildReportCsv(summary, transactions, filterPeriod);
-
-      // Simpan ke file
       const filePath = await generateCsvFile(csv, filter);
 
       return filePath;
     } catch (error: any) {
       console.error('Report service: generateExcelReport error', error);
-      throw error; // Biarkan caller handle
+      throw error;
     }
   },
 
   /**
    * Export laporan ke file PDF.
    *
-   * Menggunakan expo-print untuk mengenerate PDF dari HTML.
-   * HTML dibuat dengan template yang rapi dan aman dari XSS via escapeHtml.
-   *
-   * @param filter - Filter laporan (date atau startDate/endDate)
-   * @returns Path file PDF, atau null jika gagal
+   * @param filter - Filter laporan
+   * @returns Path file PDF yang tersimpan di cache, atau null jika gagal
    */
   async generatePDFReport(filter: ReportFilter): Promise<string | null> {
     try {
-      // Validasi tanggal
       if (filter.startDate && filter.endDate && filter.startDate > filter.endDate) {
         throw new Error('Tanggal mulai tidak boleh lebih besar dari tanggal akhir.');
       }
 
-      // Ambil data toko
       const store = await StoreRepository.getActiveStore();
       const storeName = store?.name || 'AdaKasir';
 
-      // Ambil data laporan lengkap
       const { summary, transactions } = await getFullDailyReport(filter, storeName);
 
-      // Cek apakah ada data
       if (transactions.length === 0 && summary.totalSales === 0) {
         throw new Error('Tidak ada transaksi pada periode ini.');
       }
 
-      // Bangun HTML
       const filterPeriod = formatFilterPeriod(filter);
       const html = buildReportHtml(summary, transactions, filterPeriod);
-
-      // Generate PDF
       const filePath = await generatePdf(html, filter);
 
       return filePath;
@@ -105,52 +86,29 @@ export const ReportService = {
   },
 
   /**
-   * Export laporan ke PDF dan langsung bagikan.
-   * Menggabungkan generate + share dalam satu langkah.
+   * Bagikan file laporan via Android share sheet.
    *
-   * @param filter - Filter laporan
-   * @returns true jika berhasil dibagikan, false jika hanya tersimpan
+   * @param filePath - Path file yang akan dibagikan
+   * @returns true jika berhasil dibagikan
    */
-  async exportAndSharePDF(filter: ReportFilter): Promise<{ success: boolean; message: string }> {
-    try {
-      const filePath = await this.generatePDFReport(filter);
-      if (!filePath) {
-        return { success: false, message: 'Gagal membuat file PDF laporan.' };
-      }
-
-      const shared = await shareFile(filePath);
-      if (shared) {
-        return { success: true, message: 'Laporan PDF berhasil dibagikan.' };
-      }
-      return { success: true, message: `File PDF tersimpan. Gunakan file manager untuk membuka: ${filePath}` };
-    } catch (error: any) {
-      const msg = error?.message || 'Gagal membuat file PDF laporan.';
-      return { success: false, message: msg };
-    }
+  async shareReportFile(filePath: string): Promise<boolean> {
+    return shareFile(filePath);
   },
 
   /**
-   * Export laporan ke CSV dan langsung bagikan.
+   * Simpan file laporan ke perangkat (SAF / document directory).
    *
-   * @param filter - Filter laporan
-   * @returns true jika berhasil dibagikan, false jika hanya tersimpan
+   * @param filePath - Path file sumber (dari cache)
+   * @param filter   - Filter untuk mendapatkan nama file yang benar
+   * @returns Hasil operasi
    */
-  async exportAndShareCSV(filter: ReportFilter): Promise<{ success: boolean; message: string }> {
-    try {
-      const filePath = await this.generateExcelReport(filter);
-      if (!filePath) {
-        return { success: false, message: 'Gagal membuat file CSV laporan.' };
-      }
-
-      const shared = await shareFile(filePath);
-      if (shared) {
-        return { success: true, message: 'Laporan CSV berhasil dibagikan.' };
-      }
-      return { success: true, message: `File CSV tersimpan. Gunakan file manager untuk membuka: ${filePath}` };
-    } catch (error: any) {
-      const msg = error?.message || 'Gagal membuat file CSV laporan.';
-      return { success: false, message: msg };
-    }
+  async saveReportFile(
+    filePath: string,
+    filter: ReportFilter
+  ): Promise<{ uri?: string; cancelled?: boolean }> {
+    const ext = filePath.endsWith('.pdf') ? 'pdf' : 'csv';
+    const fileName = buildFileName(filter, ext);
+    return saveFileToDevice(filePath, fileName);
   },
 };
 

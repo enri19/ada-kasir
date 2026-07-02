@@ -267,45 +267,86 @@ export default function DetailLaporanScreen() {
     };
   }, [period, startDate, endDate, from, to]);
 
-  const handleExportExcel = useCallback(() => {
-    if (exporting) return;
-    guardExport(async () => {
-      setExporting('csv');
-      try {
-        const filter = buildFilter();
-        const result = await ReportService.exportAndShareCSV(filter);
-        if (result.success) {
-          Alert.alert('Berhasil', result.message);
-        } else {
-          Alert.alert('Gagal', result.message);
-        }
-      } catch (error: any) {
-        Alert.alert('Gagal Export CSV', error?.message || 'Gagal membuat file CSV laporan.');
-      } finally {
-        setExporting(null);
+  /** Generate file sesuai tipe, return path atau throw */
+  const generateFile = useCallback(
+    async (type: 'pdf' | 'csv', filter: ReportFilter): Promise<string> => {
+      if (type === 'pdf') {
+        const path = await ReportService.generatePDFReport(filter);
+        if (!path) throw new Error('Gagal membuat file PDF laporan.');
+        return path;
+      } else {
+        const path = await ReportService.generateExcelReport(filter);
+        if (!path) throw new Error('Gagal membuat file CSV laporan.');
+        return path;
       }
-    });
-  }, [guardExport, buildFilter, exporting]);
+    },
+    []
+  );
 
-  const handleExportPDF = useCallback(() => {
-    if (exporting) return;
-    guardExport(async () => {
-      setExporting('pdf');
-      try {
-        const filter = buildFilter();
-        const result = await ReportService.exportAndSharePDF(filter);
-        if (result.success) {
-          Alert.alert('Berhasil', result.message);
-        } else {
-          Alert.alert('Gagal', result.message);
-        }
-      } catch (error: any) {
-        Alert.alert('Gagal Export PDF', error?.message || 'Gagal membuat file PDF laporan.');
-      } finally {
-        setExporting(null);
-      }
-    });
-  }, [guardExport, buildFilter, exporting]);
+  /** Handler utama: tampilkan dialog pilihan aksi dulu, baru generate sesuai aksi */
+  const handleExport = useCallback(
+    (type: 'pdf' | 'csv') => {
+      if (exporting) return;
+
+      guardExport(() => {
+        const label = type === 'pdf' ? 'PDF' : 'Excel/CSV';
+
+        Alert.alert(
+          `Export ${label}`,
+          'Apa yang ingin Anda lakukan dengan file laporan?',
+          [
+            { text: 'Batal', style: 'cancel' },
+            {
+              text: 'Simpan ke HP',
+              onPress: async () => {
+                setExporting(type);
+                try {
+                  const filter = buildFilter();
+                  const filePath = await generateFile(type, filter);
+                  const result = await ReportService.saveReportFile(filePath, filter);
+
+                  if ('cancelled' in result) {
+                    Alert.alert('Informasi', 'Penyimpanan dibatalkan.');
+                  } else {
+                    Alert.alert('Berhasil', 'File laporan berhasil disimpan ke HP.');
+                  }
+                } catch (error: any) {
+                  Alert.alert('Gagal', error?.message || 'Gagal menyimpan file laporan.');
+                } finally {
+                  setExporting(null);
+                }
+              },
+            },
+            {
+              text: 'Bagikan',
+              onPress: async () => {
+                setExporting(type);
+                try {
+                  const filter = buildFilter();
+                  const filePath = await generateFile(type, filter);
+                  const shared = await ReportService.shareReportFile(filePath);
+
+                  if (shared) {
+                    Alert.alert('Berhasil', 'File laporan berhasil dibagikan.');
+                  } else {
+                    Alert.alert('Informasi', 'File laporan berhasil dibuat.');
+                  }
+                } catch (error: any) {
+                  Alert.alert('Gagal', error?.message || 'Gagal membagikan file laporan.');
+                } finally {
+                  setExporting(null);
+                }
+              },
+            },
+          ]
+        );
+      });
+    },
+    [exporting, guardExport, buildFilter, generateFile]
+  );
+
+  const handleExportExcel = useCallback(() => handleExport('csv'), [handleExport]);
+  const handleExportPDF = useCallback(() => handleExport('pdf'), [handleExport]);
 
   // ── Render item ───────────────────────────────────────────────────────────
   const renderItem = useCallback(

@@ -23,7 +23,7 @@ interface Props {
 export default function TrialExpiredModal({ visible, onClose }: Props) {
   const router = useRouter();
   const deviceCode = useLicenseStore((s) => s.deviceCode) ?? '';
-  const storeName = useAppStore((s) => s.activeStore?.name) ?? '';
+  const store = useAppStore((s) => s.activeStore);
 
   function handleActivate() {
     onClose();
@@ -31,7 +31,12 @@ export default function TrialExpiredModal({ visible, onClose }: Props) {
   }
 
   function handleWhatsApp() {
-    const msg = LicenseService.buildActivationMessage(storeName, deviceCode);
+    const msg = LicenseService.buildActivationMessage(
+      store?.name ?? '',
+      deviceCode,
+      store?.ownerName,
+      store?.phone,
+    );
     const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(msg)}`;
     Linking.openURL(url);
   }

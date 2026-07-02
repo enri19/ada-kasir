@@ -9,6 +9,8 @@ import { Input } from '../../../src/components/Input';
 import { Button } from '../../../src/components/Button';
 import { CustomHeader } from '../../../src/components/CustomHeader';
 import { useLicenseStore } from '../../../src/stores/license.store';
+import { LicenseService } from '../../../src/services/license.service';
+import { useAppStore } from '../../../src/stores/app.store';
 import { ADMIN_WHATSAPP } from '../../../src/utils/constants';
 
 // ============================================================
@@ -100,6 +102,7 @@ export default function PremiumScreen() {
   const expiresAt = useLicenseStore((s) => s.expiresAt);
   const activateLicense = useLicenseStore((s) => s.activateLicense);
   const refreshStatus = useLicenseStore((s) => s.refreshStatus);
+  const activeStore = useAppStore((s) => s.activeStore);
 
   const [licenseCode, setLicenseCode] = useState('');
   const [isActivating, setIsActivating] = useState(false);
@@ -148,10 +151,13 @@ export default function PremiumScreen() {
   };
 
   const handleContactAdmin = async () => {
-    const message = [
-      'Halo Admin, saya ingin mengaktifkan lisensi AdaKasir.',
-      `Kode perangkat: ${deviceCode || '-'}`,
-    ].join('\n');
+    const message = LicenseService.buildPremiumMessage(
+      activeStore?.name ?? '',
+      deviceCode ?? '',
+      'Premium',
+      activeStore?.ownerName,
+      activeStore?.phone,
+    );
     const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
 
     try {
@@ -271,7 +277,7 @@ export default function PremiumScreen() {
               <View style={styles.licenseButtonRow}>
                 <View style={styles.licenseBtnWrapper}>
                   <Button
-                    title={isPremium ? 'Simpan Lisensi' : 'Aktifkan Premium'}
+                    title={isPremium ? 'Simpan' : 'Aktifkan Premium'}
                     onPress={handleActivate}
                     fullWidth
                     size="sm"

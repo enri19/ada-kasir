@@ -223,7 +223,11 @@ function calculateTotalItemsSold(transactions: any[]): number {
 
 // ─── Helper nama file ────────────────────────────────────
 
-function buildFileName(
+/**
+ * Bangun nama file laporan dari filter. Diexport supaya bisa dipakai
+ * di service layer untuk keperluan save/share.
+ */
+export function buildFileName(
   filter: { date?: string; startDate?: string; endDate?: string },
   extension: string
 ): string {
@@ -657,6 +661,83 @@ export async function shareFile(filePath: string): Promise<boolean> {
     // Jangan throw — share gagal bukan error fatal
     return false;
   }
+}
+
+// ─── Save to device ──────────────────────────────────────
+
+/**
+ * MIME type berdasarkan ekstensi file.
+ */
+function mimeTypeOf(filePath: string): string {
+  return filePath.endsWith('.pdf') ? 'application/pdf' : 'text/csv';
+}
+
+/**
+ * Simpan file laporan ke perangkat menggunakan StorageAccessFramework
+ * (Android SAF). User akan memilih folder tujuan lewat system picker.
+ *
+ * Flow:
+ *   1. Minta permission folder via `requestDirectoryPermissionsAsync`
+ *   2. Jika user cancel → return `{ cancelled: true }`
+ *   3. Buat file baru di folder pilihan user via `createFileAsync`
+ *   4. Baca konten file sumber (cache) dan tulis ke file baru
+ *   5. Hapus file sumber dari cache
+ *
+ * Fallback jika SAF tidak tersedia (iOS / error):
+ *   - Copy file ke `documentDirectory/reports/` dan return path-nya.
+ *
+ * @param sourcePath - Path file sumber (dari cache)
+ * @param fileName   - Nama file tujuan (contoh: "laporan-harian-2026-07-02.pdf")
+ * @returns `{ uri: string }` jika berhasil, atau `{ cancelled: true }` jika user batal
+ * @throws Error jika gagal total
+ */
+export async function saveFileToDevice(
+  sourcePath: string,
+  fileName: string
+): Promise<{ uri: string } | { cancelled: true }> {
+  const mimeType = mimeTypeOf(sourcePath);
+
+  // Android SAF — minta user pilih folder
+  if (Platform.OS === 'android') {
+    try {
+      const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (!permission.granted) {
+        return { cancelled: true };
+      }
+
+      const safUri = await FileSystem.StorageAccessFramework.createFileAsync(
+        permission.directoryUri,
+        fileName.replace(/\.\w+$/, ''), // hapus ekstensi — createFileAsync akan nambahin
+        mimeType
+      );
+
+      // Baca konten file sumber sebagai base64
+      const contentBase64 = await FileSystem.readAsStringAsync(sourcePath, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Tulis ke SAF URI
+      await FileSystem.StorageAccessFramework.writeAsStringAsync(safUri, contentBase64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      return { uri: safUri };
+    } catch (error: any) {
+      // User cancel atau SAF error — fallback
+      if (error?.message?.includes('user')) {
+        return { cancelled: true };
+      }
+      console.error('SAF save error, falling back:', error);
+    }
+  }
+
+  // Fallback: simpan ke documentDirectory/reports/
+  const dir = FileSystem.documentDirectory + 'reports/';
+  await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+  const dest = dir + fileName;
+  await FileSystem.copyAsync({ from: sourcePath, to: dest });
+
+  return { uri: dest };
 }
 
 // ─── Data transaksi lengkap ──────────────────────────────

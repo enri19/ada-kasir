@@ -7,6 +7,7 @@ import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../../src/stores/app.store';
 import { useLicenseStore } from '../../../src/stores/license.store';
+import { LicenseService } from '../../../src/services/license.service';
 import { StoreRepository } from '../../../src/database/store.repo';
 import { colors, spacing, typography, borderRadius } from '../../../src/config/theme';
 import { Card } from '../../../src/components/Card';
@@ -153,12 +154,16 @@ export default function AccountScreen() {
     }
   };
 
+  // Paket user saat ini untuk dikirim ke admin
+  const userPlan = licenseStatus === 'premium_active' ? 'Premium' : 'Lifetime';
+
   const handleContactAdmin = async () => {
-    const message = [
-      'Halo Admin, saya ingin mengaktifkan lisensi AdaKasir.',
-      `Nama warung: ${activeStore?.name || '-'}`,
-      `Kode perangkat: ${deviceCode || '-'}`,
-    ].join('\n');
+    const message = LicenseService.buildActivationMessage(
+      activeStore?.name ?? '',
+      deviceCode ?? '',
+      activeStore?.ownerName,
+      activeStore?.phone,
+    );
     const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
 
     try {
@@ -280,7 +285,7 @@ export default function AccountScreen() {
                   <View style={styles.licenseButtonRow}>
                     <View style={styles.licenseBtnWrapper}>
                       <Button
-                        title="Simpan Lisensi"
+                        title="Simpan"
                         onPress={handleActivateLicense}
                         fullWidth
                         size="sm"
