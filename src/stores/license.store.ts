@@ -17,10 +17,22 @@ interface LicenseState {
   licenseKey: string | null;
   hasLifetime: boolean;
 
+  // Premium Account fields
+  source: 'trial' | 'local_device' | 'manual_fallback' | 'account';
+  premiumAccountId: string | null;
+  premiumEmail: string | null;
+  premiumPhone: string | null;
+  premiumName: string | null;
+  lastPremiumCheckAt: string | null;
+  lastBackupAt: string | null;
+  hasCloudBackup: boolean;
+
   // Actions
   loadFromStorage: () => Promise<void>;
   refreshStatus: () => Promise<void>;
   activateLicense: (licenseKey: string) => Promise<ActivationResult>;
+  setPremiumAccount: (data: { accountId: string; name: string; phone: string; email: string; premiumExpiresAt: string }) => Promise<void>;
+  clearPremiumAccount: () => Promise<void>;
 
   // Permission helpers (computed from status)
   canUseBasicFeatures: () => boolean;
@@ -68,6 +80,14 @@ function parseStoredLicense(raw: string | null): LicenseData | null {
       expiresAt: isDateString(v.expiresAt) ? v.expiresAt : null,
       licenseKey: typeof v.licenseKey === 'string' ? v.licenseKey : null,
       hasLifetime: v.hasLifetime === true,
+      source: v.source || 'trial',
+      premiumAccountId: typeof v.premiumAccountId === 'string' ? v.premiumAccountId : null,
+      premiumEmail: typeof v.premiumEmail === 'string' ? v.premiumEmail : null,
+      premiumPhone: typeof v.premiumPhone === 'string' ? v.premiumPhone : null,
+      premiumName: typeof v.premiumName === 'string' ? v.premiumName : null,
+      lastPremiumCheckAt: typeof v.lastPremiumCheckAt === 'string' ? v.lastPremiumCheckAt : null,
+      lastBackupAt: typeof v.lastBackupAt === 'string' ? v.lastBackupAt : null,
+      hasCloudBackup: v.hasCloudBackup === true,
     };
   } catch {
     return null;
@@ -88,6 +108,14 @@ function toState(data: LicenseData) {
     expiresAt: data.expiresAt,
     licenseKey: data.licenseKey,
     hasLifetime: data.hasLifetime,
+    source: data.source || 'trial',
+    premiumAccountId: data.premiumAccountId || null,
+    premiumEmail: data.premiumEmail || null,
+    premiumPhone: data.premiumPhone || null,
+    premiumName: data.premiumName || null,
+    lastPremiumCheckAt: data.lastPremiumCheckAt || null,
+    lastBackupAt: data.lastBackupAt || null,
+    hasCloudBackup: data.hasCloudBackup || false,
   };
 }
 
@@ -100,6 +128,14 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   expiresAt: null,
   licenseKey: null,
   hasLifetime: false,
+  source: 'trial',
+  premiumAccountId: null,
+  premiumEmail: null,
+  premiumPhone: null,
+  premiumName: null,
+  lastPremiumCheckAt: null,
+  lastBackupAt: null,
+  hasCloudBackup: false,
 
   loadFromStorage: async () => {
     const stored = parseStoredLicense(
@@ -150,6 +186,8 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       return 'invalid';
     }
 
+    const source: 'local_device' | 'manual_fallback' =
+      result.licenseKey?.startsWith('ADK-PREM-') ? 'manual_fallback' : 'local_device';
     const data: LicenseData = {
       deviceCode: s.deviceCode,
       status: result.status,
@@ -159,11 +197,102 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       expiresAt: result.expiresAt,
       licenseKey: result.licenseKey,
       hasLifetime: result.status === 'lifetime' ? true : s.hasLifetime,
+      source,
+      premiumAccountId: null,
+      premiumEmail: null,
+      premiumPhone: null,
+      premiumName: null,
+      lastPremiumCheckAt: null,
+      lastBackupAt: null,
+      hasCloudBackup: false,
     };
     data.status = LicenseService.resolveStatus(data);
     await saveLicense(data);
     set(toState(data));
     return 'ok';
+  },
+
+  // ─── Premium Account ─────────────────────────────────────────────────────
+
+  setPremiumAccount: async (accountData) => {
+    const s = get();
+    const now = new Date().toISOString();
+    const data: LicenseData = {
+      deviceCode: s.deviceCode || LicenseService.generateDeviceCode(),
+      status: 'premium_active',
+      installedAt: s.installedAt || now,
+      trialEndsAt: s.trialEndsAt || now,
+      activatedAt: s.activatedAt || now,
+      expiresAt: accountData.premiumExpiresAt || null,
+      // Jangan hapus licenseKey Lifetime jika sudah punya
+      licenseKey: s.licenseKey,
+      hasLifetime: s.hasLifetime,
+      source: 'account',
+      premiumAccountId: accountData.accountId,
+      premiumEmail: accountData.email || null,
+      premiumPhone: accountData.phone || null,
+      premiumName: accountData.name || null,
+      lastPremiumCheckAt: now,
+      lastBackupAt: null,
+      hasCloudBackup: false,
+    };
+    await saveLicense(data);
+    set(toState(data));
+  },
+
+  clearPremiumAccount: async () => {
+    const s = get();
+
+    // Jika punya Lifetime, kembali ke status lifetime
+    if (s.hasLifetime || (s.licenseKey && s.licenseKey.startsWith('ADK-LIFE-'))) {
+      const data: LicenseData = {
+        deviceCode: s.deviceCode || LicenseService.generateDeviceCode(),
+        status: 'lifetime',
+        installedAt: s.installedAt || new Date().toISOString(),
+        trialEndsAt: s.trialEndsAt || new Date().toISOString(),
+        activatedAt: s.activatedAt || new Date().toISOString(),
+        expiresAt: null,
+        licenseKey: s.licenseKey?.startsWith('ADK-LIFE-') ? s.licenseKey : null,
+        hasLifetime: true,
+        source: 'local_device',
+        premiumAccountId: null,
+        premiumEmail: null,
+        premiumPhone: null,
+        premiumName: null,
+        lastPremiumCheckAt: null,
+        lastBackupAt: null,
+        hasCloudBackup: false,
+      };
+      await saveLicense(data);
+      set(toState(data));
+      return;
+    }
+
+    // Tanpa Lifetime — hitung status trial yang benar
+    const trialEndsAt = s.trialEndsAt || LicenseService.createTrialLicense().trialEndsAt;
+    const trialExpiry = new Date(trialEndsAt).getTime();
+    const trialStatus: LicenseStatus = trialExpiry >= Date.now() ? 'trial_active' : 'trial_expired';
+
+    const data: LicenseData = {
+      deviceCode: s.deviceCode || LicenseService.generateDeviceCode(),
+      status: trialStatus,
+      installedAt: s.installedAt || new Date().toISOString(),
+      trialEndsAt: trialEndsAt,
+      activatedAt: null,
+      expiresAt: null,
+      licenseKey: null,
+      hasLifetime: false,
+      source: 'trial',
+      premiumAccountId: null,
+      premiumEmail: null,
+      premiumPhone: null,
+      premiumName: null,
+      lastPremiumCheckAt: null,
+      lastBackupAt: null,
+      hasCloudBackup: false,
+    };
+    await saveLicense(data);
+    set(toState(data));
   },
 
   // ─── Permission helpers ───────────────────────────────────────────────────

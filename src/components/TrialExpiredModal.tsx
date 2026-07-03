@@ -20,7 +20,7 @@ export default function TrialExpiredModal({ visible, onClose }: Props) {
 
   function handleActivate() {
     onClose();
-    router.push('/(tabs)/settings/lisensi' as never);
+    router.push('/settings/account');
   }
 
   function handleWhatsApp() {

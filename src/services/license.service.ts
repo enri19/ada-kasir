@@ -29,6 +29,30 @@ export interface LicenseData {
   licenseKey: string | null;
   /** true jika user pernah aktivasi Lifetime (dipakai saat premium_expired) */
   hasLifetime: boolean;
+
+  // ─── Premium Account fields ────────────────────────────────────────────
+  /**
+   * Sumber aktivasi:
+   * - "trial" — trial default
+   * - "local_device" — aktivasi via kode (Lifetime/Premium manual)
+   * - "manual_fallback" — ADK-PREM-XXXX fallback
+   * - "account" — login Premium Account
+   */
+  source?: 'trial' | 'local_device' | 'manual_fallback' | 'account';
+  /** Premium Account ID (dari login) */
+  premiumAccountId?: string | null;
+  /** Email Premium Account */
+  premiumEmail?: string | null;
+  /** Nomor HP Premium Account */
+  premiumPhone?: string | null;
+  /** Nama pemilik Premium Account */
+  premiumName?: string | null;
+  /** Kapan terakhir dicek status Premium */
+  lastPremiumCheckAt?: string | null;
+  /** Kapan terakhir backup cloud */
+  lastBackupAt?: string | null;
+  /** Apakah ada backup cloud yang tersedia */
+  hasCloudBackup?: boolean;
 }
 
 export type LicenseValidationResult =
@@ -173,6 +197,17 @@ export const LicenseService = {
   resolveStatus(data: LicenseData, now = new Date()): LicenseStatus {
     const nowMs = now.getTime();
 
+    // Premium Account — cek expired
+    if (data.source === 'account') {
+      if (data.expiresAt) {
+        const premExpiry = new Date(data.expiresAt).getTime();
+        if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';
+        return 'premium_expired';
+      }
+      // Jika Premium Account tanpa expiresAt, tetap premium_active (lifetime account)
+      return 'premium_active';
+    }
+
     // Lifetime tidak pernah expired
     if (data.hasLifetime || data.licenseKey?.startsWith('ADK-LIFE-')) {
       // Cek apakah ada Premium aktif di atasnya
@@ -184,7 +219,7 @@ export const LicenseService = {
       return 'lifetime';
     }
 
-    // Premium tanpa Lifetime
+    // Premium manual fallback (ADK-PREM-XXXX)
     if (data.licenseKey?.startsWith('ADK-PREM-')) {
       const premExpiry = data.expiresAt ? new Date(data.expiresAt).getTime() : NaN;
       if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';

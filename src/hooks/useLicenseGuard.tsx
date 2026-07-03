@@ -79,7 +79,7 @@ export function useLicenseGuard() {
         label: 'Aktivasi Sekarang',
         onPress: () => {
           closeModal();
-          router.push('/(tabs)/settings/lisensi' as never);
+          router.push('/settings/account');
         },
         variant: 'primary',
       }}
