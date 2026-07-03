@@ -1,23 +1,25 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { PremiumAccountService, PremiumLoginInput } from '../services/premium-account.service';
 import { getSupabaseClient } from '../services/supabase.client';
+import { BackupService } from '../services/backup.service';
 import { useLicenseStore } from '../stores/license.store';
 import { CustomerRepository } from '../database/customer.repo';
 import { ProductRepository } from '../database/product.repo';
 import { StoreRepository } from '../database/store.repo';
+import { BackupData } from '../types/backup';
 
-type RestoreState =
+export type RestoreState =
   | 'idle'
   | 'checking_backup'
   | 'backup_found'
   | 'confirm_overwrite'
   | 'restoring'
-  | 'restore_done'
-  | 'restore_failed'
-  | 'no_backup';
+  | 'restore_success'
+  | 'restore_error'
+  | 'no_backup'
+  | 'skipped';
 
-interface BackupInfo {
+export interface BackupInfo {
   id: string;
   createdAt: string;
   recordCounts: Record<string, number>;
@@ -25,11 +27,13 @@ interface BackupInfo {
 }
 
 export function usePremiumLogin() {
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [restoreState, setRestoreState] = useState<RestoreState>('idle');
   const [restoreMessage, setRestoreMessage] = useState('');
   const [backupInfo, setBackupInfo] = useState<BackupInfo | null>(null);
-  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [latestBackupData, setLatestBackupData] = useState<BackupData | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [currentPhoneOrEmail, setCurrentPhoneOrEmail] = useState('');
 
   const setPremiumAccount = useLicenseStore((s) => s.setPremiumAccount);
@@ -41,40 +45,46 @@ export function usePremiumLogin() {
       const supabase = getSupabaseClient();
       if (!supabase) {
         setRestoreState('no_backup');
+        setRestoreMessage('Cloud backup belum dikonfigurasi.');
         return;
       }
 
-      const { data, error } = await supabase.rpc('get_premium_backups', {
+      // Ambil backup data lengkap via RPC (tanpa Supabase Auth)
+      const { data, error } = await supabase.rpc('get_premium_backup_data', {
         p_email_or_phone: phoneOrEmail,
       });
 
       if (error || !data) {
         setRestoreState('no_backup');
+        setRestoreMessage('Belum ada backup data yang ditemukan.');
         return;
       }
 
       const result = data as {
         found: boolean;
-        backups: Array<{
-          id: string;
-          created_at: string;
-          store_name?: string;
-          record_counts: Record<string, number>;
-        }>;
+        backup_data?: BackupData;
+        store_name?: string;
+        message?: string;
       };
 
-      if (!result.found || !result.backups || result.backups.length === 0) {
+      if (!result.found || !result.backup_data) {
         setRestoreState('no_backup');
+        setRestoreMessage(result?.message || 'Belum ada backup data yang ditemukan.');
         return;
       }
 
-      const latest = result.backups[0];
+      const backupData = result.backup_data;
+
+      // Simpan backup data untuk restore nanti
+      setLatestBackupData(backupData);
+
+      const recordCounts = backupData.recordCounts || {};
 
       setBackupInfo({
-        id: latest.id,
-        createdAt: latest.created_at,
-        recordCounts: latest.record_counts || {},
-        storeName: latest.store_name,
+        id: 'premium_backup',
+        createdAt: backupData.createdAt,
+        recordCounts,
+        storeName: result.store_name,
       });
 
       // Cek apakah data lokal kosong
@@ -93,62 +103,58 @@ export function usePremiumLogin() {
       }
     } catch {
       setRestoreState('no_backup');
+      setRestoreMessage('Gagal memeriksa backup. Coba lagi nanti.');
     }
   }, []);
 
   const executeRestore = useCallback(async () => {
-    setRestoreLoading(true);
+    if (!latestBackupData) {
+      setRestoreState('restore_error');
+      setRestoreMessage('Data backup tidak tersedia. Silakan coba login ulang.');
+      return;
+    }
+
+    setIsRestoring(true);
     setRestoreState('restoring');
     try {
-      // Gunakan BackupService yang sudah ada — ini membutuhkan login Supabase Auth
-      // Untuk Premium Account via email, kita perlu login dulu ke Supabase
-      const { signIn } = await import('../services/supabase.client');
-      const { BackupService } = await import('../services/backup.service');
+      await BackupService.restoreFromData(latestBackupData);
 
-      // Cari tahu email dari Premium Account yang login
-      const account = await PremiumAccountService.getStoredAccount();
-      const email = account?.email || currentPhoneOrEmail;
-
-      // Coba login ke Supabase dengan email (password default untuk premium users)
-      // Catatan: Ini membutuhkan user Supabase yang sudah dibuat untuk email ini
-      // Jika belum ada, backup/restore akan gagal dan user bisa backup manual setelah login
-      const loginResult = await signIn(email, 'premium_default');
-      if (loginResult.error) {
-        // Jika gagal login Supabase, restore tidak bisa dilakukan via service existing
-        // Tapi kita bisa kasih tahu user untuk login cloud dulu
-        setRestoreState('restore_failed');
-        setRestoreMessage(
-          'Restore membutuhkan login akun cloud. Silakan login di Pengaturan > Cadangan Data Cloud, lalu coba restore kembali.'
-        );
-        setRestoreLoading(false);
-        return;
+      // Refresh state aplikasi setelah restore
+      const activeStore = await StoreRepository.getActiveStore();
+      const { useAppStore } = await import('../stores/app.store');
+      if (activeStore) {
+        useAppStore.getState().setActiveStore(activeStore);
       }
+      useAppStore.getState().setIsOnboardingComplete(true);
 
-      await BackupService.restoreFromCloud();
-      setRestoreState('restore_done');
+      setRestoreState('restore_success');
+      setRestoreMessage('Data toko berhasil dipulihkan ke perangkat ini.');
     } catch (error: any) {
-      setRestoreState('restore_failed');
-      setRestoreMessage(error?.message || 'Data belum berhasil dipulihkan.');
+      setRestoreState('restore_error');
+      setRestoreMessage(error?.message || 'Data belum berhasil dipulihkan. Coba lagi atau hubungi admin AdaKasir.');
     } finally {
-      setRestoreLoading(false);
+      setIsRestoring(false);
     }
-  }, [currentPhoneOrEmail]);
+  }, [latestBackupData]);
 
   const skipRestore = useCallback(() => {
-    setRestoreState('idle');
+    setRestoreState('skipped');
     setBackupInfo(null);
+    setLatestBackupData(null);
   }, []);
 
-  const resetRestore = useCallback(() => {
+  const resetRestoreFlow = useCallback(() => {
     setRestoreState('idle');
     setBackupInfo(null);
+    setLatestBackupData(null);
     setRestoreMessage('');
-    setRestoreLoading(false);
+    setIsRestoring(false);
+    setRestoreError(null);
   }, []);
 
   const login = useCallback(
     async (input: PremiumLoginInput) => {
-      setLoginLoading(true);
+      setIsLoggingIn(true);
       try {
         const result = await PremiumAccountService.login(input);
         if (!result.success) {
@@ -164,29 +170,28 @@ export function usePremiumLogin() {
           premiumExpiresAt: result.premiumExpiresAt!,
         });
 
-        // Cek backup cloud via RPC (tidak perlu Supabase Auth)
+        // Cek backup cloud
         await checkBackupAfterLogin(input.phoneOrEmail.trim());
 
         return result;
       } finally {
-        setLoginLoading(false);
+        setIsLoggingIn(false);
       }
     },
     [setPremiumAccount, checkBackupAfterLogin]
   );
 
   return {
-    /** Panggil untuk login Premium */
     login,
-    loginLoading,
-    /** State restore */
+    isLoggingIn,
     restoreState,
     restoreMessage,
     backupInfo,
-    restoreLoading,
+    isRestoring,
+    restoreError,
     executeRestore,
     skipRestore,
-    resetRestore,
+    resetRestoreFlow,
   };
 }
 

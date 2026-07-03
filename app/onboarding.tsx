@@ -43,14 +43,14 @@ export default function OnboardingScreen() {
   // ── Premium login / restore hook ──
   const {
     login,
-    loginLoading,
+    isLoggingIn,
     restoreState,
     restoreMessage,
     backupInfo,
-    restoreLoading,
+    isRestoring,
     executeRestore,
     skipRestore,
-    resetRestore,
+    resetRestoreFlow,
   } = usePremiumLogin();
 
   // ── Start trial form ──
@@ -131,7 +131,7 @@ export default function OnboardingScreen() {
   };
 
   const handleRestoreDone = () => {
-    resetRestore();
+    resetRestoreFlow();
     setIsOnboardingComplete(true);
     router.replace('/(tabs)');
   };
@@ -232,10 +232,10 @@ export default function OnboardingScreen() {
           icon="log-in"
           message="Masukkan nomor WhatsApp atau email yang terdaftar untuk login akun Premium."
           primaryAction={{
-            label: loginLoading ? 'Memproses...' : 'Login',
+            label: isLoggingIn ? 'Memproses...' : 'Login',
             onPress: handleLoginPremium,
             variant: 'primary',
-            loading: loginLoading,
+            loading: isLoggingIn,
           }}
           secondaryAction={{
             label: 'Batal',
@@ -252,7 +252,7 @@ export default function OnboardingScreen() {
               placeholderTextColor={colors.onSurfaceVariant}
               keyboardType="email-address"
               autoCapitalize="none"
-              editable={!loginLoading}
+              editable={!isLoggingIn}
             />
           </View>
         </AppModal>
@@ -289,10 +289,10 @@ export default function OnboardingScreen() {
           icon="cloud-download"
           message={restoreMessage}
           primaryAction={{
-            label: restoreLoading ? 'Memulihkan...' : 'Restore Sekarang',
+            label: isRestoring ? 'Memulihkan...' : 'Restore Sekarang',
             onPress: handleRestoreFromBackup,
             variant: 'primary',
-            loading: restoreLoading,
+            loading: isRestoring,
           }}
           secondaryAction={{
             label: 'Lewati Dulu',
@@ -324,10 +324,10 @@ export default function OnboardingScreen() {
           icon="warning"
           message={restoreMessage}
           primaryAction={{
-            label: restoreLoading ? 'Memulihkan...' : 'Restore',
+            label: isRestoring ? 'Memulihkan...' : 'Restore',
             onPress: handleRestoreFromBackup,
             variant: 'danger',
-            loading: restoreLoading,
+            loading: isRestoring,
           }}
           secondaryAction={{
             label: 'Batal',
@@ -352,7 +352,7 @@ export default function OnboardingScreen() {
 
         {/* ── Modal Restore Berhasil ── */}
         <AppModal
-          visible={restoreState === 'restore_done'}
+          visible={restoreState === 'restore_success'}
           onClose={handleRestoreDone}
           type="success"
           title="Restore Berhasil"
@@ -367,8 +367,8 @@ export default function OnboardingScreen() {
 
         {/* ── Modal Restore Gagal ── */}
         <AppModal
-          visible={restoreState === 'restore_failed'}
-          onClose={resetRestore}
+          visible={restoreState === 'restore_error'}
+          onClose={resetRestoreFlow}
           type="warning"
           title="Restore Gagal"
           icon="alert-circle"
@@ -377,11 +377,11 @@ export default function OnboardingScreen() {
             label: 'Coba Lagi',
             onPress: handleRestoreFromBackup,
             variant: 'primary',
-            loading: restoreLoading,
+            loading: isRestoring,
           }}
           secondaryAction={{
             label: 'Tutup',
-            onPress: resetRestore,
+            onPress: resetRestoreFlow,
             variant: 'outline',
           }}
         />
@@ -389,14 +389,29 @@ export default function OnboardingScreen() {
         {/* ── Modal No Backup ── */}
         <AppModal
           visible={restoreState === 'no_backup'}
-          onClose={() => { resetRestore(); setIsOnboardingComplete(true); router.replace('/(tabs)'); }}
+          onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true); router.replace('/(tabs)'); }}
           type="success"
           title="Login Premium Berhasil"
           icon="checkmark-circle"
-          message="Akun Premium Anda sudah aktif. Silakan atur toko Anda terlebih dahulu."
+          message="Akun Premium Anda sudah aktif. Belum ada backup data yang ditemukan."
           primaryAction={{
-            label: 'Ke Kasir',
-            onPress: () => { resetRestore(); setIsOnboardingComplete(true); router.replace('/(tabs)'); },
+            label: 'Mulai Gunakan AdaKasir',
+            onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true); router.replace('/(tabs)'); },
+            variant: 'primary',
+          }}
+        />
+
+        {/* ── Modal Skipped ── */}
+        <AppModal
+          visible={restoreState === 'skipped'}
+          onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true); router.replace('/settings/account'); }}
+          type="info"
+          title="Restore Dilewati"
+          icon="information-circle"
+          message="Anda dapat melakukan restore kapan saja dari menu Akun & Lisensi."
+          primaryAction={{
+            label: 'Oke',
+            onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true); router.replace('/settings/account'); },
             variant: 'primary',
           }}
         />

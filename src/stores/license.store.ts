@@ -159,6 +159,14 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       expiresAt: s.expiresAt,
       licenseKey: s.licenseKey,
       hasLifetime: s.hasLifetime,
+      source: s.source,
+      premiumAccountId: s.premiumAccountId,
+      premiumEmail: s.premiumEmail,
+      premiumPhone: s.premiumPhone,
+      premiumName: s.premiumName,
+      lastPremiumCheckAt: s.lastPremiumCheckAt,
+      lastBackupAt: s.lastBackupAt,
+      hasCloudBackup: s.hasCloudBackup,
     };
     const status = LicenseService.resolveStatus(data);
     if (status === s.status) return;

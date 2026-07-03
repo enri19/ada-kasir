@@ -26,6 +26,8 @@ export interface BackupData {
   records: BackupRecords;
   /** Jumlah record per tabel untuk verifikasi */
   recordCounts: Record<string, number>;
+  /** Nama toko (disimpan di root agar mudah dicari oleh RPC) */
+  store_name?: string;
 }
 
 export interface BackupRecords {

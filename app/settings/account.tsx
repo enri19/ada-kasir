@@ -69,14 +69,14 @@ export default function AccountScreen() {
   // ── Premium login / restore ──
   const {
     login,
-    loginLoading,
+    isLoggingIn,
     restoreState,
     restoreMessage,
     backupInfo,
-    restoreLoading,
+    isRestoring,
     executeRestore,
     skipRestore,
-    resetRestore,
+    resetRestoreFlow,
   } = usePremiumLogin();
 
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -664,10 +664,10 @@ export default function AccountScreen() {
         icon="log-in"
         message="Masukkan nomor WhatsApp atau email yang terdaftar untuk login akun Premium."
         primaryAction={{
-          label: loginLoading ? 'Memproses...' : 'Login',
+          label: isLoggingIn ? 'Memproses...' : 'Login',
           onPress: handleLoginPremium,
           variant: 'primary',
-          loading: loginLoading,
+          loading: isLoggingIn,
         }}
         secondaryAction={{
           label: 'Batal',
@@ -684,7 +684,7 @@ export default function AccountScreen() {
             placeholderTextColor={colors.onSurfaceVariant}
             keyboardType="email-address"
             autoCapitalize="none"
-            editable={!loginLoading}
+            editable={!isLoggingIn}
           />
         </View>
       </AppModal>
@@ -698,10 +698,10 @@ export default function AccountScreen() {
         icon="cloud-download"
         message={restoreMessage}
         primaryAction={{
-          label: restoreLoading ? 'Memulihkan...' : 'Restore Sekarang',
+          label: isRestoring ? 'Memulihkan...' : 'Restore Sekarang',
           onPress: handleRestoreFromBackup,
           variant: 'primary',
-          loading: restoreLoading,
+          loading: isRestoring,
         }}
         secondaryAction={{
           label: 'Lewati Dulu',
@@ -733,10 +733,10 @@ export default function AccountScreen() {
         icon="warning"
         message={restoreMessage}
         primaryAction={{
-          label: restoreLoading ? 'Memulihkan...' : 'Restore',
+          label: isRestoring ? 'Memulihkan...' : 'Restore',
           onPress: handleRestoreFromBackup,
           variant: 'danger',
-          loading: restoreLoading,
+          loading: isRestoring,
         }}
         secondaryAction={{
           label: 'Batal',
@@ -761,23 +761,23 @@ export default function AccountScreen() {
 
       {/* ── Modal Restore Berhasil ── */}
       <AppModal
-        visible={restoreState === 'restore_done'}
-        onClose={() => { resetRestore(); router.replace('/(tabs)'); }}
+        visible={restoreState === 'restore_success'}
+        onClose={() => { resetRestoreFlow(); }}
         type="success"
         title="Restore Berhasil"
         icon="checkmark-circle"
         message="Data toko berhasil dipulihkan ke perangkat ini."
         primaryAction={{
-          label: 'Ke Kasir',
-          onPress: () => { resetRestore(); router.replace('/(tabs)'); },
+          label: 'OK',
+          onPress: resetRestoreFlow,
           variant: 'primary',
         }}
       />
 
       {/* ── Modal Restore Gagal ── */}
       <AppModal
-        visible={restoreState === 'restore_failed'}
-        onClose={resetRestore}
+        visible={restoreState === 'restore_error'}
+        onClose={resetRestoreFlow}
         type="warning"
         title="Restore Gagal"
         icon="alert-circle"
@@ -786,11 +786,11 @@ export default function AccountScreen() {
           label: 'Coba Lagi',
           onPress: handleRestoreFromBackup,
           variant: 'primary',
-          loading: restoreLoading,
+          loading: isRestoring,
         }}
         secondaryAction={{
           label: 'Tutup',
-          onPress: resetRestore,
+          onPress: resetRestoreFlow,
           variant: 'outline',
         }}
       />
@@ -798,14 +798,14 @@ export default function AccountScreen() {
       {/* ── Modal No Backup ── */}
       <AppModal
         visible={restoreState === 'no_backup'}
-        onClose={resetRestore}
+        onClose={resetRestoreFlow}
         type="info"
         title="Login Premium Berhasil"
         icon="checkmark-circle"
         message="Akun Premium Anda sudah aktif, namun belum ada backup data yang ditemukan."
         primaryAction={{
           label: 'OK',
-          onPress: resetRestore,
+          onPress: resetRestoreFlow,
           variant: 'primary',
         }}
       />
@@ -830,6 +830,21 @@ export default function AccountScreen() {
           label: 'Tutup',
           onPress: () => setShowLoginErrorModal(false),
           variant: 'ghost',
+        }}
+      />
+
+      {/* ── Modal Skipped ── */}
+      <AppModal
+        visible={restoreState === 'skipped'}
+        onClose={resetRestoreFlow}
+        type="info"
+        title="Restore Dilewati"
+        icon="information-circle"
+        message="Anda dapat melakukan restore kapan saja dari menu Akun & Lisensi."
+        primaryAction={{
+          label: 'Oke',
+          onPress: resetRestoreFlow,
+          variant: 'primary',
         }}
       />
 

@@ -415,19 +415,21 @@ export const BackupService = {
       // 1. Kumpulkan semua data dari SQLite
       const { records, recordCounts } = await collectAllData();
 
-      // 2. Bungkus dalam format BackupData
+      // 2. Dapatkan store, device ID, dan store ID
+      const activeStore = await StoreRepository.getActiveStore();
+      const deviceId = await getDeviceId();
+      const storeId = activeStore?.id ?? null;
+
+      // 3. Bungkus dalam format BackupData
       const backupData: BackupData = {
         schemaVersion: BACKUP_SCHEMA_VERSION,
         createdAt: new Date().toISOString(),
         appVersion: APP_VERSION,
         records,
         recordCounts,
+        // Simpan store_name di root agar mudah dicari oleh RPC
+        store_name: activeStore?.name || '',
       };
-
-      // 3. Dapatkan device ID dan store ID
-      const deviceId = await getDeviceId();
-      const activeStore = await StoreRepository.getActiveStore();
-      const storeId = activeStore?.id ?? null;
 
       // 4. Simpan ke Supabase (upsert: satu backup per user + device)
       const payload = {
@@ -668,5 +670,54 @@ export const BackupService = {
     await AsyncStorage.removeItem(STORAGE_KEYS.BACKUP_METADATA);
 
     return true;
+  },
+
+  /**
+   * Restore dari data backup langsung (tanpa Supabase Auth).
+   * Digunakan oleh Premium Account yang login via email/phone
+   * tanpa perlu login Supabase Auth.
+   *
+   * @param backupData Data backup lengkap (BackupData)
+   * @returns Promise<boolean> true jika restore berhasil
+   * @throws Error dengan pesan Bahasa Indonesia jika gagal
+   */
+  async restoreFromData(backupData: BackupData): Promise<boolean> {
+    // Validasi data
+    const validationError = validateBackupData(backupData);
+    if (validationError) {
+      throw new Error(validationError);
+    }
+
+    const { records } = backupData;
+    const db = await getDatabase();
+
+    // Restore dalam SQLite transaction
+    try {
+      await db.execAsync('BEGIN TRANSACTION');
+
+      await clearLocalData(db);
+
+      if (records.categories.length > 0) await restoreCategories(db, records.categories);
+      if (records.products.length > 0) await restoreProducts(db, records.products);
+      if (records.customers.length > 0) await restoreCustomers(db, records.customers);
+      if (records.sales.length > 0) await restoreSales(db, records.sales);
+      if (records.saleItems.length > 0) await restoreSaleItems(db, records.saleItems);
+      if (records.debts.length > 0) await restoreDebts(db, records.debts);
+      if (records.debtPayments.length > 0) await restoreDebtPayments(db, records.debtPayments);
+      if (records.stockMovements.length > 0) await restoreStockMovements(db, records.stockMovements);
+      if (records.stores.length > 0) await restoreStores(db, records.stores);
+
+      await db.execAsync('COMMIT');
+
+      // Update metadata
+      await saveBackupMetadata(backupData.recordCounts);
+
+      return true;
+    } catch (txError) {
+      try {
+        await db.execAsync('ROLLBACK');
+      } catch {}
+      throw new Error('Restore gagal dan perubahan dibatalkan. Data lokal tidak diubah.');
+    }
   },
 };
