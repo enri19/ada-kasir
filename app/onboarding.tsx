@@ -126,6 +126,7 @@ export default function OnboardingScreen() {
   const handleSkipRestore = () => {
     skipRestore();
     // Premium tetap aktif, arahkan ke Pengaturan
+    setIsOnboardingComplete(true);
     router.replace('/settings/account');
   };
 
@@ -388,14 +389,14 @@ export default function OnboardingScreen() {
         {/* ── Modal No Backup ── */}
         <AppModal
           visible={restoreState === 'no_backup'}
-          onClose={resetRestore}
+          onClose={() => { resetRestore(); setIsOnboardingComplete(true); router.replace('/(tabs)'); }}
           type="success"
           title="Login Premium Berhasil"
           icon="checkmark-circle"
           message="Akun Premium Anda sudah aktif. Silakan atur toko Anda terlebih dahulu."
           primaryAction={{
-            label: 'Atur Toko',
-            onPress: resetRestore,
+            label: 'Ke Kasir',
+            onPress: () => { resetRestore(); setIsOnboardingComplete(true); router.replace('/(tabs)'); },
             variant: 'primary',
           }}
         />
