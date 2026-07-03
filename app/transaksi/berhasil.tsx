@@ -242,7 +242,7 @@ export default function TransaksiBerhasilScreen() {
           label: 'Aktifkan Premium',
           onPress: () => {
             setPremiumModalVisible(false);
-            router.push('/settings/account');
+            router.push('/settings/activation');
           },
           variant: 'primary',
         }}

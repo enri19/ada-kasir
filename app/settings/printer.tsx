@@ -75,7 +75,7 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
         {/* Tombol aktivasi */}
         <Button
           title="Aktifkan Premium"
-          onPress={() => router.push('/settings/account')}
+          onPress={() => router.push('/settings/activation')}
           fullWidth
           icon={<Ionicons name="diamond-outline" size={20} color={colors.onPrimary} />}
         />

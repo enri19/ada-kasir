@@ -79,7 +79,7 @@ export function useLicenseGuard() {
         label: 'Aktivasi Sekarang',
         onPress: () => {
           closeModal();
-          router.push('/settings/account');
+          router.push('/settings/activation');
         },
         variant: 'primary',
       }}
@@ -107,7 +107,7 @@ export function useLicenseGuard() {
         label: 'Aktifkan Premium',
         onPress: () => {
           closeModal();
-          router.push('/settings/account');
+          router.push('/settings/activation');
         },
         variant: 'primary',
       }}

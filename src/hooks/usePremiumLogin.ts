@@ -26,6 +26,13 @@ export interface BackupInfo {
   storeName?: string;
 }
 
+export interface RestoreProgress {
+  visible: boolean;
+  step: string;
+  percent?: number | null;
+  detail?: string;
+}
+
 export function usePremiumLogin() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [restoreState, setRestoreState] = useState<RestoreState>('idle');
@@ -33,8 +40,15 @@ export function usePremiumLogin() {
   const [backupInfo, setBackupInfo] = useState<BackupInfo | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const [latestBackupData, setLatestBackupData] = useState<BackupData | null>(null);
-  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [currentPhoneOrEmail, setCurrentPhoneOrEmail] = useState('');
+
+  // Progress modal state
+  const [restoreProgress, setRestoreProgress] = useState<RestoreProgress>({
+    visible: false,
+    step: '',
+    percent: null,
+    detail: '',
+  });
 
   const setPremiumAccount = useLicenseStore((s) => s.setPremiumAccount);
 
@@ -49,7 +63,6 @@ export function usePremiumLogin() {
         return;
       }
 
-      // Ambil backup data lengkap via RPC (tanpa Supabase Auth)
       const { data, error } = await supabase.rpc('get_premium_backup_data', {
         p_email_or_phone: phoneOrEmail,
       });
@@ -74,8 +87,6 @@ export function usePremiumLogin() {
       }
 
       const backupData = result.backup_data;
-
-      // Simpan backup data untuk restore nanti
       setLatestBackupData(backupData);
 
       const recordCounts = backupData.recordCounts || {};
@@ -87,7 +98,6 @@ export function usePremiumLogin() {
         storeName: result.store_name,
       });
 
-      // Cek apakah data lokal kosong
       const hasLocalData = await checkLocalData();
 
       if (hasLocalData) {
@@ -97,9 +107,7 @@ export function usePremiumLogin() {
         );
       } else {
         setRestoreState('backup_found');
-        setRestoreMessage(
-          'Backup ditemukan. Pulihkan data toko Anda sekarang?'
-        );
+        setRestoreMessage('Backup ditemukan. Pulihkan data toko Anda sekarang?');
       }
     } catch {
       setRestoreState('no_backup');
@@ -108,18 +116,29 @@ export function usePremiumLogin() {
   }, []);
 
   const executeRestore = useCallback(async () => {
-    if (!latestBackupData) {
-      setRestoreState('restore_error');
-      setRestoreMessage('Data backup tidak tersedia. Silakan coba login ulang.');
-      return;
-    }
+    if (!latestBackupData || isRestoring) return;
 
     setIsRestoring(true);
     setRestoreState('restoring');
-    try {
-      await BackupService.restoreFromData(latestBackupData);
 
-      // Refresh state aplikasi setelah restore
+    // Tampilkan modal progress
+    setRestoreProgress({
+      visible: true,
+      step: 'Menyiapkan restore...',
+      percent: 5,
+      detail: 'Mohon tunggu sebentar.',
+    });
+
+    try {
+      // Validasi & mulai restore
+      await BackupService.restoreFromData(latestBackupData, (progress) => {
+        setRestoreProgress({
+          visible: true,
+          ...progress,
+        });
+      });
+
+      // Refresh state aplikasi
       const activeStore = await StoreRepository.getActiveStore();
       const { useAppStore } = await import('../stores/app.store');
       if (activeStore) {
@@ -127,15 +146,20 @@ export function usePremiumLogin() {
       }
       useAppStore.getState().setIsOnboardingComplete(true);
 
+      // Sembunyikan progress, tampilkan success
+      setRestoreProgress({ visible: false, step: '', percent: null, detail: '' });
       setRestoreState('restore_success');
       setRestoreMessage('Data toko berhasil dipulihkan ke perangkat ini.');
     } catch (error: any) {
+      setRestoreProgress({ visible: false, step: '', percent: null, detail: '' });
       setRestoreState('restore_error');
-      setRestoreMessage(error?.message || 'Data belum berhasil dipulihkan. Coba lagi atau hubungi admin AdaKasir.');
+      setRestoreMessage(
+        error?.message || 'Data belum berhasil dipulihkan. Coba lagi atau hubungi admin AdaKasir.'
+      );
     } finally {
       setIsRestoring(false);
     }
-  }, [latestBackupData]);
+  }, [latestBackupData, isRestoring]);
 
   const skipRestore = useCallback(() => {
     setRestoreState('skipped');
@@ -149,7 +173,7 @@ export function usePremiumLogin() {
     setLatestBackupData(null);
     setRestoreMessage('');
     setIsRestoring(false);
-    setRestoreError(null);
+    setRestoreProgress({ visible: false, step: '', percent: null, detail: '' });
   }, []);
 
   const login = useCallback(
@@ -161,7 +185,6 @@ export function usePremiumLogin() {
           return result;
         }
 
-        // Login sukses — simpan Premium Account
         await setPremiumAccount({
           accountId: result.accountId!,
           name: result.name!,
@@ -170,7 +193,6 @@ export function usePremiumLogin() {
           premiumExpiresAt: result.premiumExpiresAt!,
         });
 
-        // Cek backup cloud
         await checkBackupAfterLogin(input.phoneOrEmail.trim());
 
         return result;
@@ -188,10 +210,10 @@ export function usePremiumLogin() {
     restoreMessage,
     backupInfo,
     isRestoring,
-    restoreError,
     executeRestore,
     skipRestore,
     resetRestoreFlow,
+    restoreProgress,
   };
 }
 

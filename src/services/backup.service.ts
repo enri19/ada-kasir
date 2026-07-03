@@ -328,6 +328,12 @@ async function restoreStores(db: SQLite.SQLiteDatabase, stores: Store[]): Promis
   }
 }
 
+export type RestoreProgressCallback = (progress: {
+  step: string;
+  percent?: number;
+  detail?: string;
+}) => void;
+
 // ============================================================
 // BackupService — Public API
 // ============================================================
@@ -678,11 +684,16 @@ export const BackupService = {
    * tanpa perlu login Supabase Auth.
    *
    * @param backupData Data backup lengkap (BackupData)
+   * @param onProgress Callback opsional untuk progress restore
    * @returns Promise<boolean> true jika restore berhasil
    * @throws Error dengan pesan Bahasa Indonesia jika gagal
    */
-  async restoreFromData(backupData: BackupData): Promise<boolean> {
+  async restoreFromData(
+    backupData: BackupData,
+    onProgress?: RestoreProgressCallback,
+  ): Promise<boolean> {
     // Validasi data
+    onProgress?.({ step: 'Memvalidasi data...', percent: 10, detail: 'Memastikan file backup dapat dipulihkan.' });
     const validationError = validateBackupData(backupData);
     if (validationError) {
       throw new Error(validationError);
@@ -693,23 +704,33 @@ export const BackupService = {
 
     // Restore dalam SQLite transaction
     try {
+      onProgress?.({ step: 'Memulihkan data toko...', percent: 25, detail: 'Mengembalikan pengaturan toko.' });
       await db.execAsync('BEGIN TRANSACTION');
 
+      onProgress?.({ step: 'Membersihkan data lama...', percent: 30, detail: 'Menghapus data lokal yang ada.' });
       await clearLocalData(db);
 
+      onProgress?.({ step: 'Memulihkan produk dan stok...', percent: 50, detail: 'Mengembalikan daftar produk, kategori, dan stok.' });
       if (records.categories.length > 0) await restoreCategories(db, records.categories);
       if (records.products.length > 0) await restoreProducts(db, records.products);
+
+      onProgress?.({ step: 'Memulihkan pelanggan dan bon...', percent: 65, detail: 'Mengembalikan data pelanggan dan piutang.' });
       if (records.customers.length > 0) await restoreCustomers(db, records.customers);
-      if (records.sales.length > 0) await restoreSales(db, records.sales);
-      if (records.saleItems.length > 0) await restoreSaleItems(db, records.saleItems);
       if (records.debts.length > 0) await restoreDebts(db, records.debts);
       if (records.debtPayments.length > 0) await restoreDebtPayments(db, records.debtPayments);
+
+      onProgress?.({ step: 'Memulihkan transaksi...', percent: 80, detail: 'Mengembalikan riwayat penjualan.' });
+      if (records.sales.length > 0) await restoreSales(db, records.sales);
+      if (records.saleItems.length > 0) await restoreSaleItems(db, records.saleItems);
+
+      onProgress?.({ step: 'Memulihkan pergerakan stok...', percent: 90, detail: 'Mengembalikan riwayat stok.' });
       if (records.stockMovements.length > 0) await restoreStockMovements(db, records.stockMovements);
       if (records.stores.length > 0) await restoreStores(db, records.stores);
 
+      onProgress?.({ step: 'Menyelesaikan restore...', percent: 95, detail: 'Menyimpan perubahan.' });
       await db.execAsync('COMMIT');
 
-      // Update metadata
+      onProgress?.({ step: 'Menyelesaikan restore...', percent: 100, detail: 'Restore selesai.' });
       await saveBackupMetadata(backupData.recordCounts);
 
       return true;

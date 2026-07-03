@@ -7,6 +7,7 @@ import * as Linking from 'expo-linking';
 import { colors, spacing, typography, borderRadius } from '../src/config/theme';
 import { AppButton } from '../src/components/ui/AppButton';
 import { AppModal } from '../src/components/ui/AppModal';
+import { RestoreProgressModal } from '../src/components/ui/RestoreProgressModal';
 import { Input } from '../src/components/Input';
 import { Card } from '../src/components/Card';
 import { useAppStore } from '../src/stores/app.store';
@@ -51,6 +52,7 @@ export default function OnboardingScreen() {
     executeRestore,
     skipRestore,
     resetRestoreFlow,
+    restoreProgress,
   } = usePremiumLogin();
 
   // ── Start trial form ──
@@ -138,7 +140,7 @@ export default function OnboardingScreen() {
 
   // ── Kode Lisensi ──
   const handleEnterLicense = () => {
-    router.replace('/settings/account');
+    router.replace('/settings/activation');
   };
 
   // ── Hubungi Admin ──
@@ -415,6 +417,8 @@ export default function OnboardingScreen() {
             variant: 'primary',
           }}
         />
+
+        <RestoreProgressModal progress={restoreProgress} />
       </View>
     );
   }

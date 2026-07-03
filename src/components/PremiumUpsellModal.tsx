@@ -14,7 +14,7 @@ export default function PremiumUpsellModal({ visible, onClose, title, descriptio
   const router = useRouter();
 
   function handleUpgrade() {
-    router.push('/settings/account');
+    router.push('/settings/activation');
     onClose();
   }
 

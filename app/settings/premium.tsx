@@ -172,7 +172,7 @@ const isPremium = status === 'premium_active';
 
               <Button
                 title="Aktifkan Premium"
-                onPress={() => router.push('/settings/account')}
+                onPress={() => router.push('/settings/activation')}
                 fullWidth
                 icon={<Ionicons name="diamond-outline" size={18} color={colors.onPrimary} />}
               />
