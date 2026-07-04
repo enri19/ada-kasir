@@ -8,7 +8,7 @@ interface AppState {
   isReady: boolean;
   isOnboardingComplete: boolean;
   activeStore: Store | null;
-  setIsOnboardingComplete: (complete: boolean) => void;
+  setIsOnboardingComplete: (complete: boolean) => Promise<void>;
   setActiveStore: (store: Store | null) => void;
   loadFromStorage: () => Promise<void>;
 }
@@ -18,8 +18,8 @@ export const useAppStore = create<AppState>((set) => ({
   isOnboardingComplete: false,
   activeStore: null,
 
-  setIsOnboardingComplete: (complete) => {
-    AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, String(complete));
+  setIsOnboardingComplete: async (complete) => {
+    await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, String(complete));
     set({ isOnboardingComplete: complete });
   },
 

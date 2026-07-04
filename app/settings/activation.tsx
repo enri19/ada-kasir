@@ -13,6 +13,8 @@ import { Input } from '../../src/components/Input';
 import { useLicenseStore } from '../../src/stores/license.store';
 import { useAppStore } from '../../src/stores/app.store';
 import { LicenseService } from '../../src/services/license.service';
+import { StoreRepository } from '../../src/database/store.repo';
+import { CategoryRepository } from '../../src/database/category.repo';
 import { ADMIN_WHATSAPP } from '../../src/utils/constants';
 
 export default function ActivationScreen() {
@@ -25,6 +27,7 @@ export default function ActivationScreen() {
   const setActiveStore = useAppStore((s) => s.setActiveStore);
   const setIsOnboardingComplete = useAppStore((s) => s.setIsOnboardingComplete);
   const activeStore = useAppStore((s) => s.activeStore);
+  const isOnboardingComplete = useAppStore((s) => s.isOnboardingComplete);
 
   const [licenseCode, setLicenseCode] = useState('');
   const [isActivating, setIsActivating] = useState(false);
@@ -129,13 +132,29 @@ export default function ActivationScreen() {
     });
   };
 
-  const handleResultDone = () => {
-    // Jika belum selesai onboarding, tandai selesai sekarang
-    if (!activeStore) {
-      setIsOnboardingComplete(true);
-    }
+  const handleResultDone = async () => {
     setShowResultModal(false);
-    router.replace('/(tabs)');
+    if (!isOnboardingComplete) {
+      // Buat toko default jika belum ada (user masuk dari onboarding via kode lisensi)
+      if (!activeStore) {
+        try {
+          const store = await StoreRepository.create({
+            name: 'Toko Saya',
+            ownerName: '',
+            phone: '',
+            address: '',
+            receiptNote: 'Terima kasih atas kunjungan Anda.',
+            logoUri: null,
+          });
+          await CategoryRepository.seedDefaultCategories();
+          setActiveStore(store);
+        } catch {}
+      }
+      setIsOnboardingComplete(true);
+      router.replace('/(tabs)');
+    } else {
+      router.back();
+    }
   };
 
   const formatCode = (code: string) => {
@@ -248,8 +267,25 @@ export default function ActivationScreen() {
           message={resultMessage}
           primaryAction={{
             label: 'Hubungkan Akun Premium',
-            onPress: () => {
+            onPress: async () => {
               setShowResultModal(false);
+              if (!isOnboardingComplete) {
+                if (!activeStore) {
+                  try {
+                    const store = await StoreRepository.create({
+                      name: 'Toko Saya',
+                      ownerName: '',
+                      phone: '',
+                      address: '',
+                      receiptNote: 'Terima kasih atas kunjungan Anda.',
+                      logoUri: null,
+                    });
+                    await CategoryRepository.seedDefaultCategories();
+                    setActiveStore(store);
+                  } catch {}
+                }
+                setIsOnboardingComplete(true);
+              }
               router.replace('/settings/account');
             },
             variant: 'primary',

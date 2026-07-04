@@ -151,11 +151,20 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
 
   loadFromStorage: async () => {
     try {
-      const stored = parseStoredLicense(
-        await AsyncStorage.getItem(STORAGE_KEYS.LICENSE_DATA)
-      );
+      const [licenseRaw, backupMetaRaw] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.LICENSE_DATA),
+        AsyncStorage.getItem(STORAGE_KEYS.BACKUP_METADATA),
+      ]);
+      const stored = parseStoredLicense(licenseRaw);
       const data = stored ?? LicenseService.createTrialLicense();
       data.status = LicenseService.resolveStatus(data);
+      // Sync lastBackupAt dari BACKUP_METADATA jika store belum punya
+      if (!data.lastBackupAt && backupMetaRaw) {
+        try {
+          const meta = JSON.parse(backupMetaRaw);
+          if (meta?.lastBackupAt) data.lastBackupAt = meta.lastBackupAt;
+        } catch {}
+      }
       await saveLicense(data);
       console.log('[License] loaded from storage', stored ? { status: stored.status, source: stored.source } : null);
       console.log('[License] resolved status', data.status);
@@ -191,6 +200,7 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       lastBackupAt: s.lastBackupAt,
       hasCloudBackup: s.hasCloudBackup,
       premiumExpiresAt: s.premiumExpiresAt,
+      isPremiumAccountLogin: s.isPremiumAccountLogin,
     };
     const status = LicenseService.resolveStatus(data);
     if (status === s.status) return;
@@ -279,8 +289,9 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       premiumPhone: accountData.phone || null,
       premiumName: accountData.name || null,
       lastPremiumCheckAt: now,
-      lastBackupAt: null,
-      hasCloudBackup: false,
+      lastBackupAt: s.lastBackupAt || null,
+      hasCloudBackup: s.hasCloudBackup || false,
+      isPremiumAccountLogin: true,
     };
     await saveLicense(data);
     set(toState(data));

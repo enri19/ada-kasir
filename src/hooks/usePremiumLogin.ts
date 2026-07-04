@@ -8,6 +8,41 @@ import { ProductRepository } from '../database/product.repo';
 import { StoreRepository } from '../database/store.repo';
 import { BackupData } from '../types/backup';
 
+// ─── Normalizers ─────────────────────────────────────────────────────────────
+
+function normalizePhone(value?: string | null): string | null {
+  if (!value) return null;
+  let p = value.trim().replace(/[\s\-()+]/g, '');
+  if (p.startsWith('0')) p = '62' + p.slice(1);
+  else if (p.startsWith('8')) p = '62' + p;
+  return p || null;
+}
+
+function normalizeEmail(value?: string | null): string | null {
+  if (!value) return null;
+  const e = value.trim().toLowerCase();
+  return e || null;
+}
+
+// ─── RPC helper ──────────────────────────────────────────────────────────────
+
+async function fetchBackupByKey(supabase: any, key: string): Promise<{
+  backupData: BackupData;
+  storeName?: string;
+} | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_premium_backup_data', {
+      p_email_or_phone: key,
+    });
+    if (error || !data) return null;
+    const result = data as { found: boolean; backup_data?: BackupData; store_name?: string };
+    if (!result.found || !result.backup_data) return null;
+    return { backupData: result.backup_data, storeName: result.store_name };
+  } catch {
+    return null;
+  }
+}
+
 export type RestoreState =
   | 'idle'
   | 'checking_backup'
@@ -40,7 +75,6 @@ export function usePremiumLogin() {
   const [backupInfo, setBackupInfo] = useState<BackupInfo | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const [latestBackupData, setLatestBackupData] = useState<BackupData | null>(null);
-  const [currentPhoneOrEmail, setCurrentPhoneOrEmail] = useState('');
 
   // Progress modal state
   const [restoreProgress, setRestoreProgress] = useState<RestoreProgress>({
@@ -52,66 +86,81 @@ export function usePremiumLogin() {
 
   const setPremiumAccount = useLicenseStore((s) => s.setPremiumAccount);
 
-  const checkBackupAfterLogin = useCallback(async (phoneOrEmail: string) => {
+  const checkBackupAfterLogin = useCallback(async (input: {
+    accountId?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    rawInput?: string | null;
+  }) => {
     setRestoreState('checking_backup');
-    setCurrentPhoneOrEmail(phoneOrEmail);
-    try {
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        setRestoreState('no_backup');
-        setRestoreMessage('Cloud backup belum dikonfigurasi.');
-        return;
-      }
 
-      const { data, error } = await supabase.rpc('get_premium_backup_data', {
-        p_email_or_phone: phoneOrEmail,
-      });
+    // Susun lookup keys: phone → email → accountId → rawInput
+    // Deduplikasi dan buang yang kosong
+    const candidates = [
+      normalizePhone(input.phone),
+      normalizeEmail(input.email),
+      input.accountId?.trim() || null,
+      input.rawInput?.trim() || null,
+    ];
+    const lookupKeys = candidates.filter((v, i, arr): v is string =>
+      Boolean(v) && arr.indexOf(v) === i
+    );
 
-      if (error || !data) {
-        setRestoreState('no_backup');
-        setRestoreMessage('Belum ada backup data yang ditemukan.');
-        return;
-      }
+    console.log('[Premium Login] backup lookup keys', lookupKeys);
 
-      const result = data as {
-        found: boolean;
-        backup_data?: BackupData;
-        store_name?: string;
-        message?: string;
-      };
-
-      if (!result.found || !result.backup_data) {
-        setRestoreState('no_backup');
-        setRestoreMessage(result?.message || 'Belum ada backup data yang ditemukan.');
-        return;
-      }
-
-      const backupData = result.backup_data;
-      setLatestBackupData(backupData);
-
-      const recordCounts = backupData.recordCounts || {};
-
-      setBackupInfo({
-        id: 'premium_backup',
-        createdAt: backupData.createdAt,
-        recordCounts,
-        storeName: result.store_name,
-      });
-
-      const hasLocalData = await checkLocalData();
-
-      if (hasLocalData) {
-        setRestoreState('confirm_overwrite');
-        setRestoreMessage(
-          'Restore akan mengganti data lokal di perangkat ini dengan data dari backup cloud. Pastikan Anda ingin melanjutkan.'
-        );
-      } else {
-        setRestoreState('backup_found');
-        setRestoreMessage('Backup ditemukan. Pulihkan data toko Anda sekarang?');
-      }
-    } catch {
+    if (lookupKeys.length === 0) {
       setRestoreState('no_backup');
-      setRestoreMessage('Gagal memeriksa backup. Coba lagi nanti.');
+      setRestoreMessage('Belum ada backup data yang ditemukan untuk akun Premium ini.');
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setRestoreState('no_backup');
+      setRestoreMessage('Cloud backup belum dikonfigurasi.');
+      return;
+    }
+
+    // Coba satu per satu sampai ada yang berhasil
+    let rpcError = false;
+    for (const key of lookupKeys) {
+      try {
+        const found = await fetchBackupByKey(supabase, key);
+        console.log('[Premium Login] backup lookup result', { key, found: Boolean(found) });
+
+        if (found) {
+          const { backupData, storeName } = found;
+          setLatestBackupData(backupData);
+          setBackupInfo({
+            id: 'premium_backup',
+            createdAt: backupData.createdAt,
+            recordCounts: backupData.recordCounts || {},
+            storeName,
+          });
+
+          const hasLocalData = await checkLocalData();
+          if (hasLocalData) {
+            setRestoreState('confirm_overwrite');
+            setRestoreMessage(
+              'Restore akan mengganti data lokal di perangkat ini dengan data dari backup cloud. Pastikan Anda ingin melanjutkan.'
+            );
+          } else {
+            setRestoreState('backup_found');
+            setRestoreMessage('Backup ditemukan. Pulihkan data toko Anda sekarang?');
+          }
+          return;
+        }
+      } catch {
+        rpcError = true;
+      }
+    }
+
+    if (rpcError) {
+      setRestoreState('no_backup');
+      setRestoreMessage('Gagal mengecek backup. Periksa koneksi internet lalu coba lagi.');
+    } else {
+      setRestoreState('no_backup');
+      setRestoreMessage('Belum ada backup data yang ditemukan untuk akun Premium ini.');
     }
   }, []);
 
@@ -193,7 +242,19 @@ export function usePremiumLogin() {
           premiumExpiresAt: result.premiumExpiresAt!,
         });
 
-        await checkBackupAfterLogin(input.phoneOrEmail.trim());
+        await checkBackupAfterLogin({
+          accountId: result.accountId,
+          email: result.email,
+          phone: result.phone,
+          rawInput: input.phoneOrEmail,
+        });
+
+        console.log('[Premium Login] result', {
+          accountId: result.accountId,
+          email: result.email,
+          phone: result.phone,
+          premiumExpiresAt: result.premiumExpiresAt,
+        });
 
         return result;
       } finally {
@@ -214,6 +275,7 @@ export function usePremiumLogin() {
     skipRestore,
     resetRestoreFlow,
     restoreProgress,
+    checkBackupAfterLogin,
   };
 }
 

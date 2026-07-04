@@ -125,16 +125,15 @@ export default function OnboardingScreen() {
     await executeRestore();
   };
 
-  const handleSkipRestore = () => {
+  const handleSkipRestore = async () => {
     skipRestore();
-    // Premium tetap aktif, arahkan ke Pengaturan
-    setIsOnboardingComplete(true);
+    await setIsOnboardingComplete(true);
     router.replace('/settings/account');
   };
 
-  const handleRestoreDone = () => {
+  const handleRestoreDone = async () => {
     resetRestoreFlow();
-    setIsOnboardingComplete(true);
+    await setIsOnboardingComplete(true);
     router.replace('/(tabs)');
   };
 
@@ -391,14 +390,14 @@ export default function OnboardingScreen() {
         {/* ── Modal No Backup ── */}
         <AppModal
           visible={restoreState === 'no_backup'}
-          onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true); router.replace('/(tabs)'); }}
+          onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/(tabs)')); }}
           type="success"
           title="Login Premium Berhasil"
           icon="checkmark-circle"
           message="Akun Premium Anda sudah aktif. Belum ada backup data yang ditemukan."
           primaryAction={{
             label: 'Mulai Gunakan AdaKasir',
-            onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true); router.replace('/(tabs)'); },
+            onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/(tabs)')); },
             variant: 'primary',
           }}
         />
@@ -406,14 +405,14 @@ export default function OnboardingScreen() {
         {/* ── Modal Skipped ── */}
         <AppModal
           visible={restoreState === 'skipped'}
-          onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true); router.replace('/settings/account'); }}
+          onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/settings/account')); }}
           type="info"
           title="Restore Dilewati"
           icon="information-circle"
           message="Anda dapat melakukan restore kapan saja dari menu Akun & Lisensi."
           primaryAction={{
             label: 'Oke',
-            onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true); router.replace('/settings/account'); },
+            onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/settings/account')); },
             variant: 'primary',
           }}
         />

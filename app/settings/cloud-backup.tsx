@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
@@ -15,28 +14,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
 import { Card } from '../../src/components/Card';
 import { CustomHeader } from '../../src/components/CustomHeader';
-import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
+import { AppModal } from '../../src/components/ui/AppModal';
+import { AppButton } from '../../src/components/ui/AppButton';
+import { RestoreProgressModal } from '../../src/components/ui/RestoreProgressModal';
 import { useLicenseStore } from '../../src/stores/license.store';
 import { BackupService } from '../../src/services/backup.service';
-import { signIn, signUp, signOut } from '../../src/services/supabase.client';
-import { BackupStatus } from '../../src/types/backup';
-import { AppModal } from '../../src/components/ui/AppModal';
+import { usePremiumLogin } from '../../src/hooks/usePremiumLogin';
 
 // ============================================================
 // Premium gate check
 // ============================================================
 
-/**
- * Cloud Backup hanya tersedia untuk akun Premium (premium_active).
- * Lifetime, trial, expired tidak bisa mengakses fitur ini.
- *
- * `refreshStatus` dipanggil saat halaman difokuskan agar status premium
- * selalu up-to-date.
- *
- * Mengembalikan { isPremium, isChecking } agar halaman bisa menampilkan
- * loading state selama pengecekan awal, bukan langsung locked view.
- */
 function usePremiumStatus(): { isPremium: boolean; isChecking: boolean } {
   const status = useLicenseStore((s) => s.status);
   const refreshStatus = useLicenseStore((s) => s.refreshStatus);
@@ -66,20 +55,21 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Cadangan Data Cloud" onBack={() => router.back()} />
-      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
-        {/* Lock icon */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}
+      >
         <View style={styles.lockSection}>
           <View style={styles.lockIconCircle}>
             <Ionicons name="lock-closed-outline" size={48} color={colors.primary} />
           </View>
           <Text style={styles.lockTitle}>Fitur Premium</Text>
           <Text style={styles.lockDescription}>
-            Lindungi data kasir Anda dengan backup cloud. Data produk, pelanggan, transaksi, bon, dan stok
-            dapat dicadangkan ke cloud dan dipulihkan saat ganti perangkat.
+            Lindungi data kasir Anda dengan backup cloud. Data produk, pelanggan, transaksi, bon,
+            dan stok dapat dicadangkan ke cloud dan dipulihkan saat ganti perangkat.
           </Text>
         </View>
 
-        {/* Manfaat */}
         <Card style={styles.benefitCard}>
           <Text style={styles.benefitTitle}>Manfaat Cadangan Data Cloud:</Text>
           {[
@@ -95,7 +85,6 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
           ))}
         </Card>
 
-        {/* Tombol aktivasi lisensi */}
         <Button
           title="Aktifkan Premium"
           onPress={() => router.push('/settings/activation')}
@@ -114,179 +103,100 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
 function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: number } }) {
   const router = useRouter();
 
-  const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
-  const [isCheckingBackup, setIsCheckingBackup] = useState(true);
+  const source = useLicenseStore((s) => s.source);
+  const premiumEmail = useLicenseStore((s) => s.premiumEmail);
+  const premiumPhone = useLicenseStore((s) => s.premiumPhone);
+  const premiumName = useLicenseStore((s) => s.premiumName);
+  const lastBackupAt = useLicenseStore((s) => s.lastBackupAt);
+  const canRestoreCloudBackup = useLicenseStore((s) => s.canRestoreCloudBackup);
+  const canUseCloudBackup = useLicenseStore((s) => s.canUseCloudBackup);
+
+  const isPremiumAccount = source === 'account';
+  const isManualFallback = source === 'manual_fallback';
+
+  // ── Backup state ──
   const [isBackingUp, setIsBackingUp] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [cloudEmail, setCloudEmail] = useState('');
-  const [cloudPassword, setCloudPassword] = useState('');
-  const [isCloudLoggingIn, setIsCloudLoggingIn] = useState(false);
-  const [showCloudLogin, setShowCloudLogin] = useState(false);
+  const [showBackupSuccessModal, setShowBackupSuccessModal] = useState(false);
+  const [showBackupErrorModal, setShowBackupErrorModal] = useState(false);
+  const [backupErrorMessage, setBackupErrorMessage] = useState('');
+
+  // ── Connect account modal (manual fallback) ──
   const [showConnectAccountModal, setShowConnectAccountModal] = useState(false);
 
-  const source = useLicenseStore((s) => s.source);
-  const canRestoreCloudBackup = useLicenseStore((s) => s.canRestoreCloudBackup);
-  const canUsePremiumFeatures = useLicenseStore((s) => s.canUsePremiumFeatures);
+  // ── Login modal ──
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginInput, setLoginInput] = useState('');
+  const [showLoginErrorModal, setShowLoginErrorModal] = useState(false);
+  const [loginErrorMessage, setLoginErrorMessage] = useState('');
 
-  const loadBackupStatus = async () => {
-    try {
-      const status = await BackupService.getBackupStatus();
-      setBackupStatus(status);
-      if (status.isLoggedIn) {
-        setShowCloudLogin(false);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setIsCheckingBackup(false);
-    }
-  };
+  // ── Premium login / restore hook ──
+  const {
+    login,
+    isLoggingIn,
+    restoreState,
+    restoreMessage,
+    backupInfo,
+    isRestoring,
+    executeRestore,
+    skipRestore,
+    resetRestoreFlow,
+    restoreProgress,
+    checkBackupAfterLogin,
+  } = usePremiumLogin();
 
-  // Refresh status cloud setiap kali halaman difokuskan
-  useFocusEffect(
-    React.useCallback(() => {
-      loadBackupStatus();
-    }, [])
-  );
-
-  const handleCloudLogin = async () => {
-    if (!cloudEmail.trim() || !cloudPassword.trim()) {
-      Alert.alert('Input diperlukan', 'Masukkan email dan password.');
-      return;
-    }
-    if (cloudPassword.length < 6) {
-      Alert.alert('Password terlalu pendek', 'Password minimal 6 karakter.');
-      return;
-    }
-
-    setIsCloudLoggingIn(true);
-    try {
-      const { error } = await signIn(cloudEmail.trim(), cloudPassword);
-      if (error) {
-        Alert.alert('Login Gagal', error.message);
-        return;
-      }
-      setCloudEmail('');
-      setCloudPassword('');
-      setShowCloudLogin(false);
-      await loadBackupStatus();
-      Alert.alert('Berhasil', 'Login ke akun cloud berhasil.');
-    } catch (err: any) {
-      Alert.alert('Gagal', err?.message || 'Terjadi kesalahan saat login.');
-    } finally {
-      setIsCloudLoggingIn(false);
-    }
-  };
-
-  const handleCloudRegister = async () => {
-    if (!cloudEmail.trim() || !cloudPassword.trim()) {
-      Alert.alert('Input diperlukan', 'Masukkan email dan password.');
-      return;
-    }
-    if (cloudPassword.length < 6) {
-      Alert.alert('Password terlalu pendek', 'Password minimal 6 karakter.');
-      return;
-    }
-
-    setIsCloudLoggingIn(true);
-    try {
-      const result = await signUp(cloudEmail.trim(), cloudPassword);
-      const data = 'data' in result ? result.data : null;
-      const error = 'error' in result ? result.error : null;
-      if (error) {
-        Alert.alert('Registrasi Gagal', error.message);
-        return;
-      }
-      setCloudEmail('');
-      setCloudPassword('');
-      if (data?.session) {
-        // Auto-login ketika email confirmation disabled di Supabase
-        setShowCloudLogin(false);
-        await loadBackupStatus();
-        Alert.alert('Registrasi Berhasil', 'Akun cloud berhasil dibuat dan login.');
-      } else {
-        Alert.alert(
-          'Registrasi Berhasil',
-          'Akun berhasil dibuat. Silakan cek email Anda untuk verifikasi (jika diperlukan), lalu login.'
-        );
-      }
-    } catch (err: any) {
-      Alert.alert('Gagal', err?.message || 'Terjadi kesalahan saat registrasi.');
-    } finally {
-      setIsCloudLoggingIn(false);
-    }
-  };
-
-  const handleCloudLogout = async () => {
-    try {
-      await signOut();
-      setBackupStatus(null);
-      setShowCloudLogin(false);
-      Alert.alert('Berhasil', 'Berhasil logout dari akun cloud.');
-      await loadBackupStatus();
-    } catch {
-      Alert.alert('Gagal', 'Terjadi kesalahan saat logout.');
-    }
-  };
-
+  // ── Backup ──
   const handleBackup = async () => {
+    if (!canUseCloudBackup()) return;
     setIsBackingUp(true);
     try {
-      const result = await BackupService.backupToCloud();
-      if (result) {
-        await loadBackupStatus();
-        Alert.alert('Backup Berhasil', 'Backup cloud berhasil.');
-      }
+      await BackupService.backupToCloud();
+      useLicenseStore.setState({ lastBackupAt: new Date().toISOString() });
+      setShowBackupSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Backup Gagal', error?.message || 'Gagal membuat backup cloud. Coba lagi nanti.');
+      setBackupErrorMessage(error?.message || 'Gagal membuat backup cloud. Coba lagi nanti.');
+      setShowBackupErrorModal(true);
     } finally {
       setIsBackingUp(false);
     }
   };
 
-  const handleRestore = () => {
-    // Case B: Premium manual fallback — belum terhubung akun
+  // ── Restore — pakai data akun yang sudah tersimpan di store ──
+  const handleRestore = useCallback(() => {
     if (!canRestoreCloudBackup()) {
       setShowConnectAccountModal(true);
       return;
     }
+    // Cek backup menggunakan phone/email akun yang sudah login
+    checkBackupAfterLogin({
+      phone: premiumPhone,
+      email: premiumEmail,
+    });
+  }, [canRestoreCloudBackup, checkBackupAfterLogin, premiumPhone, premiumEmail]);
 
-    Alert.alert(
-      'Restore Data?',
-      'Restore dari cloud akan mengganti data lokal saat ini dengan data dari backup terakhir. Pastikan Anda sudah memahami risikonya. Lanjutkan restore?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Lanjutkan Restore',
-          style: 'destructive',
-          onPress: async () => {
-            setIsRestoring(true);
-            try {
-              const result = await BackupService.restoreFromCloud();
-              if (result) {
-                await loadBackupStatus();
-                Alert.alert('Restore Berhasil', 'Restore cloud berhasil.');
-              }
-            } catch (error: any) {
-              Alert.alert(
-                'Restore Gagal',
-                error?.message || 'Gagal restore data cloud. Periksa koneksi internet dan akun Anda.'
-              );
-            } finally {
-              setIsRestoring(false);
-            }
-          },
-        },
-      ]
-    );
+  // ── Login untuk hubungkan akun dari manual fallback ──
+  const handleLoginPremium = async () => {
+    if (!loginInput.trim()) return;
+    const result = await login({ phoneOrEmail: loginInput.trim() });
+    if (!result.success) {
+      setShowLoginModal(false);
+      setLoginInput('');
+      setLoginErrorMessage(result.message || 'Email atau nomor HP tidak ditemukan.');
+      setShowLoginErrorModal(true);
+      return;
+    }
+    setShowLoginModal(false);
+    setLoginInput('');
   };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Cadangan Data Cloud" onBack={() => router.back()} />
 
-      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
-        {/* Header info */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}
+      >
+        {/* Header */}
         <View style={styles.headerSection}>
           <View style={styles.headerIconCircle}>
             <Ionicons name="cloud-outline" size={32} color={colors.primary} />
@@ -297,212 +207,258 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
           </Text>
         </View>
 
-        {isCheckingBackup ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.loadingText}>Memeriksa status cloud...</Text>
-          </View>
-        ) : (
+        {/* ── Case: Manual Fallback — belum terhubung akun ── */}
+        {isManualFallback && (
+          <Card style={[styles.infoCard, styles.infoCardWarning]}>
+            <View style={styles.infoCardHeader}>
+              <Ionicons name="key-outline" size={20} color={colors.primary} />
+              <Text style={styles.infoCardTitle}>Premium Aktif via Kode Lisensi</Text>
+            </View>
+            <Text style={styles.infoCardDesc}>
+              Fitur Premium sudah aktif di perangkat ini. Untuk backup dan restore cloud saat
+              pindah perangkat, hubungkan akun Premium Anda.
+            </Text>
+            <AppButton
+              title="Hubungkan Akun Premium"
+              onPress={() => setShowLoginModal(true)}
+              variant="primary"
+              fullWidth
+              size="md"
+              icon={<Ionicons name="log-in-outline" size={18} color={colors.onPrimary} />}
+            />
+          </Card>
+        )}
+
+        {/* ── Case: Premium Account aktif ── */}
+        {isPremiumAccount && (
           <>
-            {/* ── Status card ── */}
-            <Card style={styles.statusCard}>
-              <Text style={styles.statusCardTitle}>Status Cloud</Text>
-
-              {/* Cloud configured */}
-              <View style={styles.statusItem}>
-                <Ionicons
-                  name={backupStatus?.isConfigured ? 'checkmark-circle' : 'close-circle'}
-                  size={18}
-                  color={backupStatus?.isConfigured ? colors.secondary : colors.error}
-                />
-                <Text style={styles.statusItemText}>
-                  {backupStatus?.isConfigured ? 'Cloud dikonfigurasi' : 'Cloud belum dikonfigurasi'}
-                </Text>
-              </View>
-
-              {/* Internet */}
-              <View style={styles.statusItem}>
-                <Ionicons
-                  name={backupStatus?.isOnline ? 'checkmark-circle' : 'close-circle'}
-                  size={18}
-                  color={backupStatus?.isOnline ? colors.secondary : colors.error}
-                />
-                <Text style={styles.statusItemText}>
-                  {backupStatus?.isOnline ? 'Terhubung ke internet' : 'Tidak ada koneksi internet'}
-                </Text>
-              </View>
-
-              {/* Cloud account */}
-              <View style={styles.statusItem}>
-                <Ionicons
-                  name={backupStatus?.isLoggedIn ? 'checkmark-circle' : 'close-circle'}
-                  size={18}
-                  color={backupStatus?.isLoggedIn ? colors.secondary : colors.error}
-                />
-                <Text style={styles.statusItemText}>
-                  {backupStatus?.isLoggedIn
-                    ? `Akun: ${backupStatus.userEmail || 'Terhubung'}`
-                    : 'Belum login ke akun cloud'}
-                </Text>
-              </View>
-
-              {/* Last backup */}
-              {backupStatus?.hasLastBackup && backupStatus.lastBackup && (
-                <View style={styles.statusItem}>
-                  <Ionicons name="time-outline" size={18} color={colors.onSurfaceVariant} />
-                  <Text style={styles.statusItemText}>
-                    Backup terakhir:{' '}
-                    {new Date(backupStatus.lastBackup.lastBackupAt).toLocaleString('id-ID', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+            {/* Info akun */}
+            <Card style={styles.accountCard}>
+              <View style={styles.accountRow}>
+                <Ionicons name="checkmark-circle" size={20} color={colors.secondary} />
+                <View style={styles.accountInfo}>
+                  <Text style={styles.accountName}>{premiumName || 'Akun Premium'}</Text>
+                  <Text style={styles.accountSub}>
+                    {premiumEmail || premiumPhone || 'Akun Premium Aktif'}
                   </Text>
                 </View>
-              )}
+              </View>
+              <View style={styles.lastBackupRow}>
+                <Ionicons name="time-outline" size={14} color={colors.onSurfaceVariant} />
+                <Text style={styles.lastBackupText}>
+                  {lastBackupAt
+                    ? `Backup terakhir: ${new Date(lastBackupAt).toLocaleString('id-ID', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}`
+                    : 'Belum pernah backup'}
+                </Text>
+              </View>
             </Card>
 
-            {/* ── Not configured / not online / not logged in → info + login ── */}
-            {backupStatus?.isConfigured === false ? (
-              <View style={styles.infoRow}>
-                <Ionicons name="warning-outline" size={20} color={colors.error} />
-                <Text style={styles.infoText}>
-                  Cloud belum dikonfigurasi. Periksa Supabase URL dan Anon Key.
-                </Text>
-              </View>
-            ) : !backupStatus?.isOnline ? (
-              <View style={styles.infoRow}>
-                <Ionicons name="wifi-outline" size={20} color={colors.error} />
-                <Text style={styles.infoText}>
-                  Tidak ada koneksi internet. Backup cloud membutuhkan internet.
-                </Text>
-              </View>
-            ) : !backupStatus?.isLoggedIn ? (
-              <View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="person-outline" size={20} color={colors.onSurfaceVariant} />
-                  <Text style={styles.infoText}>Anda belum login ke akun cloud.</Text>
-                </View>
-
-                {showCloudLogin && (
-                  <Card style={styles.loginCard}>
-                    <Input
-                      label="Email"
-                      value={cloudEmail}
-                      onChangeText={setCloudEmail}
-                      placeholder="contoh@email.com"
-                      keyboardType="email-address"
-                      editable={!isCloudLoggingIn}
-                    />
-                    <View style={styles.fieldContainer}>
-                      <Text style={styles.fieldLabel}>Password</Text>
-                      <TextInput
-                        style={[styles.fieldInput, !isCloudLoggingIn && styles.fieldInputDisabled]}
-                        value={cloudPassword}
-                        onChangeText={setCloudPassword}
-                        placeholder="Minimal 6 karakter"
-                        secureTextEntry
-                        editable={!isCloudLoggingIn}
-                        placeholderTextColor={colors.onSurfaceVariant}
-                      />
-                    </View>
-                    <View style={styles.loginButtonRow}>
-                      <View style={styles.loginBtnWrapper}>
-                        <Button
-                          title="Login"
-                          onPress={handleCloudLogin}
-                          size="sm"
-                          loading={isCloudLoggingIn}
-                        />
-                      </View>
-                      <View style={styles.loginBtnWrapper}>
-                        <Button
-                          title="Daftar"
-                          onPress={handleCloudRegister}
-                          variant="outline"
-                          size="sm"
-                          loading={isCloudLoggingIn}
-                        />
-                      </View>
-                    </View>
-                  </Card>
-                )}
-
-                <View style={styles.loginToggleWrapper}>
-                  <Button
-                    title={showCloudLogin ? 'Batal' : 'Login / Daftar Akun Cloud'}
-                    onPress={() => setShowCloudLogin(!showCloudLogin)}
-                    variant="outline"
-                    fullWidth
-                    icon={<Ionicons name="cloud-upload-outline" size={20} color={colors.primary} />}
-                  />
-                </View>
-              </View>
-            ) : (
-              /* ── Sudah login → aksi backup/restore ── */
-              <View>
-                <Card style={styles.actionCard}>
-                  {/* User info bar */}
-                  <View style={styles.userBar}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.secondary} />
-                    <Text style={styles.userEmail}>
-                      {backupStatus.userEmail || 'Terhubung ke akun cloud'}
-                    </Text>
-                    <TouchableOpacity onPress={handleCloudLogout}>
-                      <Text style={styles.logoutText}>Logout</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Backup & Restore buttons */}
-                  <View style={styles.actionRow}>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                      onPress={handleBackup}
-                      disabled={isBackingUp || isRestoring}
-                    >
-                      {isBackingUp ? (
-                        <ActivityIndicator size="small" color={colors.onPrimary} />
-                      ) : (
-                        <Ionicons name="cloud-upload-outline" size={22} color={colors.onPrimary} />
-                      )}
-                      <Text style={styles.actionBtnText}>
-                        {isBackingUp ? 'Mencadangkan...' : 'Backup Sekarang'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: colors.error }]}
-                      onPress={handleRestore}
-                      disabled={isBackingUp || isRestoring}
-                    >
-                      {isRestoring ? (
-                        <ActivityIndicator size="small" color={colors.onPrimary} />
-                      ) : (
-                        <Ionicons name="cloud-download-outline" size={22} color={colors.onPrimary} />
-                      )}
-                      <Text style={styles.actionBtnText}>
-                        {isRestoring ? 'Merestore...' : 'Restore dari Cloud'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </Card>
-
-                {/* Catatan */}
-                <View style={styles.noteRow}>
-                  <Ionicons name="information-circle-outline" size={16} color={colors.onSurfaceVariant} />
-                  <Text style={styles.noteText}>
-                    Restore akan mengganti semua data lokal dengan data dari cloud backup terbaru.
+            {/* Tombol aksi */}
+            <Card style={styles.actionCard}>
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleBackup}
+                  disabled={isBackingUp || isRestoring}
+                >
+                  {isBackingUp ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Ionicons name="cloud-upload-outline" size={22} color={colors.onPrimary} />
+                  )}
+                  <Text style={styles.actionBtnText}>
+                    {isBackingUp ? 'Mencadangkan...' : 'Backup Sekarang'}
                   </Text>
-                </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: colors.error }]}
+                  onPress={handleRestore}
+                  disabled={isBackingUp || isRestoring || restoreState === 'checking_backup'}
+                >
+                  {restoreState === 'checking_backup' || isRestoring ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Ionicons name="cloud-download-outline" size={22} color={colors.onPrimary} />
+                  )}
+                  <Text style={styles.actionBtnText}>
+                    {restoreState === 'checking_backup'
+                      ? 'Mencari backup...'
+                      : isRestoring
+                      ? 'Merestore...'
+                      : 'Restore dari Cloud'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            )}
+            </Card>
+
+            <View style={styles.noteRow}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.onSurfaceVariant} />
+              <Text style={styles.noteText}>
+                Restore akan mengganti semua data lokal dengan data dari backup cloud terbaru.
+              </Text>
+            </View>
           </>
         )}
       </ScrollView>
 
-      {/* Modal Hubungkan Akun Premium */}
+      {/* ── Modal: Backup Berhasil ── */}
+      <AppModal
+        visible={showBackupSuccessModal}
+        onClose={() => setShowBackupSuccessModal(false)}
+        type="success"
+        title="Backup Berhasil"
+        icon="checkmark-circle"
+        message="Data toko berhasil dicadangkan ke cloud."
+        primaryAction={{
+          label: 'OK',
+          onPress: () => setShowBackupSuccessModal(false),
+          variant: 'primary',
+        }}
+      />
+
+      {/* ── Modal: Backup Gagal ── */}
+      <AppModal
+        visible={showBackupErrorModal}
+        onClose={() => setShowBackupErrorModal(false)}
+        type="warning"
+        title="Backup Gagal"
+        icon="alert-circle"
+        message={backupErrorMessage}
+        primaryAction={{
+          label: 'Tutup',
+          onPress: () => setShowBackupErrorModal(false),
+          variant: 'primary',
+        }}
+      />
+
+      {/* ── Modal: Backup Ditemukan ── */}
+      <AppModal
+        visible={restoreState === 'backup_found'}
+        onClose={skipRestore}
+        type="info"
+        title="Pulihkan Data?"
+        icon="cloud-download"
+        message={restoreMessage}
+        primaryAction={{
+          label: isRestoring ? 'Memulihkan...' : 'Restore Sekarang',
+          onPress: executeRestore,
+          variant: 'primary',
+          loading: isRestoring,
+        }}
+        secondaryAction={{
+          label: 'Lewati Dulu',
+          onPress: skipRestore,
+          variant: 'outline',
+        }}
+      >
+        {backupInfo && (
+          <View style={styles.backupDetail}>
+            {backupInfo.storeName && (
+              <Text style={styles.backupText}>Toko: {backupInfo.storeName}</Text>
+            )}
+            <Text style={styles.backupText}>
+              Backup: {new Date(backupInfo.createdAt).toLocaleDateString('id-ID')}
+            </Text>
+            <Text style={styles.backupText}>
+              Data: {backupInfo.recordCounts.products || 0} produk,{' '}
+              {backupInfo.recordCounts.customers || 0} pelanggan
+            </Text>
+          </View>
+        )}
+      </AppModal>
+
+      {/* ── Modal: Konfirmasi Overwrite ── */}
+      <AppModal
+        visible={restoreState === 'confirm_overwrite'}
+        onClose={skipRestore}
+        type="warning"
+        title="Timpa Data Lokal?"
+        icon="warning"
+        message={restoreMessage}
+        primaryAction={{
+          label: isRestoring ? 'Memulihkan...' : 'Restore',
+          onPress: executeRestore,
+          variant: 'danger',
+          loading: isRestoring,
+        }}
+        secondaryAction={{
+          label: 'Batal',
+          onPress: skipRestore,
+          variant: 'outline',
+        }}
+      >
+        {backupInfo && (
+          <View style={styles.backupDetail}>
+            {backupInfo.storeName && (
+              <Text style={styles.backupText}>Toko: {backupInfo.storeName}</Text>
+            )}
+            <Text style={styles.backupText}>
+              Backup: {new Date(backupInfo.createdAt).toLocaleDateString('id-ID')}
+            </Text>
+            <Text style={styles.backupText}>
+              Data: {backupInfo.recordCounts.products || 0} produk,{' '}
+              {backupInfo.recordCounts.customers || 0} pelanggan
+            </Text>
+          </View>
+        )}
+      </AppModal>
+
+      {/* ── Modal: Restore Berhasil ── */}
+      <AppModal
+        visible={restoreState === 'restore_success'}
+        onClose={resetRestoreFlow}
+        type="success"
+        title="Restore Berhasil"
+        icon="checkmark-circle"
+        message="Data toko berhasil dipulihkan ke perangkat ini."
+        primaryAction={{
+          label: 'OK',
+          onPress: resetRestoreFlow,
+          variant: 'primary',
+        }}
+      />
+
+      {/* ── Modal: Restore Gagal ── */}
+      <AppModal
+        visible={restoreState === 'restore_error'}
+        onClose={resetRestoreFlow}
+        type="warning"
+        title="Restore Gagal"
+        icon="alert-circle"
+        message={restoreMessage || 'Data belum berhasil dipulihkan. Coba lagi atau hubungi admin AdaKasir.'}
+        primaryAction={{
+          label: 'Coba Lagi',
+          onPress: executeRestore,
+          variant: 'primary',
+          loading: isRestoring,
+        }}
+        secondaryAction={{
+          label: 'Tutup',
+          onPress: resetRestoreFlow,
+          variant: 'outline',
+        }}
+      />
+
+      {/* ── Modal: Tidak Ada Backup ── */}
+      <AppModal
+        visible={restoreState === 'no_backup'}
+        onClose={resetRestoreFlow}
+        type="info"
+        title="Backup Tidak Ditemukan"
+        icon="cloud-offline-outline"
+        message={restoreMessage || 'Belum ada backup data yang ditemukan untuk akun Premium ini.'}
+        primaryAction={{
+          label: 'OK',
+          onPress: resetRestoreFlow,
+          variant: 'primary',
+        }}
+      />
+
+      {/* ── Modal: Hubungkan Akun Premium (manual fallback) ── */}
       <AppModal
         visible={showConnectAccountModal}
         onClose={() => setShowConnectAccountModal(false)}
@@ -512,7 +468,7 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
         message="Restore cloud membutuhkan akun Premium. Anda sudah mengaktifkan Premium menggunakan kode lisensi, tetapi belum login ke akun Premium. Silakan login dengan email atau nomor WhatsApp yang terdaftar agar backup cloud dapat ditemukan."
         primaryAction={{
           label: 'Login Premium',
-          onPress: () => { setShowConnectAccountModal(false); router.push('/settings/account'); },
+          onPress: () => { setShowConnectAccountModal(false); setShowLoginModal(true); },
           variant: 'primary',
         }}
         secondaryAction={{
@@ -521,6 +477,57 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
           variant: 'outline',
         }}
       />
+
+      {/* ── Modal: Login Premium ── */}
+      <AppModal
+        visible={showLoginModal}
+        onClose={() => { setShowLoginModal(false); setLoginInput(''); }}
+        type="info"
+        title="Login Premium"
+        icon="log-in"
+        message="Masukkan nomor WhatsApp atau email yang terdaftar untuk login akun Premium."
+        primaryAction={{
+          label: isLoggingIn ? 'Memproses...' : 'Login',
+          onPress: handleLoginPremium,
+          variant: 'primary',
+          loading: isLoggingIn,
+        }}
+        secondaryAction={{
+          label: 'Batal',
+          onPress: () => { setShowLoginModal(false); setLoginInput(''); },
+          variant: 'outline',
+        }}
+      >
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={loginInput}
+            onChangeText={setLoginInput}
+            placeholder="08xxxxxx atau email@contoh.com"
+            placeholderTextColor={colors.onSurfaceVariant}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!isLoggingIn}
+          />
+        </View>
+      </AppModal>
+
+      {/* ── Modal: Login Error ── */}
+      <AppModal
+        visible={showLoginErrorModal}
+        onClose={() => setShowLoginErrorModal(false)}
+        type="warning"
+        title="Login Gagal"
+        icon="alert-circle"
+        message={loginErrorMessage}
+        primaryAction={{
+          label: 'Tutup',
+          onPress: () => setShowLoginErrorModal(false),
+          variant: 'primary',
+        }}
+      />
+
+      <RestoreProgressModal progress={restoreProgress} />
     </View>
   );
 }
@@ -533,7 +540,6 @@ export default function CloudBackupScreen() {
   const insets = useSafeAreaInsets();
   const { isPremium, isChecking } = usePremiumStatus();
 
-  // Loading state agar tidak flash tampilan locked saat pengecekan
   if (isChecking) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -562,16 +568,12 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   scrollContent: { padding: spacing.marginMobile, paddingBottom: 32 },
 
-  // ── Locked / Premium upsell ──
+  // ── Locked ──
   lockSection: { alignItems: 'center', paddingVertical: spacing.stackLg, marginBottom: spacing.stackMd },
   lockIconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 88, height: 88, borderRadius: 44,
     backgroundColor: colors.surfaceContainerLow,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.stackMd,
+    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.stackMd,
   },
   lockTitle: { ...typography.headlineMobile, color: colors.onSurface, fontWeight: '700', marginBottom: spacing.stackSm },
   lockDescription: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 22, paddingHorizontal: spacing.stackMd },
@@ -580,83 +582,73 @@ const styles = StyleSheet.create({
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm, marginBottom: spacing.stackSm },
   benefitText: { flex: 1, ...typography.bodyMd, color: colors.onSurfaceVariant },
 
-  // ── Active premium header ──
+  // ── Header ──
   headerSection: { alignItems: 'center', paddingVertical: spacing.stackLg, marginBottom: spacing.stackMd },
   headerIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 64, height: 64, borderRadius: 32,
     backgroundColor: colors.surfaceContainerLow,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.stackSm,
+    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.stackSm,
   },
   headerTitle: { ...typography.headlineMobile, color: colors.onSurface, fontWeight: '700' },
   headerDescription: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: spacing.stackSm, lineHeight: 20 },
 
   // ── Loading ──
-  loadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.stackSm, paddingVertical: spacing.stackLg },
   loadingFullScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.stackMd },
   loadingText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
 
-  // ── Status card ──
-  statusCard: { padding: spacing.stackMd, marginBottom: spacing.stackMd },
-  statusCardTitle: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '700', marginBottom: spacing.stackSm },
-  statusItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm, marginBottom: spacing.stackSm },
-  statusItemText: { flex: 1, ...typography.labelSm, color: colors.onSurfaceVariant },
-
-  // ── Info messages ──
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.stackSm, marginBottom: spacing.stackMd },
-  infoText: { flex: 1, ...typography.labelSm, color: colors.onSurfaceVariant },
-
-  // ── Login form ──
-  loginCard: { padding: spacing.stackMd, marginBottom: spacing.stackMd },
-  fieldContainer: { marginBottom: spacing.stackMd },
-  fieldLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm },
-  fieldInput: {
-    ...typography.bodyLg,
-    backgroundColor: colors.surface,
+  // ── Info card (manual fallback) ──
+  infoCard: { padding: spacing.stackMd, marginBottom: spacing.stackMd },
+  infoCardWarning: {
     borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.stackMd,
-    paddingVertical: spacing.stackSm,
-    color: colors.onSurface,
-    minHeight: 48,
+    borderColor: colors.primary + '40',
+    backgroundColor: colors.primaryFixed + '30',
   },
-  fieldInputDisabled: { backgroundColor: colors.surfaceContainer, color: colors.onSurfaceVariant },
-  loginButtonRow: { flexDirection: 'row', gap: spacing.stackSm, marginTop: spacing.stackSm },
-  loginBtnWrapper: { flex: 1 },
-  loginToggleWrapper: { marginTop: spacing.stackSm },
+  infoCardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm, marginBottom: spacing.stackSm },
+  infoCardTitle: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '700' },
+  infoCardDesc: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.stackMd, lineHeight: 20 },
 
-  // ── Logged-in actions ──
+  // ── Account card ──
+  accountCard: { padding: spacing.stackMd, marginBottom: spacing.stackMd },
+  accountRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
+  accountInfo: { flex: 1 },
+  accountName: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '700' },
+  accountSub: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
+
+  // ── Action buttons ──
   actionCard: { padding: spacing.stackMd, marginBottom: spacing.stackMd },
-  userBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.stackSm,
-    paddingVertical: spacing.stackSm,
-    paddingHorizontal: spacing.stackMd,
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.stackMd,
-  },
-  userEmail: { flex: 1, ...typography.labelSm, color: colors.onSurface, fontWeight: '600' },
-  logoutText: { ...typography.labelSm, color: colors.error, fontWeight: '700' },
   actionRow: { flexDirection: 'row', gap: spacing.stackSm },
   actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.stackSm,
-    paddingVertical: spacing.stackMd,
-    borderRadius: borderRadius.md,
-    minHeight: spacing.touchTargetMin,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.stackSm, paddingVertical: spacing.stackMd,
+    borderRadius: borderRadius.md, minHeight: spacing.touchTargetMin,
   },
   actionBtnText: { ...typography.labelSm, color: colors.onPrimary, fontWeight: '700' },
 
   // ── Note ──
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.stackSm, paddingHorizontal: spacing.stackSm },
   noteText: { flex: 1, ...typography.labelSm, color: colors.onSurfaceVariant, lineHeight: 18 },
+
+  // ── Last backup ──
+  lastBackupRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginTop: spacing.stackSm, paddingTop: spacing.stackSm,
+    borderTopWidth: 1, borderTopColor: colors.outlineVariant,
+  },
+  lastBackupText: { ...typography.labelSm, color: colors.onSurfaceVariant },
+
+  // ── Backup detail (dalam modal) ──
+  backupDetail: {
+    width: '100%', backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 12, padding: spacing.stackMd, marginBottom: 16, gap: 4,
+  },
+  backupText: { ...typography.bodyMd, color: colors.onSurface },
+
+  // ── Login input ──
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center', width: '100%',
+    backgroundColor: colors.surfaceContainerLow, borderRadius: 12,
+    borderWidth: 1, borderColor: colors.outlineVariant, padding: spacing.stackMd,
+    marginBottom: 16,
+  },
+  input: { flex: 1, ...typography.bodyLg, color: colors.onSurface, paddingVertical: 0 },
 });

@@ -639,14 +639,20 @@ export default function AccountScreen() {
       {/* ── Modal Restore Berhasil ── */}
       <AppModal
         visible={restoreState === 'restore_success'}
-        onClose={() => { resetRestoreFlow(); }}
+        onClose={() => {
+          resetRestoreFlow();
+          router.replace('/(tabs)');
+        }}
         type="success"
         title="Restore Berhasil"
         icon="checkmark-circle"
         message="Data toko berhasil dipulihkan ke perangkat ini."
         primaryAction={{
-          label: 'OK',
-          onPress: resetRestoreFlow,
+          label: 'Mulai Gunakan AdaKasir',
+          onPress: () => {
+            resetRestoreFlow();
+            router.replace('/(tabs)');
+          },
           variant: 'primary',
         }}
       />
@@ -675,14 +681,20 @@ export default function AccountScreen() {
       {/* ── Modal No Backup ── */}
       <AppModal
         visible={restoreState === 'no_backup'}
-        onClose={resetRestoreFlow}
+        onClose={() => {
+          resetRestoreFlow();
+          router.replace('/(tabs)');
+        }}
         type="info"
         title="Login Premium Berhasil"
         icon="checkmark-circle"
         message="Belum ada backup data yang ditemukan untuk akun Premium ini."
         primaryAction={{
-          label: 'OK',
-          onPress: resetRestoreFlow,
+          label: 'Mulai Gunakan AdaKasir',
+          onPress: () => {
+            resetRestoreFlow();
+            router.replace('/(tabs)');
+          },
           variant: 'primary',
         }}
       />
@@ -733,14 +745,20 @@ export default function AccountScreen() {
       {/* ── Modal Skipped ── */}
       <AppModal
         visible={restoreState === 'skipped'}
-        onClose={resetRestoreFlow}
+        onClose={() => {
+          resetRestoreFlow();
+          router.replace('/(tabs)');
+        }}
         type="info"
         title="Restore Dilewati"
         icon="information-circle"
         message="Anda dapat melakukan restore kapan saja dari menu Akun & Lisensi."
         primaryAction={{
-          label: 'Oke',
-          onPress: resetRestoreFlow,
+          label: 'Kembali ke Kasir',
+          onPress: () => {
+            resetRestoreFlow();
+            router.replace('/(tabs)');
+          },
           variant: 'primary',
         }}
       />
