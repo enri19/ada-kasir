@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import { useLicenseStore } from '../../src/stores/license.store';
 import { AppModal } from '../../src/components/ui/AppModal';
 import { APP_NAME, APP_VERSION } from '../../src/utils/constants';
 import { SaleWithItems } from '../../src/types/sale';
+import { AppFooterActions } from '../../src/components/ui/AppFooterActions';
 
 export default function TransaksiBerhasilScreen() {
   const router = useRouter();
@@ -143,8 +144,15 @@ export default function TransaksiBerhasilScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + 8 }]}>
-      <View style={styles.content}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.marginMobile,
+          paddingTop: 16,
+          paddingBottom: 120 + Math.max(insets.bottom, 24)
+        }}
+      >
         <View style={styles.successCard}>
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={40} color={colors.secondary} />
@@ -200,31 +208,32 @@ export default function TransaksiBerhasilScreen() {
           </View>
         )}
 
-        <View style={styles.actions}>
-          <Button
-            title="Kirim Nota WhatsApp"
-            onPress={handleShareWhatsApp}
-            size="lg"
-            fullWidth
-            icon={<Ionicons name="share-social-outline" size={20} color={colors.onPrimary} />}
-          />
-          <Button
-            title="Cetak Struk"
-            onPress={handlePrintReceipt}
-            variant="outline"
-            size="lg"
-            fullWidth
-            icon={<Ionicons name="print-outline" size={20} color={colors.primary} />}
-          />
-        </View>
-
         <TouchableOpacity style={styles.newTransactionButton} onPress={() => router.replace('/(tabs)')}>
           <Ionicons name="cart-outline" size={20} color={colors.primary} />
           <Text style={styles.newTransactionText}>Transaksi Baru</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
-      <Text style={styles.footer}>Sistem Kasir {activeStore?.name || APP_NAME} v{APP_VERSION}</Text>
+      <AppFooterActions>
+        <Button
+          title="Kirim Nota WhatsApp"
+          onPress={handleShareWhatsApp}
+          size="lg"
+          fullWidth
+          icon={<Ionicons name="share-social-outline" size={20} color={colors.onPrimary} />}
+        />
+        <View style={{ height: spacing.stackSm }} />
+        <Button
+          title="Cetak Struk"
+          onPress={handlePrintReceipt}
+          variant="outline"
+          size="lg"
+          fullWidth
+          icon={<Ionicons name="print-outline" size={20} color={colors.primary} />}
+        />
+      </AppFooterActions>
+
+      <Text style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>Sistem Kasir {activeStore?.name || APP_NAME} v{APP_VERSION}</Text>
 
       <AppModal
         visible={premiumModalVisible}
@@ -258,7 +267,7 @@ export default function TransaksiBerhasilScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { flex: 1, paddingHorizontal: spacing.marginMobile, paddingTop: 16, paddingBottom: 16, justifyContent: 'flex-start' },
+  content: { flex: 1 },
   successCard: {
     backgroundColor: colors.surface, borderRadius: borderRadius.lg,
     borderWidth: 1, borderColor: colors.outlineVariant, paddingHorizontal: spacing.stackSm, paddingVertical: 8,
@@ -311,7 +320,6 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.secondary },
   statusText: { ...typography.bodyLg, color: colors.secondary, fontWeight: '600' },
-  actions: { gap: 12, marginBottom: 20 },
   newTransactionButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: spacing.stackMd,
@@ -321,7 +329,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primary,
     backgroundColor: 'transparent',
+    marginBottom: 20,
   },
   newTransactionText: { ...typography.bodyLg, color: colors.primary, fontWeight: '600', lineHeight: 20 },
-  footer: { ...typography.labelSm, color: colors.onSurfaceVariant, textAlign: 'center', paddingTop: 12, paddingBottom: 12 },
+  footer: { ...typography.labelSm, color: colors.onSurfaceVariant, textAlign: 'center', paddingTop: 12 },
 });

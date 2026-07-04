@@ -1,21 +1,24 @@
 import React from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '../config/theme';
+import { colors, spacing } from '../../config/theme';
+import { getSafeFooterPadding } from '../../utils/layout';
 
-type BottomActionBarProps = {
+type AppFooterActionsProps = {
   children: React.ReactNode;
   style?: ViewStyle;
 };
 
-export function BottomActionBar({ children, style }: BottomActionBarProps) {
+export function AppFooterActions({ children, style }: AppFooterActionsProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <View
       style={[
         styles.container,
-        { paddingBottom: Math.max(insets.bottom, 16) },
+        {
+          paddingBottom: getSafeFooterPadding(insets.bottom),
+        },
         style,
       ]}
     >

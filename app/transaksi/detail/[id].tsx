@@ -15,6 +15,7 @@ import { PrinterService } from '../../../src/services/printer.service';
 import { useLicenseStore } from '../../../src/stores/license.store';
 import { AppModal } from '../../../src/components/ui/AppModal';
 import { BottomActionBar } from '../../../src/components/BottomActionBar';
+import { AppFooterActions } from '../../../src/components/ui/AppFooterActions';
 
 export default function DetailTransaksiScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -120,7 +121,10 @@ export default function DetailTransaksiScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={{
+        padding: spacing.marginMobile,
+        paddingBottom: 120 + Math.max(insets.bottom, 24)
+      }}>
         <Card style={styles.infoCard}>
           <Text style={styles.invoiceNumber}>{sale.invoiceNumber}</Text>
           <Text style={styles.dateText}>
@@ -240,7 +244,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: { ...typography.headlineMobile, color: colors.primary, fontWeight: '700' },
   content: { flex: 1 },
-  contentContainer: { padding: spacing.marginMobile, paddingBottom: 140 },
   loadingText: { ...typography.bodyLg, color: colors.onSurfaceVariant },
 
   infoCard: { padding: spacing.stackLg, marginBottom: spacing.stackLg, alignItems: 'center' },

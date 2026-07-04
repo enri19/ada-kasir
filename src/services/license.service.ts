@@ -53,6 +53,10 @@ export interface LicenseData {
   lastBackupAt?: string | null;
   /** Apakah ada backup cloud yang tersedia */
   hasCloudBackup?: boolean;
+  /** Tanggal kedaluwarsa Premium (mirror expiresAt untuk mencegah mismatch) */
+  premiumExpiresAt?: string | null;
+  /** Apakah login via Premium Account (bukan manual fallback) */
+  isPremiumAccountLogin?: boolean;
 }
 
 export type LicenseValidationResult =
@@ -124,6 +128,7 @@ export const LicenseService = {
       expiresAt: null,
       licenseKey: null,
       hasLifetime: false,
+      premiumExpiresAt: null,
     };
   },
 
@@ -197,33 +202,28 @@ export const LicenseService = {
   resolveStatus(data: LicenseData, now = new Date()): LicenseStatus {
     const nowMs = now.getTime();
 
-    // Premium Account — cek expired
-    if (data.source === 'account') {
-      if (data.expiresAt) {
-        const premExpiry = new Date(data.expiresAt).getTime();
-        if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';
-        return 'premium_expired';
-      }
-      // Jika Premium Account tanpa expiresAt, tetap premium_active (lifetime account)
-      return 'premium_active';
+    // Util: cek expiry valid
+    const checkExpiry = (exp: string | null | undefined): boolean => {
+      if (!exp) return false;
+      const ms = new Date(exp).getTime();
+      return Number.isFinite(ms) && ms >= nowMs;
+    };
+
+    // Premium Account login / manual fallback
+    if (data.source === 'account' || data.source === 'manual_fallback') {
+      const exp = data.premiumExpiresAt ?? data.expiresAt;
+      if (checkExpiry(exp)) return 'premium_active';
+      // Premium expired — fallback ke Lifetime jika ada
+      if (data.hasLifetime || data.licenseKey?.startsWith('ADK-LIFE-')) return 'lifetime';
+      return 'premium_expired';
     }
 
-    // Lifetime tidak pernah expired
+    // Lifetime (local device) — tidak pernah expired
     if (data.hasLifetime || data.licenseKey?.startsWith('ADK-LIFE-')) {
       // Cek apakah ada Premium aktif di atasnya
-      if (data.licenseKey?.startsWith('ADK-PREM-') && data.expiresAt) {
-        const premExpiry = new Date(data.expiresAt).getTime();
-        if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';
-        return 'lifetime'; // Premium expired, fallback ke Lifetime
-      }
-      return 'lifetime';
-    }
-
-    // Premium manual fallback (ADK-PREM-XXXX)
-    if (data.licenseKey?.startsWith('ADK-PREM-')) {
-      const premExpiry = data.expiresAt ? new Date(data.expiresAt).getTime() : NaN;
-      if (Number.isFinite(premExpiry) && premExpiry >= nowMs) return 'premium_active';
-      return 'premium_expired';
+      const exp = data.premiumExpiresAt ?? data.expiresAt;
+      if (checkExpiry(exp)) return 'premium_active';
+      return 'lifetime'; // Premium expired, fallback ke Lifetime
     }
 
     // Trial
@@ -272,6 +272,19 @@ export const LicenseService = {
   /** Shortcut cek trial expired */
   isTrialExpired(status: LicenseStatus): boolean {
     return status === 'trial_expired';
+  },
+
+  /** Cloud backup hanya tersedia untuk Premium Account login */
+  canUseCloudBackup(data: { status: LicenseStatus; source: string | undefined; isPremiumAccountLogin: boolean | undefined; premiumAccountId: string | null | undefined }): boolean {
+    return data.status === 'premium_active' &&
+      data.source === 'account' &&
+      data.isPremiumAccountLogin === true &&
+      Boolean(data.premiumAccountId);
+  },
+
+  /** Restore cloud hanya tersedia untuk Premium Account aktif */
+  canRestoreCloudBackup(data: { status: LicenseStatus; source: string | undefined; isPremiumAccountLogin: boolean | undefined; premiumAccountId: string | null | undefined }): boolean {
+    return this.canUseCloudBackup(data);
   },
 
   // ─── WhatsApp message builders ──────────────────────────────────────────────

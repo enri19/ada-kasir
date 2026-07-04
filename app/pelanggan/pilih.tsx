@@ -14,6 +14,7 @@ import { InvoiceService } from '../../src/services/invoice.service';
 import { useAppStore } from '../../src/stores/app.store';
 import { WhatsAppService } from '../../src/services/whatsapp.service';
 import { Linking } from 'react-native';
+import { AppFooterActions } from '../../src/components/ui/AppFooterActions';
 
 export default function PilihPelangganScreen() {
   const router = useRouter();
@@ -114,7 +115,10 @@ export default function PilihPelangganScreen() {
         />
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={{
+        padding: spacing.marginMobile,
+        paddingBottom: 120 + Math.max(insets.bottom, 24)
+      }}>
         <Text style={styles.sectionTitle}>DAFTAR PELANGGAN</Text>
 
         {filteredCustomers.length === 0 ? (
@@ -151,7 +155,7 @@ export default function PilihPelangganScreen() {
       </ScrollView>
 
       {selectedCustomer && (
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom }]}>
+        <AppFooterActions>
           <Button
             title={`Proses Bon - ${selectedCustomer.name}`}
             onPress={handleConfirm}
@@ -159,7 +163,7 @@ export default function PilihPelangganScreen() {
             fullWidth
             loading={loading}
           />
-        </View>
+        </AppFooterActions>
       )}
     </View>
   );
@@ -186,7 +190,6 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, marginLeft: spacing.stackSm, ...typography.bodyMd, color: colors.onSurface, paddingVertical: 0 },
   content: { flex: 1 },
-  contentContainer: { padding: spacing.marginMobile, paddingBottom: 100 },
   sectionTitle: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackMd },
   customerCard: {
     flexDirection: 'row', alignItems: 'center',
@@ -206,9 +209,4 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: 60 },
   emptyTitle: { ...typography.headlineMobile, color: colors.onSurface, marginTop: spacing.stackMd },
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm, marginBottom: spacing.stackLg },
-  bottomBar: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.surface, paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.stackMd, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-  },
 });

@@ -64,7 +64,11 @@ export default function AccountScreen() {
 
   const isPremium = licenseStatus === 'premium_active';
   const isPremiumAccount = source === 'account';
+  const isManualFallback = isPremium && source === 'manual_fallback';
   const canUsePremiumFeatures = useLicenseStore((s) => s.canUsePremiumFeatures);
+  const canRestoreCloudBackup = useLicenseStore((s) => s.canRestoreCloudBackup);
+
+  const [showConnectAccountModal, setShowConnectAccountModal] = useState(false);
 
   // ── Premium login / restore ──
   const {
@@ -177,6 +181,11 @@ export default function AccountScreen() {
   const handleRestoreFromBackup = async () => {
     if (!canUsePremiumFeatures()) {
       Alert.alert('Fitur Premium', 'Restore backup hanya tersedia untuk akun Premium aktif.');
+      return;
+    }
+    if (!canRestoreCloudBackup()) {
+      // Case B: Premium manual fallback — tampilkan modal hubungkan akun
+      setShowConnectAccountModal(true);
       return;
     }
     await executeRestore();
@@ -342,6 +351,29 @@ export default function AccountScreen() {
             </View>
           )}
         </Card>
+
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 2a: Info card untuk Premium manual fallback
+            ════════════════════════════════════════════════════════════ */}
+        {isManualFallback && (
+          <Card style={[styles.sectionCard, styles.manualFallbackCard]}>
+            <View style={styles.premiumActiveHeader}>
+              <Ionicons name="key-outline" size={22} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Premium Aktif via Kode Lisensi</Text>
+            </View>
+            <Text style={styles.premiumActiveDesc}>
+              Fitur Premium sudah aktif di perangkat ini. Untuk backup dan restore cloud saat pindah perangkat, hubungkan akun Premium Anda.
+            </Text>
+            <AppButton
+              title="Hubungkan Akun Premium"
+              onPress={() => setShowLoginModal(true)}
+              variant="primary"
+              fullWidth
+              size="md"
+              icon={<Ionicons name="log-in-outline" size={18} color={colors.onPrimary} />}
+            />
+          </Card>
+        )}
 
         {/* ════════════════════════════════════════════════════════════
             SECTION 2: Akun Premium
@@ -647,11 +679,31 @@ export default function AccountScreen() {
         type="info"
         title="Login Premium Berhasil"
         icon="checkmark-circle"
-        message="Akun Premium Anda sudah aktif, namun belum ada backup data yang ditemukan."
+        message="Belum ada backup data yang ditemukan untuk akun Premium ini."
         primaryAction={{
           label: 'OK',
           onPress: resetRestoreFlow,
           variant: 'primary',
+        }}
+      />
+
+      {/* ── Modal Hubungkan Akun Premium (manual fallback) ── */}
+      <AppModal
+        visible={showConnectAccountModal}
+        onClose={() => setShowConnectAccountModal(false)}
+        type="info"
+        title="Hubungkan Akun Premium"
+        icon="cloud-offline-outline"
+        message="Restore cloud membutuhkan akun Premium. Anda sudah mengaktifkan Premium menggunakan kode lisensi, tetapi belum login ke akun Premium. Silakan login dengan email atau nomor WhatsApp yang terdaftar agar backup cloud dapat ditemukan."
+        primaryAction={{
+          label: 'Login Premium',
+          onPress: () => { setShowConnectAccountModal(false); setShowLoginModal(true); },
+          variant: 'primary',
+        }}
+        secondaryAction={{
+          label: 'Nanti',
+          onPress: () => setShowConnectAccountModal(false),
+          variant: 'outline',
         }}
       />
 
@@ -795,6 +847,11 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     marginBottom: spacing.stackMd,
     lineHeight: 20,
+  },
+  manualFallbackCard: {
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+    backgroundColor: colors.primaryFixed + '30',
   },
   premiumActionRow: {
     marginBottom: spacing.stackSm,

@@ -93,9 +93,12 @@ export default function DetailProdukKasirScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Detail Produk" onBack={() => router.back()} />
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={{
+        ...styles.contentContainer,
+        paddingBottom: 120 + Math.max(insets.bottom, 24)
+      }}>
         {/* Image Section */}
         <View style={styles.imageContainer}>
           <View style={styles.imageBox}>
@@ -178,7 +181,9 @@ export default function DetailProdukKasirScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom }]}>
+       <View style={[styles.bottomBar, {
+         paddingBottom: Math.max(insets.bottom, 16)
+       }]}>
         <TouchableOpacity
           style={styles.bottomButton}
           onPress={handleAddToCart}
@@ -206,7 +211,7 @@ export default function DetailProdukKasirScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
-  contentContainer: { paddingBottom: 120 },
+   contentContainer: {},
   loadingText: { ...typography.bodyLg, color: colors.onSurfaceVariant },
 
   imageContainer: { position: 'relative', margin: spacing.marginMobile },
@@ -260,14 +265,15 @@ const styles = StyleSheet.create({
   },
   subtotalLabel: { ...typography.labelSm, color: colors.primaryFixed },
 
-  bottomBar: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-    flexDirection: 'row', alignItems: 'center', gap: spacing.stackMd,
-    paddingHorizontal: spacing.marginMobile,
-    paddingVertical: spacing.stackSm,
-  },
+   bottomBar: {
+     position: 'absolute', left: 0, right: 0, bottom: 0,
+     backgroundColor: colors.surface,
+     borderTopWidth: 1, borderTopColor: colors.outlineVariant,
+     flexDirection: 'row', alignItems: 'center', gap: spacing.stackMd,
+     paddingHorizontal: spacing.marginMobile,
+     paddingTop: spacing.stackSm,
+     paddingBottom: 16,
+   },
   bottomButton: {
     flex: 1, height: 48,
     backgroundColor: colors.primary, borderRadius: borderRadius.md,

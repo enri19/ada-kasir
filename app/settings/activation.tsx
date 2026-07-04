@@ -22,6 +22,8 @@ export default function ActivationScreen() {
   const licenseStatus = useLicenseStore((s) => s.status);
   const activateLicense = useLicenseStore((s) => s.activateLicense);
   const refreshLicenseStatus = useLicenseStore((s) => s.refreshStatus);
+  const setActiveStore = useAppStore((s) => s.setActiveStore);
+  const setIsOnboardingComplete = useAppStore((s) => s.setIsOnboardingComplete);
   const activeStore = useAppStore((s) => s.activeStore);
 
   const [licenseCode, setLicenseCode] = useState('');
@@ -30,6 +32,7 @@ export default function ActivationScreen() {
   const [resultType, setResultType] = useState<'success' | 'error'>('success');
   const [resultTitle, setResultTitle] = useState('');
   const [resultMessage, setResultMessage] = useState('');
+  const [isPremiumManualSuccess, setIsPremiumManualSuccess] = useState(false);
 
   const isPremium = licenseStatus === 'premium_active';
 
@@ -86,13 +89,21 @@ export default function ActivationScreen() {
       setLicenseCode('');
       await refreshLicenseStatus();
 
+      // Baca expiresAt langsung dari store setelah aktivasi selesai
+      const freshExpiresAt = useLicenseStore.getState().expiresAt;
+
       const isLifetime = code.startsWith('ADK-LIFE-');
+      const isPremiumManual = code.startsWith('ADK-PREM-');
+      setIsPremiumManualSuccess(isPremiumManual);
       setResultType('success');
-      setResultTitle('Aktivasi Berhasil');
+      setResultTitle(isLifetime ? 'Lisensi Berhasil Diaktifkan' : 'Premium Berhasil Diaktifkan');
+      const expiryDate = freshExpiresAt ? new Date(freshExpiresAt).toLocaleDateString('id-ID') : null;
       setResultMessage(
         isLifetime
-          ? 'Lisensi Lifetime Basic berhasil diaktifkan di perangkat ini.'
-          : 'Premium berhasil diaktifkan.'
+          ? 'Lifetime Basic berhasil diaktifkan di perangkat ini.'
+          : isPremiumManual
+          ? 'Fitur Premium sudah aktif di perangkat ini. Agar bisa backup dan restore saat pindah perangkat, hubungkan akun Premium Anda.'
+          : `Fitur Premium AdaKasir sudah aktif sampai tanggal ${expiryDate}.`
       );
       setShowResultModal(true);
     } catch {
@@ -119,8 +130,12 @@ export default function ActivationScreen() {
   };
 
   const handleResultDone = () => {
+    // Jika belum selesai onboarding, tandai selesai sekarang
+    if (!activeStore) {
+      setIsOnboardingComplete(true);
+    }
     setShowResultModal(false);
-    router.back();
+    router.replace('/(tabs)');
   };
 
   const formatCode = (code: string) => {
@@ -223,19 +238,43 @@ export default function ActivationScreen() {
       </ScrollView>
 
       {/* Modal Hasil Aktivasi */}
-      <AppModal
-        visible={showResultModal}
-        onClose={handleResultDone}
-        type={resultType === 'success' ? 'success' : 'warning'}
-        title={resultTitle}
-        icon={resultType === 'success' ? 'checkmark-circle' : 'alert-circle'}
-        message={resultMessage}
-        primaryAction={{
-          label: 'Oke',
-          onPress: handleResultDone,
-          variant: 'primary',
-        }}
-      />
+      {isPremiumManualSuccess ? (
+        <AppModal
+          visible={showResultModal}
+          onClose={handleResultDone}
+          type="success"
+          title={resultTitle}
+          icon="checkmark-circle"
+          message={resultMessage}
+          primaryAction={{
+            label: 'Hubungkan Akun Premium',
+            onPress: () => {
+              setShowResultModal(false);
+              router.replace('/settings/account');
+            },
+            variant: 'primary',
+          }}
+          secondaryAction={{
+            label: 'Mulai Gunakan AdaKasir',
+            onPress: handleResultDone,
+            variant: 'outline',
+          }}
+        />
+      ) : (
+        <AppModal
+          visible={showResultModal}
+          onClose={handleResultDone}
+          type={resultType === 'success' ? 'success' : 'warning'}
+          title={resultTitle}
+          icon={resultType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+          message={resultMessage}
+          primaryAction={{
+            label: 'Mulai Gunakan AdaKasir',
+            onPress: handleResultDone,
+            variant: 'primary',
+          }}
+        />
+      )}
     </View>
   );
 }

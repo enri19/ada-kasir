@@ -26,6 +26,9 @@ interface LicenseState {
   lastPremiumCheckAt: string | null;
   lastBackupAt: string | null;
   hasCloudBackup: boolean;
+  premiumExpiresAt: string | null;
+  isPremiumAccountLogin: boolean;
+  isLicenseLoaded: boolean;
 
   // Actions
   loadFromStorage: () => Promise<void>;
@@ -41,6 +44,8 @@ interface LicenseState {
   canManageStock: () => boolean;
   canExportReport: () => boolean;
   canUsePremiumFeatures: () => boolean;
+  canUseCloudBackup: () => boolean;
+  canRestoreCloudBackup: () => boolean;
   isReadOnlyMode: () => boolean;
   isTrialExpired: () => boolean;
 }
@@ -88,6 +93,8 @@ function parseStoredLicense(raw: string | null): LicenseData | null {
       lastPremiumCheckAt: typeof v.lastPremiumCheckAt === 'string' ? v.lastPremiumCheckAt : null,
       lastBackupAt: typeof v.lastBackupAt === 'string' ? v.lastBackupAt : null,
       hasCloudBackup: v.hasCloudBackup === true,
+      premiumExpiresAt: isDateString(v.premiumExpiresAt) ? v.premiumExpiresAt : null,
+      isPremiumAccountLogin: v.isPremiumAccountLogin === true,
     };
   } catch {
     return null;
@@ -116,6 +123,8 @@ function toState(data: LicenseData) {
     lastPremiumCheckAt: data.lastPremiumCheckAt || null,
     lastBackupAt: data.lastBackupAt || null,
     hasCloudBackup: data.hasCloudBackup || false,
+    premiumExpiresAt: data.premiumExpiresAt || null,
+    isPremiumAccountLogin: data.isPremiumAccountLogin === true,
   };
 }
 
@@ -136,15 +145,29 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   lastPremiumCheckAt: null,
   lastBackupAt: null,
   hasCloudBackup: false,
+  premiumExpiresAt: null,
+  isPremiumAccountLogin: false,
+  isLicenseLoaded: false,
 
   loadFromStorage: async () => {
-    const stored = parseStoredLicense(
-      await AsyncStorage.getItem(STORAGE_KEYS.LICENSE_DATA)
-    );
-    const data = stored ?? LicenseService.createTrialLicense();
-    data.status = LicenseService.resolveStatus(data);
-    await saveLicense(data);
-    set(toState(data));
+    try {
+      const stored = parseStoredLicense(
+        await AsyncStorage.getItem(STORAGE_KEYS.LICENSE_DATA)
+      );
+      const data = stored ?? LicenseService.createTrialLicense();
+      data.status = LicenseService.resolveStatus(data);
+      await saveLicense(data);
+      console.log('[License] loaded from storage', stored ? { status: stored.status, source: stored.source } : null);
+      console.log('[License] resolved status', data.status);
+      set(toState(data));
+    } catch (error) {
+      console.error('[License] loadFromStorage error', error);
+      const data = LicenseService.createTrialLicense();
+      data.status = LicenseService.resolveStatus(data);
+      set(toState(data));
+    } finally {
+      set({ isLicenseLoaded: true });
+    }
   },
 
   refreshStatus: async () => {
@@ -167,6 +190,7 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       lastPremiumCheckAt: s.lastPremiumCheckAt,
       lastBackupAt: s.lastBackupAt,
       hasCloudBackup: s.hasCloudBackup,
+      premiumExpiresAt: s.premiumExpiresAt,
     };
     const status = LicenseService.resolveStatus(data);
     if (status === s.status) return;
@@ -213,10 +237,23 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       lastPremiumCheckAt: null,
       lastBackupAt: null,
       hasCloudBackup: false,
+      premiumExpiresAt: result.expiresAt,
+      isPremiumAccountLogin: false,
     };
     data.status = LicenseService.resolveStatus(data);
     await saveLicense(data);
     set(toState(data));
+    console.log('[Activation] success result', { code: licenseKey, status: data.status });
+    console.log('[Activation] license state after save', {
+      status: data.status,
+      plan: data.source === 'account' ? 'premium' : (data.hasLifetime ? 'lifetime' : 'premium'),
+      source: data.source,
+      licenseKey: data.licenseKey,
+      expiresAt: data.expiresAt,
+      premiumExpiresAt: data.premiumExpiresAt,
+      hasLifetime: data.hasLifetime,
+      isPremiumAccountLogin: data.source === 'account',
+    });
     return 'ok';
   },
 
@@ -232,6 +269,7 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       trialEndsAt: s.trialEndsAt || now,
       activatedAt: s.activatedAt || now,
       expiresAt: accountData.premiumExpiresAt || null,
+      premiumExpiresAt: accountData.premiumExpiresAt || null,
       // Jangan hapus licenseKey Lifetime jika sudah punya
       licenseKey: s.licenseKey,
       hasLifetime: s.hasLifetime,
@@ -251,6 +289,37 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   clearPremiumAccount: async () => {
     const s = get();
 
+    // Jika punya manual_fallback Premium yang masih valid, kembali ke manual_fallback
+    if (
+      s.licenseKey?.startsWith('ADK-PREM-') &&
+      s.expiresAt &&
+      new Date(s.expiresAt).getTime() > Date.now()
+    ) {
+      const data: LicenseData = {
+        deviceCode: s.deviceCode || LicenseService.generateDeviceCode(),
+        status: 'premium_active',
+        installedAt: s.installedAt || new Date().toISOString(),
+        trialEndsAt: s.trialEndsAt || new Date().toISOString(),
+        activatedAt: s.activatedAt || new Date().toISOString(),
+        expiresAt: s.expiresAt,
+        premiumExpiresAt: s.expiresAt,
+        licenseKey: s.licenseKey,
+        hasLifetime: false,
+        source: 'manual_fallback',
+        premiumAccountId: null,
+        premiumEmail: null,
+        premiumPhone: null,
+        premiumName: null,
+        lastPremiumCheckAt: null,
+        lastBackupAt: null,
+        hasCloudBackup: false,
+        isPremiumAccountLogin: false,
+      };
+      await saveLicense(data);
+      set(toState(data));
+      return;
+    }
+
     // Jika punya Lifetime, kembali ke status lifetime
     if (s.hasLifetime || (s.licenseKey && s.licenseKey.startsWith('ADK-LIFE-'))) {
       const data: LicenseData = {
@@ -260,6 +329,7 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
         trialEndsAt: s.trialEndsAt || new Date().toISOString(),
         activatedAt: s.activatedAt || new Date().toISOString(),
         expiresAt: null,
+        premiumExpiresAt: null,
         licenseKey: s.licenseKey?.startsWith('ADK-LIFE-') ? s.licenseKey : null,
         hasLifetime: true,
         source: 'local_device',
@@ -288,6 +358,7 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       trialEndsAt: trialEndsAt,
       activatedAt: null,
       expiresAt: null,
+      premiumExpiresAt: null,
       licenseKey: null,
       hasLifetime: false,
       source: 'trial',
@@ -310,6 +381,24 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   canManageStock: () => LicenseService.canManageStock(get().status),
   canExportReport: () => LicenseService.canExportReport(get().status),
   canUsePremiumFeatures: () => LicenseService.canUsePremiumFeatures(get().status),
+  canUseCloudBackup: () => {
+    const s = get();
+    return (
+      s.status === 'premium_active' &&
+      s.source === 'account' &&
+      s.isPremiumAccountLogin === true &&
+      Boolean(s.premiumAccountId)
+    );
+  },
+  canRestoreCloudBackup: () => {
+    const s = get();
+    return (
+      s.status === 'premium_active' &&
+      s.source === 'account' &&
+      s.isPremiumAccountLogin === true &&
+      Boolean(s.premiumAccountId)
+    );
+  },
   isReadOnlyMode: () => LicenseService.isReadOnlyMode(get().status),
   isTrialExpired: () => LicenseService.isTrialExpired(get().status),
 }));

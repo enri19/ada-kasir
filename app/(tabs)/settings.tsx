@@ -182,6 +182,7 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
         </TouchableOpacity>
 
+        {__DEV__ && (
         <Card style={styles.dataCard}>
           <Text style={styles.sectionTitle}>Data Aplikasi</Text>
           <Text style={styles.dataDescription}>
@@ -198,6 +199,7 @@ export default function SettingsScreen() {
             </Text>
           </TouchableOpacity>
         </Card>
+        )}
 
         <View style={styles.versionInfo}>
           <Text style={styles.appName}>{APP_NAME}</Text>

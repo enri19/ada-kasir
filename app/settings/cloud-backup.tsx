@@ -21,6 +21,7 @@ import { useLicenseStore } from '../../src/stores/license.store';
 import { BackupService } from '../../src/services/backup.service';
 import { signIn, signUp, signOut } from '../../src/services/supabase.client';
 import { BackupStatus } from '../../src/types/backup';
+import { AppModal } from '../../src/components/ui/AppModal';
 
 // ============================================================
 // Premium gate check
@@ -121,6 +122,11 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
   const [cloudPassword, setCloudPassword] = useState('');
   const [isCloudLoggingIn, setIsCloudLoggingIn] = useState(false);
   const [showCloudLogin, setShowCloudLogin] = useState(false);
+  const [showConnectAccountModal, setShowConnectAccountModal] = useState(false);
+
+  const source = useLicenseStore((s) => s.source);
+  const canRestoreCloudBackup = useLicenseStore((s) => s.canRestoreCloudBackup);
+  const canUsePremiumFeatures = useLicenseStore((s) => s.canUsePremiumFeatures);
 
   const loadBackupStatus = async () => {
     try {
@@ -239,6 +245,12 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
   };
 
   const handleRestore = () => {
+    // Case B: Premium manual fallback — belum terhubung akun
+    if (!canRestoreCloudBackup()) {
+      setShowConnectAccountModal(true);
+      return;
+    }
+
     Alert.alert(
       'Restore Data?',
       'Restore dari cloud akan mengganti data lokal saat ini dengan data dari backup terakhir. Pastikan Anda sudah memahami risikonya. Lanjutkan restore?',
@@ -489,6 +501,26 @@ function PremiumCloudBackupView({ insets }: { insets: { top: number; bottom: num
           </>
         )}
       </ScrollView>
+
+      {/* Modal Hubungkan Akun Premium */}
+      <AppModal
+        visible={showConnectAccountModal}
+        onClose={() => setShowConnectAccountModal(false)}
+        type="info"
+        title="Hubungkan Akun Premium"
+        icon="cloud-offline-outline"
+        message="Restore cloud membutuhkan akun Premium. Anda sudah mengaktifkan Premium menggunakan kode lisensi, tetapi belum login ke akun Premium. Silakan login dengan email atau nomor WhatsApp yang terdaftar agar backup cloud dapat ditemukan."
+        primaryAction={{
+          label: 'Login Premium',
+          onPress: () => { setShowConnectAccountModal(false); router.push('/settings/account'); },
+          variant: 'primary',
+        }}
+        secondaryAction={{
+          label: 'Nanti',
+          onPress: () => setShowConnectAccountModal(false),
+          variant: 'outline',
+        }}
+      />
     </View>
   );
 }

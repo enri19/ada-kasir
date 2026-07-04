@@ -140,7 +140,7 @@ export default function OnboardingScreen() {
 
   // ── Kode Lisensi ──
   const handleEnterLicense = () => {
-    router.replace('/settings/activation');
+    router.push('/settings/activation');
   };
 
   // ── Hubungi Admin ──

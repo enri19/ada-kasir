@@ -12,13 +12,14 @@ export default function RootLayout() {
   const isReady = useAppStore((state) => state.isReady);
   const loadFromStorage = useAppStore((state) => state.loadFromStorage);
   const loadLicense = useLicenseStore((state) => state.loadFromStorage);
+  const isLicenseLoaded = useLicenseStore((state) => state.isLicenseLoaded);
 
   useEffect(() => {
     loadFromStorage();
     loadLicense();
   }, []);
 
-  if (!isReady) {
+  if (!isReady || !isLicenseLoaded) {
     return (
       <SafeAreaProvider>
         <View style={styles.loading}>
