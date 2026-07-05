@@ -219,24 +219,23 @@ export const LicenseService = {
       return Number.isFinite(ms) && ms >= nowMs;
     };
 
-    // Premium Account login / manual fallback
+    // Priority 1: Lifetime tidak pernah expired
+    if (data.hasLifetime || data.licenseKey?.startsWith('ADK-LIFE-')) {
+      // Jika ada premium aktif (expired belum habis), tetap premium_active
+      const exp = data.premiumExpiresAt ?? data.expiresAt;
+      if (checkExpiry(exp)) return 'premium_active';
+      return 'lifetime'; // Lifetime tetap lifetime, tidak pernah expired
+    }
+
+    // Priority 2: Premium Account login / manual fallback
     if (data.source === 'account' || data.source === 'manual_fallback') {
       const exp = data.premiumExpiresAt ?? data.expiresAt;
       if (checkExpiry(exp)) return 'premium_active';
-      // Premium expired — fallback ke Lifetime jika ada
-      if (data.hasLifetime || data.licenseKey?.startsWith('ADK-LIFE-')) return 'lifetime';
+      // Premium expired — tidak ada fallback ke lifetime karena tidak ada hasLifetime
       return 'premium_expired';
     }
 
-    // Lifetime (local device) — tidak pernah expired
-    if (data.hasLifetime || data.licenseKey?.startsWith('ADK-LIFE-')) {
-      // Cek apakah ada Premium aktif di atasnya
-      const exp = data.premiumExpiresAt ?? data.expiresAt;
-      if (checkExpiry(exp)) return 'premium_active';
-      return 'lifetime'; // Premium expired, fallback ke Lifetime
-    }
-
-    // Trial
+    // Priority 3: Trial
     const trialExpiry = new Date(data.trialEndsAt).getTime();
     if (Number.isFinite(trialExpiry) && trialExpiry >= nowMs) return 'trial_active';
     return 'trial_expired';
@@ -264,14 +263,19 @@ export const LicenseService = {
     return this.canUseBasicFeatures(status);
   },
 
-  /** Boleh export Excel / PDF — hanya Premium */
+  /** Boleh export Excel / PDF — Premium atau Lifetime */
   canExportReport(status: LicenseStatus): boolean {
-    return status === 'premium_active';
+    return status === 'premium_active' || status === 'lifetime';
   },
 
-  /** Fitur Premium aktif */
+  /** Fitur Premium aktif — premium_active atau lifetime */
   canUsePremiumFeatures(status: LicenseStatus): boolean {
-    return status === 'premium_active';
+    return status === 'premium_active' || status === 'lifetime';
+  },
+
+  /** Helper: cek apakah user punya akses Premium (premium_active atau lifetime) */
+  isPremiumAccess(status: LicenseStatus | null | undefined): boolean {
+    return status === 'premium_active' || status === 'lifetime';
   },
 
   /** Mode read-only: data bisa dilihat tapi tidak bisa diubah */

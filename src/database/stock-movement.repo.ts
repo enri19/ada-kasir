@@ -1,5 +1,6 @@
 import { getDatabase, generateId } from './db';
 import { StockMovement, StockMovementType } from '../types/product';
+import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const StockMovementRepository = {
   async create(params: {
@@ -10,8 +11,8 @@ export const StockMovementRepository = {
     stockAfter: number;
     referenceId?: string | null;
     note?: string | null;
-  }): Promise<StockMovement> {
-    const db = await getDatabase();
+  }, db?: SQLiteDatabase): Promise<StockMovement> {
+    const database = db || await getDatabase();
     const id = generateId();
     const now = new Date().toISOString();
     const stockMovement: StockMovement = {
@@ -25,7 +26,7 @@ export const StockMovementRepository = {
       note: params.note || null,
       createdAt: now,
     };
-    await db.runAsync(
+    await database.runAsync(
       `INSERT INTO stock_movements (id, product_id, type, qty, stock_before, stock_after, reference_id, note, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [

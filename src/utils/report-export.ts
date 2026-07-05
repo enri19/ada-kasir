@@ -158,6 +158,10 @@ export interface ReportSummary {
   qrisTotal: number;
   /** Total bon/piutang dari penjualan */
   debtTotal: number;
+  /** Total pembayaran piutang/bon */
+  debtPaymentTotal: number;
+  /** Total kas masuk */
+  totalCashIn: number;
   /** Total piutang belum lunas */
   totalDebtRemaining: number;
   /** Total item terjual */
@@ -201,8 +205,10 @@ export function calculateReportSummary(
     totalProfit: report.totalProfit,
     cashTotal: report.cashTotal,
     qrisTotal: report.qrisTotal,
-    debtTotal: report.debtTotal,
-    totalDebtRemaining: report.totalDebt,
+      debtTotal: report.debtTotal,
+      debtPaymentTotal: report.debtPaymentTotal || 0,
+      totalCashIn: report.totalCashIn ?? (report.cashTotal + report.qrisTotal + (report.debtPaymentTotal || 0)),
+      totalDebtRemaining: report.totalDebt,
     totalItemsSold,
     topProducts: report.topProducts.slice(0, 5),
   };
@@ -420,7 +426,7 @@ export function buildReportHtml(
 <!-- Ringkasan -->
 <div class="summary-grid">
   <div class="summary-box">
-    <div class="label">Omzet</div>
+    <div class="label">Total Penjualan</div>
     <div class="value primary">${formatRupiah(summary.totalSales)}</div>
   </div>
   <div class="summary-box">
@@ -434,6 +440,14 @@ export function buildReportHtml(
   <div class="summary-box">
     <div class="label">Bon</div>
     <div class="value">${formatRupiah(summary.debtTotal)}</div>
+  </div>
+  <div class="summary-box">
+    <div class="label">Pembayaran Piutang</div>
+    <div class="value">${formatRupiah(summary.debtPaymentTotal)}</div>
+  </div>
+  <div class="summary-box">
+    <div class="label">Total Kas Masuk</div>
+    <div class="value green">${formatRupiah(summary.totalCashIn)}</div>
   </div>
   <div class="summary-box">
     <div class="label">Laba Kotor</div>
@@ -509,11 +523,13 @@ export function buildReportCsv(
 
   // Ringkasan
   lines.push('RINGKASAN');
-  lines.push(`Omzet,${summary.totalSales}`);
+  lines.push(`Total Penjualan,${summary.totalSales}`);
   lines.push(`Total Transaksi,${summary.totalTransactions}`);
-  lines.push(`Tunai,${summary.cashTotal}`);
-  lines.push(`QRIS,${summary.qrisTotal}`);
-  lines.push(`Bon,${summary.debtTotal}`);
+  lines.push(`Penjualan Tunai,${summary.cashTotal}`);
+  lines.push(`Penjualan QRIS,${summary.qrisTotal}`);
+  lines.push(`Penjualan Bon,${summary.debtTotal}`);
+  lines.push(`Pembayaran Piutang,${summary.debtPaymentTotal}`);
+  lines.push(`Total Kas Masuk,${summary.totalCashIn}`);
   lines.push(`Laba Kotor,${summary.totalProfit}`);
   lines.push(`Piutang Bon,${summary.totalDebtRemaining}`);
   lines.push('');
@@ -767,18 +783,46 @@ export async function loadTransactionsWithItems(
     [startDate, endDate, limit]
   );
 
-  // Ambil items untuk setiap transaksi
+  const saleIds = transactions.map((t) => t.id);
+  if (saleIds.length === 0) return transactions;
+
+  const placeholders = saleIds.map(() => '?').join(',');
+  const items = await database.getAllAsync<any>(
+    `SELECT id, sale_id as saleId, product_name as productName, qty, price, cost_price as costPrice, subtotal
+     FROM sale_items WHERE sale_id IN (${placeholders})`,
+    saleIds
+  );
+
+  const itemsBySaleId = new Map<string, any[]>();
+  for (const item of items) {
+    const correctedSubtotal = (item.qty || 0) * (item.price || 0);
+    const normalizedItem = {
+      ...item,
+      subtotal: item.subtotal === correctedSubtotal ? item.subtotal : correctedSubtotal,
+    };
+    const saleItems = itemsBySaleId.get(item.saleId) || [];
+    saleItems.push(normalizedItem);
+    itemsBySaleId.set(item.saleId, saleItems);
+  }
+
   for (const t of transactions) {
-    const items = await database.getAllAsync<any>(
-      `SELECT id, product_name as productName, qty, price, subtotal
-       FROM sale_items WHERE sale_id = ?`,
-      [t.id]
-    );
-    t.items = items;
-    t.itemsTotalQty = items.reduce((sum: number, i: any) => sum + i.qty, 0);
+    const saleItems = itemsBySaleId.get(t.id) || [];
+    t.items = saleItems;
+    t.itemsTotalQty = saleItems.reduce((sum: number, i: any) => sum + (i.qty || 0), 0);
+    t.itemsTotalProfit = saleItems.reduce((sum: number, i: any) => sum + ((i.price || 0) - (i.costPrice || 0)) * (i.qty || 0), 0);
   }
 
   return transactions;
+}
+
+async function getDebtPaymentTotalByRange(startDate: string, endDate: string): Promise<number> {
+  const db = (await import('../database/db')).getDatabase;
+  const database = await db();
+  const result = await database.getFirstAsync<{ total: number }>(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE paid_at >= ? AND paid_at <= ?`,
+    [startDate, endDate]
+  );
+  return result?.total || 0;
 }
 
 /**
@@ -802,12 +846,9 @@ export async function getFullDailyReport(
     const { startDate: sd, endDate: ed } = getDayRange(date);
     transactions = await loadTransactionsWithItems(sd, ed);
   } else if (startDate && endDate) {
-    // Untuk periode, kita ambil report dari tanggal pertama saja sebagai gambaran
-    // (DailyReport hanya per hari, jadi kita kumpulkan data manual)
-    report = await ReportRepository.getDailyReport(startDate.slice(0, 10));
-    // Override dengan data periode
-    const periodTrx = await loadTransactionsWithItems(startDate, endDate);
-    transactions = periodTrx;
+    // Untuk periode, kita ambil data transaksi lengkap dan kalkulasi manual
+    // karena DailyReport hanya per hari
+    transactions = await loadTransactionsWithItems(startDate, endDate);
 
     // Re-kalkulasi dari transaksi
     const totalSales = transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
@@ -822,28 +863,39 @@ export async function getFullDailyReport(
       .filter((t) => t.paymentMethod === 'debt')
       .reduce((sum, t) => sum + (t.totalAmount || 0), 0);
 
-    // Hitung laba dari items
-    let totalProfit = 0;
-    for (const t of transactions) {
-      if (t.items) {
-        // items tidak punya costPrice, jadi kita reuse data dari daily report query
-      }
-    }
+    // Hitung laba dari items (cost_price sudah tersedia sekarang)
+    const totalProfit = transactions.reduce(
+      (sum, t) => sum + (t.itemsTotalProfit || 0),
+      0
+    );
+
+    const debtPaymentTotal = await getDebtPaymentTotalByRange(startDate, endDate);
 
     // Top products
     const topProducts = await ReportRepository.getTopProductsByRange(startDate, endDate, 5);
     const totalDebtResult = await ReportRepository.getDailyReport();
 
-    report = {
-      ...report,
+    // Buat DailyReport dari kalkulasi periode
+    const periodReport: DailyReport = {
       totalSales,
       totalTransactions,
+      totalProfit,
+      totalDebt: totalDebtResult.totalDebt,
       cashTotal,
       qrisTotal,
       debtTotal,
+      debtPaymentTotal,
+      totalCashIn: cashTotal + qrisTotal + debtPaymentTotal,
+      totalProducts: 0,
+      totalActiveProducts: 0,
+      totalStockLow: 0,
+      totalStockOut: 0,
+      totalStockValue: 0,
       topProducts,
-      totalDebt: totalDebtResult.totalDebt,
+      hourlySales: [],
     };
+
+    report = periodReport;
   } else {
     report = await ReportRepository.getDailyReport();
     const now = new Date();

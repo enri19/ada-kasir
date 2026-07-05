@@ -364,6 +364,18 @@ export default function EditProdukScreen() {
         </View>
       </Card>
 
+      {/* Save Button */}
+      <Button
+        title="Simpan Perubahan"
+        onPress={handleSave}
+        size="lg"
+        fullWidth
+        loading={saving}
+        icon={<Ionicons name="save-outline" size={20} color={colors.onPrimary} />}
+      />
+
+      <View style={{ height: spacing.stackLg }} />
+
       {/* Delete Button */}
       <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
         <Ionicons name="trash-outline" size={20} color={colors.error} />
@@ -372,16 +384,6 @@ export default function EditProdukScreen() {
       <Text style={styles.deleteWarning}>
         Menghapus produk akan menghilangkan data ini secara permanen dari sistem inventaris.
       </Text>
-
-      {/* Save Button */}
-      <Button 
-        title="Simpan Perubahan" 
-        onPress={handleSave} 
-        size="lg" 
-        fullWidth 
-        loading={saving}
-        icon={<Ionicons name="save-outline" size={20} color={colors.onPrimary} />}
-      />
 
       {/* Category Picker Modal */}
       <Modal visible={showCategoryPicker} transparent animationType="fade">
@@ -542,7 +544,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.error,
-    borderRadius: borderRadius.md, paddingVertical: 14, marginBottom: spacing.stackSm,
+    borderRadius: borderRadius.md, height: spacing.touchTargetMin, marginBottom: spacing.stackSm,
   },
   deleteButtonText: { ...typography.bodyLg, color: colors.error, fontWeight: '600' },
   deleteWarning: { ...typography.labelSm, color: colors.onSurfaceVariant, textAlign: 'center', marginBottom: spacing.stackLg },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ActivityIndicator, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image, Modal, FlatList } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, RefreshControl, Image, Modal, FlatList, Alert } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -123,10 +123,8 @@ export default function ProdukScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (products.length === 0) {
-        setNeedsRefresh(true);
-      }
-    }, [products.length])
+      setNeedsRefresh(true);
+    }, [])
   );
 
   useEffect(() => {
@@ -214,13 +212,27 @@ export default function ProdukScreen() {
     }
   };
 
-  const handleDelete = useCallback(async (product: Product) => {
-    try {
-      await ProductRepository.delete(product.id);
-      await loadData();
-    } catch (error) {
-      console.error('Error deleting product:', error);
-    }
+  const handleDelete = useCallback((product: Product) => {
+    Alert.alert(
+      'Hapus Produk',
+      `Yakin ingin menghapus "${product.name}"? Tindakan ini tidak bisa dibatalkan.`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              closeActionMenu();
+              await ProductRepository.delete(product.id);
+              await loadData();
+            } catch (error) {
+              Alert.alert('Error', 'Gagal menghapus produk');
+            }
+          },
+        },
+      ]
+    );
   }, [loadData]);
 
   const [selectedActionProduct, setSelectedActionProduct] = useState<Product | null>(null);
@@ -371,9 +383,7 @@ export default function ProdukScreen() {
                   style={styles.modalOption}
                   onPress={() => {
                     if (!selectedActionProduct) return;
-                    const product = selectedActionProduct;
-                    closeActionMenu();
-                    handleDelete(product);
+                    handleDelete(selectedActionProduct);
                   }}
                 >
                   <Text style={[styles.modalOptionText, { color: colors.error }]}>Hapus Produk</Text>

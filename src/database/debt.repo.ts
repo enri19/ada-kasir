@@ -1,5 +1,6 @@
 import { getDatabase, generateId } from './db';
 import { Debt, DebtPayment, DebtSource, DebtWithCustomer } from '../types/debt';
+import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const DebtRepository = {
   async createDebt(
@@ -12,9 +13,10 @@ export const DebtRepository = {
     dueDate: string | null,
     note: string | null,
     source: DebtSource,
-    createdAt?: string
+    createdAt?: string,
+    db?: SQLiteDatabase
   ): Promise<Debt> {
-    const db = await getDatabase();
+    const database = db || await getDatabase();
     const id = generateId();
     const now = createdAt ? new Date(createdAt).toISOString() : new Date().toISOString();
     const debt: Debt = {
@@ -31,7 +33,7 @@ export const DebtRepository = {
       createdAt: now,
       updatedAt: now,
     };
-    await db.runAsync(
+    await database.runAsync(
       `INSERT INTO debts (id, customer_id, sale_id, source, amount, paid_amount, remaining_amount, status, due_date, note, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [debt.id, debt.customerId, debt.saleId, debt.source, debt.amount, debt.paidAmount, debt.remainingAmount, debt.status, debt.dueDate, debt.note, debt.createdAt, debt.updatedAt]

@@ -31,7 +31,7 @@ function usePremiumStatus(): { isPremium: boolean; isChecking: boolean } {
     }, [refreshStatus])
   );
 
-  return { isPremium: status === 'premium_active', isChecking };
+  return { isPremium: status === 'premium_active' || status === 'lifetime', isChecking };
 }
 
 // ============================================================

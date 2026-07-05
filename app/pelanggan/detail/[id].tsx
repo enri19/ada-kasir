@@ -310,14 +310,6 @@ export default function DetailPelangganScreen() {
           </View>
         )}
 
-        {/* Placeholder pembayaran */}
-        <View style={styles.paymentPlaceholder}>
-          <Ionicons name="wallet-outline" size={16} color={colors.onSurfaceVariant} />
-          <Text style={styles.paymentPlaceholderText}>
-            Fitur catat pembayaran bon sedang disiapkan.
-          </Text>
-        </View>
-
         {/* Riwayat bon */}
         <Text style={styles.sectionTitle}>Riwayat Bon ({debts.length})</Text>
 
@@ -602,14 +594,6 @@ const styles = StyleSheet.create({
   },
   debtBannerLabel: { ...typography.labelSm, color: colors.primaryFixed, marginBottom: 4 },
   debtBannerSub: { ...typography.labelSm, color: colors.primaryFixed, marginTop: 4 },
-
-  paymentPlaceholder: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.md,
-    padding: spacing.stackMd, marginBottom: spacing.stackMd,
-    borderWidth: 1, borderColor: colors.outlineVariant,
-  },
-  paymentPlaceholderText: { ...typography.bodyMd, color: colors.onSurfaceVariant, flex: 1 },
 
   sectionTitle: {
     ...typography.bodyMd, fontWeight: '700', color: colors.onSurface,

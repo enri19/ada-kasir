@@ -19,6 +19,7 @@ import { useLicenseStore } from '../../src/stores/license.store';
 import { AppModal } from '../../src/components/ui/AppModal';
 import { AppButton } from '../../src/components/ui/AppButton';
 import { getDebtDueStatus, getDebtDueStatusColors } from '../../src/utils/debtStatus';
+import { formatDebtDate, getEffectiveDueDate } from '../../src/utils/debtDate';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,10 @@ const DebtCard = React.memo(({ item, onPress }: { item: DebtWithCustomer; onPres
     defaultTermDays: 30,
   });
   const badge = getDebtDueStatusColors(statusResult.type);
+  const { date: dueDate, isEstimated } = getEffectiveDueDate({
+    dueDate: item.dueDate,
+    createdAt: item.createdAt,
+  });
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={styles.debtCardWrap}>
       <Card style={styles.debtCardInner}>
@@ -78,6 +83,14 @@ const DebtCard = React.memo(({ item, onPress }: { item: DebtWithCustomer; onPres
               <Ionicons name="time-outline" size={12} color={colors.onSurfaceVariant} />
               <Text style={styles.debtTimeText}>{getTimeAgo(item.createdAt)}</Text>
             </View>
+            {dueDate && (
+              <View style={styles.debtDueDateRow}>
+                <Ionicons name="calendar-outline" size={12} color={colors.primary} />
+                <Text style={[styles.debtDueDateText, isEstimated && { fontStyle: 'italic' }]}>
+                  {isEstimated ? 'Est. ' : ''}Jatuh tempo: {formatDebtDate(dueDate)}
+                </Text>
+              </View>
+            )}
           </View>
           <View style={styles.debtAmountCol}>
             <CurrencyText amount={item.remainingAmount} size="sm" color={colors.primary} />
@@ -510,6 +523,8 @@ const styles = StyleSheet.create({
   manualTagText: { fontSize: 9, color: colors.onSurfaceVariant, fontWeight: '600' },
   debtTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   debtTimeText: { ...typography.labelSm, color: colors.onSurfaceVariant },
+  debtDueDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  debtDueDateText: { ...typography.labelSm, color: colors.primary },
   debtAmountCol: { alignItems: 'flex-end', gap: 4 },
   statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: borderRadius.sm },
   statusBadgeText: { fontSize: 9, fontWeight: '700' },

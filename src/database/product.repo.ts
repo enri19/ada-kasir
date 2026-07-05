@@ -1,5 +1,6 @@
 import { getDatabase, generateId } from './db';
 import { Product, ProductFormData } from '../types/product';
+import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const ProductRepository = {
   async create(data: ProductFormData): Promise<Product> {
@@ -94,9 +95,9 @@ export const ProductRepository = {
     return rows.map((r: any) => ({ ...r, isActive: r.isActive === 1, trackStock: r.trackStock === 1, allowNegativeStock: r.allowNegativeStock === 1, imageKey: r.imageKey || 'default' }));
   },
 
-  async getById(id: string): Promise<Product | null> {
-    const db = await getDatabase();
-    const result = await db.getFirstAsync<any>(
+  async getById(id: string, db?: SQLiteDatabase): Promise<Product | null> {
+    const database = db || await getDatabase();
+    const result = await database.getFirstAsync<any>(
       `SELECT id, category_id as categoryId, name, sku, barcode, cost_price as costPrice, sell_price as sellPrice, stock, min_stock as minStock, track_stock as trackStock, allow_negative_stock as allowNegativeStock, unit, image_uri as imageUri, image_key as imageKey, is_active as isActive, created_at as createdAt, updated_at as updatedAt FROM products WHERE id = ?`,
       [id]
     );
@@ -139,9 +140,9 @@ export const ProductRepository = {
     return this.getById(id);
   },
 
-  async updateStock(id: string, newStock: number): Promise<void> {
-    const db = await getDatabase();
-    await db.runAsync(`UPDATE products SET stock = ?, updated_at = ? WHERE id = ?`, [newStock, new Date().toISOString(), id]);
+  async updateStock(id: string, newStock: number, db?: SQLiteDatabase): Promise<void> {
+    const database = db || await getDatabase();
+    await database.runAsync(`UPDATE products SET stock = ?, updated_at = ? WHERE id = ?`, [newStock, new Date().toISOString(), id]);
   },
 
   async delete(id: string): Promise<void> {

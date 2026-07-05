@@ -16,6 +16,9 @@ import { AppModal } from '../../src/components/ui/AppModal';
 import { APP_NAME, APP_VERSION } from '../../src/utils/constants';
 import { SaleWithItems } from '../../src/types/sale';
 import { AppFooterActions } from '../../src/components/ui/AppFooterActions';
+import { DebtRepository } from '../../src/database/debt.repo';
+import { formatDebtDate } from '../../src/utils/debtDate';
+import { getEffectiveDueDate } from '../../src/utils/debtDate';
 
 export default function TransaksiBerhasilScreen() {
   const router = useRouter();
@@ -33,6 +36,8 @@ export default function TransaksiBerhasilScreen() {
   const isPremium = licenseStatus === 'premium_active';
   const [saleData, setSaleData] = useState<SaleWithItems | null>(null);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  const [debtDueDate, setDebtDueDate] = useState<Date | null>(null);
+  const [isEstimated, setIsEstimated] = useState(false);
   const changeAmount = parseInt(change || '0', 10) || 0;
   const totalAmount = parseInt(total, 10) || 0;
   const receivedAmount = parseInt(received || '0', 10) || 0;
@@ -46,6 +51,20 @@ export default function TransaksiBerhasilScreen() {
       try {
         const sale = await SaleRepository.getByInvoiceNumber(invoiceNumber);
         setSaleData(sale);
+
+        // If debt transaction, load the debt's due date
+        if (sale?.paymentMethod === 'debt') {
+          const debts = await DebtRepository.getByCustomerId(sale.customerId || '');
+          const debt = debts.find((d) => d.saleId === sale.id);
+          if (debt) {
+            const { date, isEstimated } = getEffectiveDueDate({
+              dueDate: debt.dueDate,
+              createdAt: debt.createdAt,
+            });
+            setDebtDueDate(date);
+            setIsEstimated(isEstimated);
+          }
+        }
       } catch (error) {
         console.error('Failed to load sale data:', error);
       }
@@ -185,6 +204,16 @@ export default function TransaksiBerhasilScreen() {
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>{method === 'debt' ? 'Belum Lunas' : 'Lunas'}</Text>
           </View>
+
+          {method === 'debt' && debtDueDate && (
+            <View style={styles.dueDateBadge}>
+              <Ionicons name="calendar-outline" size={14} color={isEstimated ? colors.onSurfaceVariant : colors.error} />
+              <Text style={[styles.dueDateText, isEstimated && { fontStyle: 'italic' }]}>
+                {isEstimated ? 'Est. Jatuh tempo: ' : 'Jatuh tempo: '}
+                {formatDebtDate(debtDueDate)}
+              </Text>
+            </View>
+          )}
         </View>
 
         {saleData && saleData.items.length > 0 && (
@@ -320,6 +349,12 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.secondary },
   statusText: { ...typography.bodyLg, color: colors.secondary, fontWeight: '600' },
+  dueDateBadge: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    backgroundColor: colors.surfaceContainerLow, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: borderRadius.full, alignSelf: 'center', marginTop: 6,
+  },
+  dueDateText: { ...typography.bodyMd, color: colors.error, fontWeight: '600' },
   newTransactionButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: spacing.stackMd,

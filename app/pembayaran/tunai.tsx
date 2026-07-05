@@ -8,7 +8,7 @@ import { CurrencyText } from '../../src/components/CurrencyText';
 import { Button } from '../../src/components/Button';
 import { useCartStore } from '../../src/stores/cart.store';
 import { SaleRepository } from '../../src/database/sales.repo';
-import { StockService } from '../../src/services/stock.service';
+import { processSaleTransaction } from '../../src/services/sale.service';
 import { generateInvoiceNumber } from '../../src/utils/invoice-number';
 import { formatRupiah } from '../../src/utils/currency';
 import { useAppStore } from '../../src/stores/app.store';
@@ -75,27 +75,15 @@ export default function PembayaranTunaiScreen() {
       const todayCount = await SaleRepository.getTodayCount();
       const invoiceNumber = generateInvoiceNumber(todayCount);
 
-      const saleItems = items.map(item => ({
-        productId: item.product.id,
-        productName: item.product.name,
-        qty: item.qty,
-        price: item.product.sellPrice,
-        costPrice: item.product.costPrice,
-        subtotal: item.subtotal,
-      }));
-
-      await SaleRepository.createSale(
+      await processSaleTransaction({
+        items,
+        totalAmount: totalPrice,
+        paidAmount: received,
+        changeAmount: change,
+        paymentMethod: 'cash',
+        status: 'paid',
         invoiceNumber,
-        null,
-        totalPrice,
-        received,
-        change,
-        'cash',
-        'paid',
-        saleItems
-      );
-
-      await StockService.reduceStockForSaleItems(items, invoiceNumber, 'sale');
+      });
 
       clearCart();
       resetPayment();
@@ -109,9 +97,16 @@ export default function PembayaranTunaiScreen() {
           paymentMethod: 'cash',
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment error:', error);
-      Alert.alert('Error', 'Gagal memproses pembayaran');
+      if (error.code === 'STOCK_INSUFFICIENT' && error.details) {
+        Alert.alert(
+          'Stok Tidak Cukup',
+          `${error.details.productName} hanya tersedia ${error.details.available}, tetapi diminta ${error.details.requested}.`
+        );
+      } else {
+        Alert.alert('Error', 'Transaksi gagal disimpan. Silakan coba lagi.');
+      }
     } finally {
       setProcessing(false);
     }

@@ -66,12 +66,12 @@ export const ReportRepository = {
     );
 
     const debtPaymentsCash = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE created_at >= ? AND created_at <= ? AND payment_method = 'cash'`,
+      `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE paid_at >= ? AND paid_at <= ? AND payment_method = 'cash'`,
       [startDate, endDate]
     );
 
     const debtPaymentsQris = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE created_at >= ? AND created_at <= ? AND payment_method = 'qris_static'`,
+      `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE paid_at >= ? AND paid_at <= ? AND payment_method = 'qris_static'`,
       [startDate, endDate]
     );
 
@@ -92,16 +92,25 @@ export const ReportRepository = {
       []
     );
 
+    const cashTotal = cashResult?.total || 0;
+    const qrisTotal = qrisResult?.total || 0;
+    const debtTotal = debtResult2?.total || 0;
+    const debtCashTotal = debtPaymentsCash?.total || 0;
+    const debtQrisTotal = debtPaymentsQris?.total || 0;
+    const debtPaymentTotal = debtCashTotal + debtQrisTotal;
+
     return {
-      totalSales: salesResult?.total || 0,
+      totalSales: cashTotal + qrisTotal + debtTotal,
       totalTransactions: salesResult?.count || 0,
       totalProfit: profitResult?.profit || 0,
       totalDebt: debtResult?.total || 0,
-      cashTotal: cashResult?.total || 0,
-      qrisTotal: qrisResult?.total || 0,
-      debtTotal: debtResult2?.total || 0,
-      debtCashTotal: debtPaymentsCash?.total || 0,
-      debtQrisTotal: debtPaymentsQris?.total || 0,
+      cashTotal,
+      qrisTotal,
+      debtTotal,
+      debtCashTotal,
+      debtQrisTotal,
+      debtPaymentTotal,
+      totalCashIn: cashTotal + qrisTotal + debtPaymentTotal,
       totalProducts: stockSummary?.totalProducts || 0,
       totalActiveProducts: stockSummary?.totalActiveProducts || 0,
       totalStockLow: stockSummary?.totalStockLow || 0,
@@ -115,8 +124,12 @@ export const ReportRepository = {
   async getRecentTransactions(limit: number = 10): Promise<any[]> {
     const db = await getDatabase();
     return await db.getAllAsync(
-      `SELECT id, invoice_number as invoiceNumber, total_amount as totalAmount, payment_method as paymentMethod, status, created_at as createdAt 
-       FROM sales ORDER BY created_at DESC LIMIT ?`,
+      `SELECT s.id, s.invoice_number as invoiceNumber, s.total_amount as totalAmount,
+              s.payment_method as paymentMethod, s.status, s.created_at as createdAt,
+              c.name as customerName
+       FROM sales s
+       LEFT JOIN customers c ON s.customer_id = c.id
+       ORDER BY s.created_at DESC LIMIT ?`,
       [limit]
     );
   },
@@ -144,8 +157,13 @@ export const ReportRepository = {
     const db = await getDatabase();
     const { startDate, endDate } = getLocalDayRange(date);
     return await db.getAllAsync(
-      `SELECT id, invoice_number as invoiceNumber, total_amount as totalAmount, payment_method as paymentMethod, status, created_at as createdAt 
-       FROM sales WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC`,
+      `SELECT s.id, s.invoice_number as invoiceNumber, s.total_amount as totalAmount,
+              s.payment_method as paymentMethod, s.status, s.created_at as createdAt,
+              c.name as customerName
+       FROM sales s
+       LEFT JOIN customers c ON s.customer_id = c.id
+       WHERE s.created_at >= ? AND s.created_at <= ?
+       ORDER BY s.created_at DESC`,
       [startDate, endDate]
     );
   },
@@ -153,8 +171,13 @@ export const ReportRepository = {
   async getTransactionsByRange(startDate: string, endDate: string, limit = 50): Promise<any[]> {
     const db = await getDatabase();
     return await db.getAllAsync(
-      `SELECT id, invoice_number as invoiceNumber, total_amount as totalAmount, payment_method as paymentMethod, status, created_at as createdAt 
-       FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled' ORDER BY created_at DESC LIMIT ?`,
+      `SELECT s.id, s.invoice_number as invoiceNumber, s.total_amount as totalAmount,
+              s.payment_method as paymentMethod, s.status, s.created_at as createdAt,
+              c.name as customerName
+       FROM sales s
+       LEFT JOIN customers c ON s.customer_id = c.id
+       WHERE s.created_at >= ? AND s.created_at <= ? AND s.status != 'cancelled'
+       ORDER BY s.created_at DESC LIMIT ?`,
       [startDate, endDate, limit]
     );
   },

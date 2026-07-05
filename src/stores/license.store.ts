@@ -50,6 +50,7 @@ interface LicenseState {
   canManageStock: () => boolean;
   canExportReport: () => boolean;
   canUsePremiumFeatures: () => boolean;
+  isPremiumAccess: () => boolean;
   canUseCloudBackup: () => boolean;
   canRestoreCloudBackup: () => boolean;
   isReadOnlyMode: () => boolean;
@@ -506,10 +507,11 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   canManageStock: () => LicenseService.canManageStock(get().status),
   canExportReport: () => LicenseService.canExportReport(get().status),
   canUsePremiumFeatures: () => LicenseService.canUsePremiumFeatures(get().status),
+  isPremiumAccess: () => LicenseService.isPremiumAccess(get().status),
   canUseCloudBackup: () => {
     const s = get();
     return (
-      (s.status === 'premium_active' || s.status === 'lifetime') &&
+      LicenseService.isPremiumAccess(s.status) &&
       s.isCloudLoggedIn === true &&
       Boolean(s.cloudUserId)
     );
@@ -517,7 +519,7 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   canRestoreCloudBackup: () => {
     const s = get();
     return (
-      (s.status === 'premium_active' || s.status === 'lifetime') &&
+      LicenseService.isPremiumAccess(s.status) &&
       s.isCloudLoggedIn === true &&
       Boolean(s.cloudUserId)
     );

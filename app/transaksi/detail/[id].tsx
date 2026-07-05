@@ -37,7 +37,7 @@ export default function DetailTransaksiScreen() {
     switch (method) {
       case 'cash': return 'Tunai';
       case 'qris': return 'QRIS';
-      case 'transfer': return 'Transfer';
+      case 'qris_static': return 'QRIS';
       case 'debt': return 'Bon';
       default: return method;
     }
@@ -133,6 +133,9 @@ export default function DetailTransaksiScreen() {
           <Text style={styles.timeText}>
             {new Date(sale.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
           </Text>
+          {sale.customerName ? (
+            <Text style={styles.customerName}>Pelanggan: {sale.customerName}</Text>
+          ) : null}
         </Card>
 
         <Text style={styles.sectionTitle}>ITEM TRANSAKSI</Text>
@@ -151,7 +154,7 @@ export default function DetailTransaksiScreen() {
         <Card style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
-            <CurrencyText amount={sale.totalAmount + sale.changeAmount - (sale.paymentMethod === 'cash' ? sale.paidAmount - sale.changeAmount : 0)} size="md" />
+            <CurrencyText amount={sale.items.reduce((sum, i) => sum + (i.qty * i.price), 0)} size="md" />
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Metode Bayar</Text>
@@ -177,6 +180,34 @@ export default function DetailTransaksiScreen() {
             <CurrencyText amount={sale.totalAmount} size="lg" color={colors.primary} />
           </View>
         </Card>
+
+        {sale.paymentMethod === 'debt' && (
+          <Card style={styles.debtInfoCard}>
+            <Text style={styles.debtInfoTitle}>Informasi Bon</Text>
+            {sale.customerName ? (
+              <View style={styles.debtInfoRow}>
+                <Text style={styles.debtInfoLabel}>Pelanggan:</Text>
+                <Text style={styles.debtInfoValue}>{sale.customerName}</Text>
+              </View>
+            ) : null}
+            {sale.debtStatus ? (
+              <View style={styles.debtInfoRow}>
+                <Text style={styles.debtInfoLabel}>Status:</Text>
+                <Text style={styles.debtInfoValue}>
+                  {sale.debtStatus === 'paid' ? 'Lunas' : sale.debtStatus === 'partial' ? 'Sebagian' : 'Belum Lunas'}
+                </Text>
+              </View>
+            ) : null}
+            {sale.debtDueDate ? (
+              <View style={styles.debtInfoRow}>
+                <Text style={styles.debtInfoLabel}>Jatuh Tempo:</Text>
+                <Text style={styles.debtInfoValue}>
+                  {new Date(sale.debtDueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </Text>
+              </View>
+            ) : null}
+          </Card>
+        )}
 
         <View style={[styles.statusBadge, sale.status === 'paid' ? styles.statusPaid : styles.statusUnpaid]}>
           <View style={[styles.statusDot, sale.status === 'paid' ? styles.statusDotPaid : styles.statusDotUnpaid]} />
@@ -250,6 +281,7 @@ const styles = StyleSheet.create({
   invoiceNumber: { ...typography.headlineMobile, fontWeight: '700', color: colors.onSurface },
   dateText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: spacing.stackSm },
   timeText: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
+  customerName: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 6, fontStyle: 'italic' },
 
   sectionTitle: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm },
   itemCard: { padding: spacing.stackMd, marginBottom: spacing.stackSm },
@@ -274,6 +306,12 @@ const styles = StyleSheet.create({
   statusText: { ...typography.bodyLg, fontWeight: '600' },
   statusTextPaid: { color: colors.secondary },
   statusTextUnpaid: { color: colors.error },
+
+  debtInfoCard: { padding: spacing.stackMd, marginBottom: spacing.stackSm, backgroundColor: '#fff8e1' },
+  debtInfoTitle: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface, marginBottom: spacing.stackSm },
+  debtInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.stackSm },
+  debtInfoLabel: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  debtInfoValue: { ...typography.bodyMd, fontWeight: '600', color: colors.onSurface },
 
   bottomButtonSpacing: { height: spacing.stackSm },
 });

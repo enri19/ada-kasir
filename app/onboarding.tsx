@@ -45,29 +45,6 @@ export default function OnboardingScreen() {
   const [address, setAddress] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  // ── Cloud login state ──
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showLoginError, setShowLoginError] = useState(false);
-  const [loginErrorTitle, setLoginErrorTitle] = useState('Login Gagal');
-  const [loginErrorMessage, setLoginErrorMessage] = useState('');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-
-  // ── Cloud account / restore hook ──
-  const {
-    loginCloud,
-    isLoggingIn,
-    restoreState,
-    restoreMessage,
-    backupInfo,
-    isRestoring,
-    executeRestore,
-    skipRestore,
-    resetRestoreFlow,
-    restoreProgress,
-    checkCloudBackup,
-  } = useCloudAccount();
-
   // ── Start trial form ──
   const handleStartTrial = () => {
     setStep('form');
@@ -105,59 +82,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  // ── Login Cloud ──
-  const handleOpenLogin = () => {
-    setLoginEmail('');
-    setLoginPassword('');
-    setShowLoginModal(true);
-  };
-
-  const handleLoginCloud = async () => {
-    if (!loginEmail.trim()) {
-      Alert.alert('Input kosong', 'Masukkan email Anda.');
-      return;
-    }
-    if (!loginPassword) {
-      Alert.alert('Input kosong', 'Masukkan password Anda.');
-      return;
-    }
-
-    const result = await loginCloud(loginEmail.trim(), loginPassword);
-
-    if (!result.success) {
-      setShowLoginModal(false);
-      setLoginEmail('');
-      setLoginPassword('');
-      setLoginErrorTitle('Login Gagal');
-      setLoginErrorMessage(result.message || 'Email atau password salah.');
-      setShowLoginError(true);
-      return;
-    }
-
-    // Login sukses — cek backup
-    setShowLoginModal(false);
-    setLoginEmail('');
-    setLoginPassword('');
-    await checkCloudBackup();
-  };
-
-  // ── Restore ──
-  const handleRestoreFromBackup = async () => {
-    await executeRestore();
-  };
-
-  const handleSkipRestore = async () => {
-    skipRestore();
-    await setIsOnboardingComplete(true);
-    router.replace('/settings/account');
-  };
-
-  const handleRestoreDone = async () => {
-    resetRestoreFlow();
-    await setIsOnboardingComplete(true);
-    router.replace('/(tabs)');
-  };
-
   // ── Kode Lisensi ──
   const handleEnterLicense = () => {
     router.push('/settings/activation');
@@ -186,16 +110,13 @@ export default function OnboardingScreen() {
             </View>
             <Text style={styles.title}>AdaKasir</Text>
             <Text style={styles.subtitle}>Jualan cepat, laporan rapi.</Text>
-            <Text style={styles.description}>
-              Pilih cara memulai yang paling sesuai untuk Anda.
-            </Text>
           </View>
 
           {/* Action cards */}
           <View style={styles.chooseActions}>
-            {/* Mulai Trial Gratis */}
+            {/* Mulai */}
             <AppButton
-              title="Mulai Trial Gratis"
+              title="Mulai"
               onPress={handleStartTrial}
               variant="primary"
               size="lg"
@@ -204,35 +125,21 @@ export default function OnboardingScreen() {
               style={styles.chooseBtn}
             />
             <Text style={styles.chooseHint}>
-              Nikmati 14 hari gratis full fitur. Tidak perlu kartu kredit.
-            </Text>
-
-            {/* Login Premium */}
-            <AppButton
-              title="Login Premium"
-              onPress={handleOpenLogin}
-              variant="outline"
-              size="lg"
-              fullWidth
-              icon={<Ionicons name="log-in-outline" size={20} color={colors.primary} />}
-              style={styles.chooseBtn}
-            />
-            <Text style={styles.chooseHint}>
-              Sudah punya akun Premium? Login dan pulihkan data dari backup cloud.
+              Akses penuh selama 14 hari gratis. Tidak perlu kartu kredit.
             </Text>
 
             {/* Masukkan Kode Lisensi */}
             <AppButton
               title="Masukkan Kode Lisensi"
               onPress={handleEnterLicense}
-              variant="ghost"
-              size="md"
+              variant="outline"
+              size="lg"
               fullWidth
-              icon={<Ionicons name="key-outline" size={18} color={colors.primary} />}
+              icon={<Ionicons name="key-outline" size={20} color={colors.primary} />}
               style={styles.chooseBtn}
             />
             <Text style={styles.chooseHint}>
-              Punya kode dari admin? Aktivasi Lifetime atau Premium di sini.
+              Sudah punya kode Lifetime atau Premium? Aktivasi di sini.
             </Text>
           </View>
 
@@ -244,214 +151,6 @@ export default function OnboardingScreen() {
             </Text>
           </View>
         </View>
-
-        {/* ── Modal Login Cloud ── */}
-        <AppModal
-          visible={showLoginModal}
-          onClose={() => { setShowLoginModal(false); setLoginEmail(''); setLoginPassword(''); }}
-          type="info"
-          title="Masuk Akun Cloud"
-          icon="log-in"
-          message="Masukkan email dan password akun cloud AdaKasir Anda."
-          primaryAction={{
-            label: isLoggingIn ? 'Memproses...' : 'Masuk',
-            onPress: handleLoginCloud,
-            variant: 'primary',
-            loading: isLoggingIn,
-          }}
-          secondaryAction={{
-            label: 'Batal',
-            onPress: () => { setShowLoginModal(false); setLoginEmail(''); setLoginPassword(''); },
-            variant: 'outline',
-          }}
-        >
-          <View style={modalStyles.inputRow}>
-            <TextInput
-              style={modalStyles.input}
-              value={loginEmail}
-              onChangeText={setLoginEmail}
-              placeholder="Email"
-              placeholderTextColor={colors.onSurfaceVariant}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoggingIn}
-            />
-          </View>
-          <View style={modalStyles.inputRow}>
-            <TextInput
-              style={modalStyles.input}
-              value={loginPassword}
-              onChangeText={setLoginPassword}
-              placeholder="Password"
-              placeholderTextColor={colors.onSurfaceVariant}
-              secureTextEntry
-              autoCapitalize="none"
-              editable={!isLoggingIn}
-            />
-          </View>
-        </AppModal>
-
-        {/* ── Modal Login Error ── */}
-        <AppModal
-          visible={showLoginError}
-          onClose={() => setShowLoginError(false)}
-          type="warning"
-          title={loginErrorTitle}
-          icon="alert-circle"
-          message={loginErrorMessage}
-          primaryAction={{
-            label: 'Hubungi Admin',
-            onPress: () => {
-              setShowLoginError(false);
-              handleContactSupport('Halo Admin AdaKasir, saya ingin aktivasi Premium. Mohon bantuan untuk login Akun Cloud.');
-            },
-            variant: 'primary',
-          }}
-          secondaryAction={{
-            label: 'Tutup',
-            onPress: () => setShowLoginError(false),
-            variant: 'ghost',
-          }}
-        />
-
-        {/* ── Modal Backup Ditemukan ── */}
-        <AppModal
-          visible={restoreState === 'backup_found'}
-          onClose={handleSkipRestore}
-          type="info"
-          title="Backup Ditemukan"
-          icon="cloud-download"
-          message={restoreMessage}
-          primaryAction={{
-            label: isRestoring ? 'Memulihkan...' : 'Restore Sekarang',
-            onPress: handleRestoreFromBackup,
-            variant: 'primary',
-            loading: isRestoring,
-          }}
-          secondaryAction={{
-            label: 'Lewati Dulu',
-            onPress: handleSkipRestore,
-            variant: 'outline',
-          }}
-        >
-          {backupInfo && (
-            <View style={modalStyles.backupDetail}>
-              {backupInfo.storeName && (
-                <Text style={modalStyles.backupText}>Toko: {backupInfo.storeName}</Text>
-              )}
-              <Text style={modalStyles.backupText}>
-                Backup: {new Date(backupInfo.createdAt).toLocaleDateString('id-ID')}
-              </Text>
-              <Text style={modalStyles.backupText}>
-                Data: {backupInfo.recordCounts.products || 0} produk, {backupInfo.recordCounts.customers || 0} pelanggan
-              </Text>
-            </View>
-          )}
-        </AppModal>
-
-        {/* ── Modal Konfirmasi Overwrite ── */}
-        <AppModal
-          visible={restoreState === 'confirm_overwrite'}
-          onClose={handleSkipRestore}
-          type="warning"
-          title="Timpa Data Lokal?"
-          icon="warning"
-          message={restoreMessage}
-          primaryAction={{
-            label: isRestoring ? 'Memulihkan...' : 'Restore',
-            onPress: handleRestoreFromBackup,
-            variant: 'danger',
-            loading: isRestoring,
-          }}
-          secondaryAction={{
-            label: 'Batal',
-            onPress: handleSkipRestore,
-            variant: 'outline',
-          }}
-        >
-          {backupInfo && (
-            <View style={modalStyles.backupDetail}>
-              {backupInfo.storeName && (
-                <Text style={modalStyles.backupText}>Toko: {backupInfo.storeName}</Text>
-              )}
-              <Text style={modalStyles.backupText}>
-                Backup: {new Date(backupInfo.createdAt).toLocaleDateString('id-ID')}
-              </Text>
-              <Text style={modalStyles.backupText}>
-                Data: {backupInfo.recordCounts.products || 0} produk, {backupInfo.recordCounts.customers || 0} pelanggan
-              </Text>
-            </View>
-          )}
-        </AppModal>
-
-        {/* ── Modal Restore Berhasil ── */}
-        <AppModal
-          visible={restoreState === 'restore_success'}
-          onClose={handleRestoreDone}
-          type="success"
-          title="Restore Berhasil"
-          icon="checkmark-circle"
-          message="Data toko berhasil dipulihkan ke perangkat ini."
-          primaryAction={{
-            label: 'Mulai Berjualan',
-            onPress: handleRestoreDone,
-            variant: 'primary',
-          }}
-        />
-
-        {/* ── Modal Restore Gagal ── */}
-        <AppModal
-          visible={restoreState === 'restore_error'}
-          onClose={resetRestoreFlow}
-          type="warning"
-          title="Restore Gagal"
-          icon="alert-circle"
-          message={restoreMessage || 'Data belum berhasil dipulihkan. Coba lagi atau hubungi admin AdaKasir.'}
-          primaryAction={{
-            label: 'Coba Lagi',
-            onPress: handleRestoreFromBackup,
-            variant: 'primary',
-            loading: isRestoring,
-          }}
-          secondaryAction={{
-            label: 'Tutup',
-            onPress: resetRestoreFlow,
-            variant: 'outline',
-          }}
-        />
-
-        {/* ── Modal No Backup ── */}
-        <AppModal
-          visible={restoreState === 'no_backup'}
-          onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/(tabs)')); }}
-          type="success"
-          title="Login Berhasil"
-          icon="checkmark-circle"
-          message="Akun Cloud Anda sudah aktif. Belum ada backup data yang ditemukan."
-          primaryAction={{
-            label: 'Mulai Gunakan AdaKasir',
-            onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/(tabs)')); },
-            variant: 'primary',
-          }}
-        />
-
-        {/* ── Modal Skipped ── */}
-        <AppModal
-          visible={restoreState === 'skipped'}
-          onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/settings/account')); }}
-          type="info"
-          title="Restore Dilewati"
-          icon="information-circle"
-          message="Anda dapat melakukan restore kapan saja dari menu Akun & Lisensi."
-          primaryAction={{
-            label: 'Oke',
-            onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/settings/account')); },
-            variant: 'primary',
-          }}
-        />
-
-        <RestoreProgressModal progress={restoreProgress} />
       </View>
     );
   }

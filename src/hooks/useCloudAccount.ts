@@ -56,80 +56,8 @@ export function useCloudAccount() {
 
   const setCloudAccount = useLicenseStore((s) => s.setCloudAccount);
 
-  // ─── Login ──────────────────────────────────────────────────────────────
-
-  const loginCloud = useCallback(async (email: string, password: string): Promise<CloudLoginResult> => {
-    setIsLoggingIn(true);
-    try {
-      const result = await signIn(email, password);
-      if (result.error) {
-        const msg = mapAuthError(result.error.message);
-        return { success: false, message: msg };
-      }
-
-      const session = result.data?.session;
-      const userId = session?.user?.id;
-      const userEmail = session?.user?.email;
-      if (!userId) {
-        return { success: false, message: 'Gagal mendapatkan sesi pengguna.' };
-      }
-
-      await setCloudAccount({ userId, email: userEmail || email });
-      await checkCloudBackup();
-      return { success: true, message: 'Login berhasil.' };
-    } finally {
-      setIsLoggingIn(false);
-    }
-  }, [setCloudAccount]);
-
-  // ─── Register ───────────────────────────────────────────────────────────
-
-  const registerCloud = useCallback(async (
-    email: string,
-    password: string,
-  ): Promise<CloudLoginResult> => {
-    setIsRegistering(true);
-    try {
-      const supabaseResult: any = await signUp(email, password);
-      if (supabaseResult.error) {
-        const msg = mapAuthError(supabaseResult.error.message);
-        return { success: false, message: msg };
-      }
-
-      // Jika session langsung tersedia (email confirmation disabled)
-      if (supabaseResult.data?.session) {
-        const userId = supabaseResult.data.session.user?.id;
-        const userEmail = supabaseResult.data.session.user?.email;
-        if (userId) {
-          await setCloudAccount({ userId, email: userEmail || email });
-          await checkCloudBackup();
-          return { success: true, message: 'Akun Cloud berhasil dibuat.' };
-        }
-      }
-
-      // Jika perlu konfirmasi email
-      return {
-        success: true,
-        message: 'Akun Cloud berhasil dibuat. Silakan cek email untuk konfirmasi, lalu login kembali.',
-        needsEmailConfirmation: true,
-      };
-    } finally {
-      setIsRegistering(false);
-    }
-  }, [setCloudAccount]);
-
-  // ─── Logout ─────────────────────────────────────────────────────────────
-
-  const logoutCloud = useCallback(async () => {
-    await signOut();
-    useLicenseStore.getState().clearCloudAccount();
-    setRestoreState('idle');
-    setBackupInfo(null);
-    setLatestBackupData(null);
-    setRestoreMessage('');
-  }, []);
-
   // ─── Check backup after login ───────────────────────────────────────────
+  // Letakkan ini sebelum loginCloud agar bisa jadi dependency
 
   const checkCloudBackup = useCallback(async () => {
     const userId = await getUserId();
@@ -165,6 +93,80 @@ export function useCloudAccount() {
       setRestoreState('no_backup');
       setRestoreMessage('Gagal mengecek backup. Periksa koneksi internet lalu coba lagi.');
     }
+  }, []);
+
+  // ─── Login ──────────────────────────────────────────────────────────────
+
+  const loginCloud = useCallback(async (email: string, password: string): Promise<CloudLoginResult> => {
+    setIsLoggingIn(true);
+    try {
+      const result = await signIn(email, password);
+      if (result.error) {
+        const msg = mapAuthError(result.error.message);
+        return { success: false, message: msg };
+      }
+
+      const session = result.data?.session;
+      const userId = session?.user?.id;
+      const userEmail = session?.user?.email;
+      if (!userId) {
+        return { success: false, message: 'Gagal mendapatkan sesi pengguna.' };
+      }
+
+      await setCloudAccount({ userId, email: userEmail || email });
+      // Tunggu checkCloudBackup selesai sebelum return
+      await checkCloudBackup();
+      return { success: true, message: 'Login berhasil.' };
+    } finally {
+      setIsLoggingIn(false);
+    }
+  }, [setCloudAccount, checkCloudBackup]);
+
+  // ─── Register ───────────────────────────────────────────────────────────
+
+  const registerCloud = useCallback(async (
+    email: string,
+    password: string,
+  ): Promise<CloudLoginResult> => {
+    setIsRegistering(true);
+    try {
+      const supabaseResult: any = await signUp(email, password);
+      if (supabaseResult.error) {
+        const msg = mapAuthError(supabaseResult.error.message);
+        return { success: false, message: msg };
+      }
+
+      // Jika session langsung tersedia (email confirmation disabled)
+      if (supabaseResult.data?.session) {
+        const userId = supabaseResult.data.session.user?.id;
+        const userEmail = supabaseResult.data.session.user?.email;
+        if (userId) {
+          await setCloudAccount({ userId, email: userEmail || email });
+          await checkCloudBackup();
+          return { success: true, message: 'Akun Cloud berhasil dibuat.' };
+        }
+      }
+
+      // Jika perlu konfirmasi email
+      return {
+        success: true,
+        message: 'Akun Cloud berhasil dibuat. Silakan cek email untuk konfirmasi, lalu login kembali.',
+        needsEmailConfirmation: true,
+      };
+    } finally {
+      setIsRegistering(false);
+    }
+  }, [setCloudAccount, checkCloudBackup]);
+
+  // ─── Logout ─────────────────────────────────────────────────────────────
+
+  const logoutCloud = useCallback(async () => {
+    await signOut();
+    useLicenseStore.getState().clearCloudAccount();
+    setRestoreState('idle');
+    setBackupInfo(null);
+    setLatestBackupData(null);
+    setRestoreMessage('');
   }, []);
 
   // ─── Execute restore ────────────────────────────────────────────────────

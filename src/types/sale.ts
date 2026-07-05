@@ -35,4 +35,6 @@ export interface SaleFormData {
 export interface SaleWithItems extends Sale {
   items: SaleItem[];
   customerName?: string;
+  debtStatus?: string | null;
+  debtDueDate?: string | null;
 }

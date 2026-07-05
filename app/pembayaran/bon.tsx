@@ -10,8 +10,7 @@ import { Card } from '../../src/components/Card';
 import { useCartStore } from '../../src/stores/cart.store';
 import { CustomerRepository } from '../../src/database/customer.repo';
 import { SaleRepository } from '../../src/database/sales.repo';
-import { DebtRepository } from '../../src/database/debt.repo';
-import { StockService } from '../../src/services/stock.service';
+import { processSaleTransaction } from '../../src/services/sale.service';
 import { generateInvoiceNumber } from '../../src/utils/invoice-number';
 import { CustomHeader } from '../../src/components/CustomHeader';
 import { BottomActionBar } from '../../src/components/BottomActionBar';
@@ -69,42 +68,17 @@ export default function PembayaranBonScreen() {
       const todayCount = await SaleRepository.getTodayCount();
       const invoiceNumber = generateInvoiceNumber(todayCount);
 
-      const saleItems = items.map(item => ({
-        productId: item.product.id,
-        productName: item.product.name,
-        qty: item.qty,
-        price: item.product.sellPrice,
-        costPrice: item.product.costPrice,
-        subtotal: item.subtotal,
-      }));
-
-      const sale = await SaleRepository.createSale(
+      await processSaleTransaction({
+        items,
+        totalAmount: totalPrice,
+        paidAmount: 0,
+        changeAmount: 0,
+        paymentMethod: 'debt',
+        status: 'debt',
+        customerId: selectedCustomer.id,
         invoiceNumber,
-        selectedCustomer.id,
-        totalPrice,
-        0,
-        0,
-        'debt',
-        'debt',
-        saleItems
-      );
-
-      // Default due_date = 30 hari dari sekarang
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 30);
-      await DebtRepository.createDebt(
-        selectedCustomer.id,
-        sale.id,
-        totalPrice,
-        0,
-        totalPrice,
-        'unpaid',
-        dueDate.toISOString().slice(0, 10),
-        note.trim() || null,
-        'transaction'
-      );
-
-      await StockService.reduceStockForSaleItems(items, invoiceNumber, 'sale');
+        debtNote: note.trim() || undefined,
+      });
 
       clearCart();
       resetPayment();
@@ -116,9 +90,16 @@ export default function PembayaranBonScreen() {
           paymentMethod: 'debt',
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Debt payment error:', error);
-      Alert.alert('Error', 'Gagal memproses pembayaran bon');
+      if (error.code === 'STOCK_INSUFFICIENT' && error.details) {
+        Alert.alert(
+          'Stok Tidak Cukup',
+          `${error.details.productName} hanya tersedia ${error.details.available}, tetapi diminta ${error.details.requested}.`
+        );
+      } else {
+        Alert.alert('Error', 'Transaksi gagal disimpan. Silakan coba lagi.');
+      }
     } finally {
       setProcessing(false);
     }

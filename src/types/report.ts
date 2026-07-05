@@ -8,6 +8,8 @@ export interface DailyReport {
   debtTotal: number;
   debtCashTotal?: number; // pembayaran bon tunai
   debtQrisTotal?: number; // pembayaran bon qris
+  debtPaymentTotal?: number; // total pembayaran piutang/bon
+  totalCashIn?: number; // kas masuk = tunai + qris + pembayaran piutang
   totalProducts: number;
   totalActiveProducts: number;
   totalStockLow: number;

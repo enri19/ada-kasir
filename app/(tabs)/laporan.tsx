@@ -51,7 +51,7 @@ export default function LaporanScreen() {
     day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  const cashIn = (report?.cashTotal ?? 0) + (report?.qrisTotal ?? 0);
+  const cashIn = (report?.cashTotal ?? 0) + (report?.qrisTotal ?? 0) + (report?.debtPaymentTotal ?? 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -120,6 +120,17 @@ export default function LaporanScreen() {
               <CurrencyText amount={report?.debtTotal ?? 0} size="sm" color={colors.onSurface} />
             </View>
           </View>
+          {(report?.debtPaymentTotal ?? 0) > 0 && (
+            <View style={[styles.payRow, { marginTop: spacing.stackSm }]}>
+              <View style={[styles.payItem, { flex: 1 }]}>
+                <View style={[styles.payIcon, { backgroundColor: '#f3e5f5' }]}>
+                  <Ionicons name="cash" size={18} color="#9C27B0" />
+                </View>
+                <Text style={styles.payLabel}>Pembayaran Piutang</Text>
+                <CurrencyText amount={report?.debtPaymentTotal ?? 0} size="sm" color={colors.onSurface} />
+              </View>
+            </View>
+          )}
         </Card>
 
         {/* Laba + Transaksi */}
@@ -139,20 +150,6 @@ export default function LaporanScreen() {
             <Text style={styles.bigNumber}>{report?.totalTransactions ?? 0} Nota</Text>
           </Card>
         </View>
-
-        {/* Stok menipis count */}
-        {(report?.totalStockLow ?? 0) > 0 && (
-          <Card style={[styles.alertCard]}>
-            <Ionicons name="warning-outline" size={18} color="#E65100" />
-            <Text style={styles.alertText}>
-              {report!.totalStockLow} produk stok menipis
-              {(report?.totalStockOut ?? 0) > 0 && `, ${report!.totalStockOut} habis`}
-            </Text>
-            <TouchableOpacity onPress={() => router.push('/produk/stok-menipis' as never)}>
-              <Text style={styles.alertLink}>Lihat</Text>
-            </TouchableOpacity>
-          </Card>
-        )}
 
         {/* Produk Terlaris (maks 3) */}
         {(report?.topProducts.length ?? 0) > 0 && (
@@ -190,6 +187,16 @@ export default function LaporanScreen() {
               </View>
             ))}
           </Card>
+        )}
+
+        {/* Stok menipis count */}
+        {(report?.totalStockLow ?? 0) > 0 && (
+          <TouchableOpacity onPress={() => router.push('/produk/stok-menipis' as never)} activeOpacity={0.8}>
+            <Card style={[styles.alertCardCenter]}>
+              <Ionicons name="warning-outline" size={18} color="#E65100" />
+              <Text style={[styles.alertTextCenter]}>Lihat Detil Stok Menipis</Text>
+            </Card>
+          </TouchableOpacity>
         )}
 
         {/* CTA */}
@@ -250,7 +257,13 @@ const styles = StyleSheet.create({
     padding: spacing.stackMd, marginBottom: spacing.stackSm,
     backgroundColor: '#fff8e1',
   },
+  alertCardCenter: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    padding: spacing.stackMd, marginBottom: spacing.stackSm,
+    backgroundColor: '#fff8e1',
+  },
   alertText: { ...typography.bodyMd, color: '#E65100', flex: 1 },
+  alertTextCenter: { ...typography.bodyMd, color: '#E65100', textAlign: 'center' },
   alertLink: { ...typography.labelSm, color: colors.primary, fontWeight: '700' },
   listCard: { padding: spacing.stackMd, marginBottom: spacing.stackSm },
   listRow: {

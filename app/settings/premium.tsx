@@ -113,7 +113,7 @@ export default function PremiumScreen() {
     }, [refreshStatus])
   );
 
-const isPremium = status === 'premium_active';
+const isPremium = status === 'premium_active' || status === 'lifetime';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -129,9 +129,11 @@ const isPremium = status === 'premium_active';
                   <Ionicons name="checkmark-circle" size={32} color={colors.secondary} />
                 </View>
                 <View style={styles.statusTextArea}>
-                  <Text style={styles.statusTitle}>Premium Aktif</Text>
+                  <Text style={styles.statusTitle}>{status === 'lifetime' ? 'Lifetime Aktif' : 'Premium Aktif'}</Text>
                   <Text style={styles.statusDescription}>
-                    Semua fitur Premium yang tersedia sudah aktif untuk akun ini.
+                    {status === 'lifetime'
+                      ? 'Semua fitur Premium tersedia untuk selamanya.'
+                      : 'Semua fitur Premium yang tersedia sudah aktif untuk akun ini.'}
                   </Text>
                 </View>
               </View>
@@ -148,7 +150,7 @@ const isPremium = status === 'premium_active';
                 </View>
               )}
 
-              {expiresAt && (
+              {status !== 'lifetime' && expiresAt && (
                 <View style={styles.statusMetaRow}>
                   <Text style={styles.statusMetaLabel}>Berakhir</Text>
                   <Text style={styles.statusMetaValue}>{formatDate(expiresAt)}</Text>

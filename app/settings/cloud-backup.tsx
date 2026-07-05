@@ -28,7 +28,7 @@ import { useCloudAccount } from '../../src/hooks/useCloudAccount';
 // Premium gate check
 // ============================================================
 
-function usePremiumStatus(): { isPremium: boolean; isChecking: boolean } {
+function usePremiumStatus(): { isPremiumAccess: boolean; isChecking: boolean } {
   const status = useLicenseStore((s) => s.status);
   const refreshStatus = useLicenseStore((s) => s.refreshStatus);
   const [isChecking, setIsChecking] = useState(true);
@@ -44,7 +44,7 @@ function usePremiumStatus(): { isPremium: boolean; isChecking: boolean } {
     }, [refreshStatus])
   );
 
-  return { isPremium: status === 'premium_active', isChecking };
+  return { isPremiumAccess: status === 'premium_active' || status === 'lifetime', isChecking };
 }
 
 // ============================================================
@@ -191,25 +191,6 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
   const [backupErrorMessage, setBackupErrorMessage] = useState('');
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
 
-  // ── Sync lastBackupAt dari Supabase saat halaman difokuskan ──
-  useFocusEffect(
-    React.useCallback(() => {
-      let active = true;
-      (async () => {
-        try {
-          const backups = await BackupService.listCloudBackups();
-          if (!active) return;
-          if (backups.length > 0) {
-            useLicenseStore.setState({ lastBackupAt: backups[0].createdAt });
-          }
-        } catch {
-          // Abaikan error — tampilkan "Belum pernah backup" default
-        }
-      })();
-      return () => { active = false; };
-    }, [])
-  );
-
   // ── Backup ──
   const handleBackup = async () => {
     if (!canUseCloudBackup()) return;
@@ -235,7 +216,12 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
   const handleLogoutCloud = async () => {
     setShowLogoutConfirmModal(false);
     await logoutCloud();
+    resetRestoreFlow();
   };
+
+  // ── Tentukan apakah perlu menampilkan tombol restore di UI ──
+  const shouldShowRestoreButton = !restoreState ||
+    ['idle', 'no_backup', 'restore_success', 'restore_error', 'skipped'].includes(restoreState);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -282,7 +268,7 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.primary }]}
               onPress={handleBackup}
-              disabled={isBackingUp || isRestoring}
+              disabled={isBackingUp || isRestoring || !shouldShowRestoreButton}
             >
               {isBackingUp ? (
                 <ActivityIndicator size="small" color={colors.onPrimary} />
@@ -294,24 +280,27 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.error }]}
-              onPress={handleRestore}
-              disabled={isBackingUp || isRestoring || restoreState === 'checking_backup'}
-            >
-              {restoreState === 'checking_backup' || isRestoring ? (
-                <ActivityIndicator size="small" color={colors.onPrimary} />
-              ) : (
-                <Ionicons name="cloud-download-outline" size={22} color={colors.onPrimary} />
-              )}
-              <Text style={styles.actionBtnText}>
-                {restoreState === 'checking_backup'
-                  ? 'Mencari backup...'
-                  : isRestoring
-                  ? 'Merestore...'
-                  : 'Restore dari Cloud'}
-              </Text>
-            </TouchableOpacity>
+            {/* Tombol restore hanya tampil jika memang ada backup dan belum dalam restore flow */}
+            {shouldShowRestoreButton ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: colors.error }]}
+                onPress={handleRestore}
+                disabled={isBackingUp || isRestoring || restoreState === 'checking_backup'}
+              >
+                {restoreState === 'checking_backup' || isRestoring ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Ionicons name="cloud-download-outline" size={22} color={colors.onPrimary} />
+                )}
+                <Text style={styles.actionBtnText}>
+                  {restoreState === 'checking_backup'
+                    ? 'Mencari backup...'
+                    : isRestoring
+                    ? 'Merestore...'
+                    : 'Restore dari Cloud'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Logout link */}
@@ -395,7 +384,7 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
           variant: 'danger',
           loading: isRestoring,
         }}
-        secondaryAction={{ label: 'Batal', onPress: skipRestore, variant: 'outline' }}
+        secondaryAction={{ label: 'Lewati Dulu', onPress: skipRestore, variant: 'outline' }}
       >
         {backupInfo && (
           <View style={styles.backupDetail}>
@@ -725,8 +714,18 @@ function CloudRegisterModal({
 export default function CloudBackupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isPremium, isChecking } = usePremiumStatus();
+  const { isPremiumAccess, isChecking } = usePremiumStatus();
   const isCloudLoggedIn = useLicenseStore((s) => s.isCloudLoggedIn);
+
+  const {
+    restoreState,
+    restoreMessage,
+    backupInfo,
+    isRestoring,
+    executeRestore,
+    skipRestore,
+    resetRestoreFlow,
+  } = useCloudAccount();
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -768,11 +767,11 @@ export default function CloudBackupScreen() {
     );
   }
 
-  if (!isPremium) {
+  if (!isPremiumAccess) {
     return <PremiumLockedView insets={insets} />;
   }
 
-  // Premium tapi belum login cloud
+  // Premium/Lifetime tapi belum login cloud
   if (!isCloudLoggedIn) {
     return (
       <>
@@ -788,9 +787,8 @@ export default function CloudBackupScreen() {
           onSwitchToDaftar={() => setShowRegisterModal(true)}
           onSuccess={() => {
             setShowLoginModal(false);
-            setSuccessTitle('Login Berhasil');
-            setSuccessMessage('Akun Cloud berhasil dihubungkan. Data Anda dapat dicadangkan ke cloud.');
-            setShowSuccessModal(true);
+            // Jangan tampilkan modal apa pun di sini
+            // Biarkan view re-render ke CloudConnectedView dengan restore flow
           }}
         />
 
@@ -800,9 +798,8 @@ export default function CloudBackupScreen() {
           onSwitchToLogin={() => setShowLoginModal(true)}
           onSuccess={(msg) => {
             setShowRegisterModal(false);
-            setSuccessTitle('Pendaftaran Berhasil');
-            setSuccessMessage(msg);
-            setShowSuccessModal(true);
+            // Jangan tampilkan modal apa pun di sini
+            // Biarkan view re-render ke CloudConnectedView dengan restore flow
           }}
         />
 
@@ -811,7 +808,7 @@ export default function CloudBackupScreen() {
     );
   }
 
-  // Premium + sudah login cloud
+  // Premium/Lifetime + sudah login cloud
   return (
     <>
       <CloudConnectedView insets={insets} />
