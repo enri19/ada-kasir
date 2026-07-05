@@ -95,30 +95,6 @@ export default function PembayaranQRISScreen() {
     });
   };
 
-  if (!qrisImage) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <CustomHeader title="Pembayaran QRIS" onBack={() => router.back()} />
-
-        <View style={styles.content}>
-          <View style={styles.emptyState}>
-            <Ionicons name="qr-code-outline" size={64} color={colors.onSurfaceVariant} />
-            <Text style={styles.emptyTitle}>QRIS Belum Diatur</Text>
-            <Text style={styles.emptyText}>
-              Silakan upload gambar QRIS toko di menu Pengaturan terlebih dahulu.
-            </Text>
-            <Button
-              title="Atur QRIS Toko"
-              onPress={handleGoToSettings}
-              size="lg"
-              icon={<Ionicons name="settings-outline" size={20} color={colors.onPrimary} />}
-            />
-          </View>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Pembayaran QRIS" onBack={() => router.back()} />
@@ -131,11 +107,23 @@ export default function PembayaranQRISScreen() {
 
         <Text style={styles.sectionTitle}>Scan QRIS Toko</Text>
 
-        <View style={styles.qrisCard}>
-          <Image source={{ uri: qrisImage }} style={styles.qrisImage} />
-          <Text style={styles.qrisName}>{qrisName}</Text>
-          {qrisNote && <Text style={styles.qrisNote}>{qrisNote}</Text>}
-        </View>
+        {qrisImage ? (
+          <View style={styles.qrisCard}>
+            <Image source={{ uri: qrisImage }} style={styles.qrisImage} />
+            <Text style={styles.qrisName}>{qrisName}</Text>
+            {qrisNote && <Text style={styles.qrisNote}>{qrisNote}</Text>}
+          </View>
+        ) : (
+          <View style={styles.qrisCard}>
+            <View style={styles.imagePlaceholder}>
+              <Ionicons name="qr-code-outline" size={56} color={colors.onSurfaceVariant} />
+              <Text style={styles.placeholderTitle}>QRIS belum diupload di aplikasi</Text>
+              <Text style={styles.placeholderText}>
+                Jika toko Anda sudah memiliki QRIS cetak, minta pelanggan scan QRIS fisik di meja kasir.
+              </Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.warningCard}>
           <Ionicons name="warning-outline" size={20} color={colors.error} />
@@ -143,11 +131,18 @@ export default function PembayaranQRISScreen() {
             Pastikan pembayaran sudah masuk sebelum menyimpan transaksi.
           </Text>
         </View>
+
+        {!qrisImage && (
+          <TouchableOpacity style={styles.settingsLink} onPress={handleGoToSettings}>
+            <Ionicons name="settings-outline" size={16} color={colors.primary} />
+            <Text style={styles.settingsLinkText}>Upload QRIS di Pengaturan</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <BottomActionBar>
         <Button
-          title="Sudah Dibayar"
+          title="Konfirmasi Pembayaran"
           onPress={handleProcessPayment}
           size="lg"
           fullWidth
@@ -186,8 +181,13 @@ const styles = StyleSheet.create({
     padding: spacing.stackMd, borderWidth: 1, borderColor: colors.error,
   },
   warningText: { flex: 1, ...typography.labelSm, color: colors.error },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.marginMobile },
-  emptyTitle: { ...typography.headlineMobile, color: colors.onSurface, marginTop: spacing.stackMd, marginBottom: spacing.stackSm },
-  emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', marginBottom: spacing.stackLg },
+  imagePlaceholder: { alignItems: 'center', paddingVertical: spacing.stackLg },
+  placeholderTitle: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface, textAlign: 'center', marginTop: spacing.stackMd },
+  placeholderText: { ...typography.labelSm, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: spacing.stackSm },
+  settingsLink: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: spacing.stackSm, marginBottom: spacing.stackMd,
+  },
+  settingsLinkText: { ...typography.bodyMd, color: colors.primary, fontWeight: '600' },
 
 });

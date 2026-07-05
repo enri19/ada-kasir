@@ -53,11 +53,6 @@ export default function QrisSettingsScreen() {
       return;
     }
 
-    if (!qrisImageUri) {
-      Alert.alert('Gambar QRIS Belum Ada', 'Pilih gambar QRIS toko sebelum menyimpan.');
-      return;
-    }
-
     setIsSaving(true);
     try {
       const updatedStore = await StoreRepository.update(activeStore.id, {
@@ -90,9 +85,9 @@ export default function QrisSettingsScreen() {
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Gambar QRIS</Text>
+          <Text style={styles.sectionTitle}>Upload QRIS (Opsional)</Text>
           <Text style={styles.description}>
-            Upload gambar QRIS yang akan dipindai pelanggan saat pembayaran.
+            Upload gambar QRIS jika ingin menampilkannya di aplikasi. Jika toko sudah memiliki QRIS cetak, bagian ini boleh dikosongkan.
           </Text>
 
           <TouchableOpacity style={styles.imagePicker} onPress={pickQrisImage} activeOpacity={0.8}>
