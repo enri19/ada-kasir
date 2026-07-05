@@ -315,11 +315,10 @@ export default function BonScreen() {
 
       {/* FAB */}
       <TouchableOpacity
-        style={[styles.fab, { bottom: 16 + insets.bottom }]}
+        style={[styles.fab, { bottom: 16 }]}
         onPress={handleOpenModal}
       >
-        <Ionicons name="add" size={20} color={colors.onPrimary} />
-        <Text style={styles.fabText}>Tambah Bon Baru</Text>
+        <Ionicons name="add" size={28} color={colors.onPrimary} />
       </TouchableOpacity>
 
       {/* Modal Tambah Bon Manual */}
@@ -533,13 +532,12 @@ const styles = StyleSheet.create({
   emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center' },
 
   fab: {
-    position: 'absolute', left: spacing.marginMobile, right: spacing.marginMobile,
-    backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', paddingVertical: 14, borderRadius: borderRadius.lg,
-    gap: spacing.stackSm, elevation: 4,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4,
+    position: 'absolute', right: spacing.marginMobile,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
   },
-  fabText: { ...typography.bodyLg, fontWeight: '700', color: colors.onPrimary },
 
   // Modal
   modalOverlay: {

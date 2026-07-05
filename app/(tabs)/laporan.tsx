@@ -64,7 +64,7 @@ export default function LaporanScreen() {
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 70 + insets.bottom }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
