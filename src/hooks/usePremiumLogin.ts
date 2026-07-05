@@ -31,7 +31,7 @@ async function fetchBackupByKey(supabase: any, key: string): Promise<{
   storeName?: string;
 } | null> {
   try {
-    const { data, error } = await supabase.rpc('get_premium_backup_data', {
+    const { data, error } = await supabase.rpc('premium_restore_get_backup', {
       p_email_or_phone: key,
     });
     if (error || !data) return null;
@@ -76,7 +76,6 @@ export function usePremiumLogin() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [latestBackupData, setLatestBackupData] = useState<BackupData | null>(null);
 
-  // Progress modal state
   const [restoreProgress, setRestoreProgress] = useState<RestoreProgress>({
     visible: false,
     step: '',
@@ -94,8 +93,6 @@ export function usePremiumLogin() {
   }) => {
     setRestoreState('checking_backup');
 
-    // Susun lookup keys: phone → email → accountId → rawInput
-    // Deduplikasi dan buang yang kosong
     const candidates = [
       normalizePhone(input.phone),
       normalizeEmail(input.email),
@@ -105,8 +102,6 @@ export function usePremiumLogin() {
     const lookupKeys = candidates.filter((v, i, arr): v is string =>
       Boolean(v) && arr.indexOf(v) === i
     );
-
-    console.log('[Premium Login] backup lookup keys', lookupKeys);
 
     if (lookupKeys.length === 0) {
       setRestoreState('no_backup');
@@ -121,12 +116,10 @@ export function usePremiumLogin() {
       return;
     }
 
-    // Coba satu per satu sampai ada yang berhasil
     let rpcError = false;
     for (const key of lookupKeys) {
       try {
         const found = await fetchBackupByKey(supabase, key);
-        console.log('[Premium Login] backup lookup result', { key, found: Boolean(found) });
 
         if (found) {
           const { backupData, storeName } = found;
@@ -170,7 +163,6 @@ export function usePremiumLogin() {
     setIsRestoring(true);
     setRestoreState('restoring');
 
-    // Tampilkan modal progress
     setRestoreProgress({
       visible: true,
       step: 'Menyiapkan restore...',
@@ -179,7 +171,6 @@ export function usePremiumLogin() {
     });
 
     try {
-      // Validasi & mulai restore
       await BackupService.restoreFromData(latestBackupData, (progress) => {
         setRestoreProgress({
           visible: true,
@@ -187,7 +178,6 @@ export function usePremiumLogin() {
         });
       });
 
-      // Refresh state aplikasi
       const activeStore = await StoreRepository.getActiveStore();
       const { useAppStore } = await import('../stores/app.store');
       if (activeStore) {
@@ -195,7 +185,6 @@ export function usePremiumLogin() {
       }
       useAppStore.getState().setIsOnboardingComplete(true);
 
-      // Sembunyikan progress, tampilkan success
       setRestoreProgress({ visible: false, step: '', percent: null, detail: '' });
       setRestoreState('restore_success');
       setRestoreMessage('Data toko berhasil dipulihkan ke perangkat ini.');
@@ -247,13 +236,6 @@ export function usePremiumLogin() {
           email: result.email,
           phone: result.phone,
           rawInput: input.phoneOrEmail,
-        });
-
-        console.log('[Premium Login] result', {
-          accountId: result.accountId,
-          email: result.email,
-          phone: result.phone,
-          premiumExpiresAt: result.premiumExpiresAt,
         });
 
         return result;

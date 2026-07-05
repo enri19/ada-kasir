@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +14,8 @@ import { useAppStore } from '../src/stores/app.store';
 import { StoreRepository } from '../src/database/store.repo';
 import { CategoryRepository } from '../src/database/category.repo';
 import { ADMIN_WHATSAPP } from '../src/utils/constants';
-import { usePremiumLogin } from '../src/hooks/usePremiumLogin';
+import { useCloudAccount } from '../src/hooks/useCloudAccount';
+import { useLicenseStore } from '../src/stores/license.store';
 
 type OnboardingStep = 'choose' | 'form';
 
@@ -23,6 +24,16 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const setIsOnboardingComplete = useAppStore((state) => state.setIsOnboardingComplete);
   const setActiveStore = useAppStore((state) => state.setActiveStore);
+  const isOnboardingComplete = useAppStore((state) => state.isOnboardingComplete);
+  const refreshLicenseStatus = useLicenseStore((s) => s.refreshStatus);
+
+  // Guard: kalau sudah onboarding, redirect ke tabs
+  React.useEffect(() => {
+    refreshLicenseStatus(); // sync supabase session state
+    if (isOnboardingComplete) {
+      router.replace('/(tabs)');
+    }
+  }, [isOnboardingComplete]);
 
   // ── Step ──
   const [step, setStep] = useState<OnboardingStep>('choose');
@@ -34,16 +45,17 @@ export default function OnboardingScreen() {
   const [address, setAddress] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  // ── Premium login state ──
+  // ── Cloud login state ──
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showLoginError, setShowLoginError] = useState(false);
-  const [loginErrorTitle, setLoginErrorTitle] = useState('Login Premium');
+  const [loginErrorTitle, setLoginErrorTitle] = useState('Login Gagal');
   const [loginErrorMessage, setLoginErrorMessage] = useState('');
-  const [loginInput, setLoginInput] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
-  // ── Premium login / restore hook ──
+  // ── Cloud account / restore hook ──
   const {
-    login,
+    loginCloud,
     isLoggingIn,
     restoreState,
     restoreMessage,
@@ -53,7 +65,8 @@ export default function OnboardingScreen() {
     skipRestore,
     resetRestoreFlow,
     restoreProgress,
-  } = usePremiumLogin();
+    checkCloudBackup,
+  } = useCloudAccount();
 
   // ── Start trial form ──
   const handleStartTrial = () => {
@@ -92,32 +105,40 @@ export default function OnboardingScreen() {
     }
   };
 
-  // ── Login Premium ──
+  // ── Login Cloud ──
   const handleOpenLogin = () => {
-    setLoginInput('');
+    setLoginEmail('');
+    setLoginPassword('');
     setShowLoginModal(true);
   };
 
-  const handleLoginPremium = async () => {
-    if (!loginInput.trim()) {
-      Alert.alert('Input kosong', 'Masukkan nomor WhatsApp atau email Anda.');
+  const handleLoginCloud = async () => {
+    if (!loginEmail.trim()) {
+      Alert.alert('Input kosong', 'Masukkan email Anda.');
+      return;
+    }
+    if (!loginPassword) {
+      Alert.alert('Input kosong', 'Masukkan password Anda.');
       return;
     }
 
-    const result = await login({ phoneOrEmail: loginInput.trim() });
+    const result = await loginCloud(loginEmail.trim(), loginPassword);
 
     if (!result.success) {
       setShowLoginModal(false);
-      setLoginInput('');
-      setLoginErrorTitle('Login Premium Gagal');
-      setLoginErrorMessage(result.message || 'Email atau nomor HP tidak ditemukan sebagai pelanggan Premium.');
+      setLoginEmail('');
+      setLoginPassword('');
+      setLoginErrorTitle('Login Gagal');
+      setLoginErrorMessage(result.message || 'Email atau password salah.');
       setShowLoginError(true);
       return;
     }
 
-    // Login sukses — restore flow dijalankan otomatis oleh hook
+    // Login sukses — cek backup
     setShowLoginModal(false);
-    setLoginInput('');
+    setLoginEmail('');
+    setLoginPassword('');
+    await checkCloudBackup();
   };
 
   // ── Restore ──
@@ -224,34 +245,47 @@ export default function OnboardingScreen() {
           </View>
         </View>
 
-        {/* ── Modal Login Premium ── */}
+        {/* ── Modal Login Cloud ── */}
         <AppModal
           visible={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
+          onClose={() => { setShowLoginModal(false); setLoginEmail(''); setLoginPassword(''); }}
           type="info"
-          title="Login Premium"
+          title="Masuk Akun Cloud"
           icon="log-in"
-          message="Masukkan nomor WhatsApp atau email yang terdaftar untuk login akun Premium."
+          message="Masukkan email dan password akun cloud AdaKasir Anda."
           primaryAction={{
-            label: isLoggingIn ? 'Memproses...' : 'Login',
-            onPress: handleLoginPremium,
+            label: isLoggingIn ? 'Memproses...' : 'Masuk',
+            onPress: handleLoginCloud,
             variant: 'primary',
             loading: isLoggingIn,
           }}
           secondaryAction={{
             label: 'Batal',
-            onPress: () => { setShowLoginModal(false); setLoginInput(''); },
+            onPress: () => { setShowLoginModal(false); setLoginEmail(''); setLoginPassword(''); },
             variant: 'outline',
           }}
         >
           <View style={modalStyles.inputRow}>
             <TextInput
               style={modalStyles.input}
-              value={loginInput}
-              onChangeText={setLoginInput}
-              placeholder="08xxxxxx atau email@contoh.com"
+              value={loginEmail}
+              onChangeText={setLoginEmail}
+              placeholder="Email"
               placeholderTextColor={colors.onSurfaceVariant}
               keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!isLoggingIn}
+            />
+          </View>
+          <View style={modalStyles.inputRow}>
+            <TextInput
+              style={modalStyles.input}
+              value={loginPassword}
+              onChangeText={setLoginPassword}
+              placeholder="Password"
+              placeholderTextColor={colors.onSurfaceVariant}
+              secureTextEntry
               autoCapitalize="none"
               editable={!isLoggingIn}
             />
@@ -270,7 +304,7 @@ export default function OnboardingScreen() {
             label: 'Hubungi Admin',
             onPress: () => {
               setShowLoginError(false);
-              handleContactSupport('Halo Admin AdaKasir, saya ingin aktivasi Premium. Mohon bantuan untuk login Premium.');
+              handleContactSupport('Halo Admin AdaKasir, saya ingin aktivasi Premium. Mohon bantuan untuk login Akun Cloud.');
             },
             variant: 'primary',
           }}
@@ -392,9 +426,9 @@ export default function OnboardingScreen() {
           visible={restoreState === 'no_backup'}
           onClose={() => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/(tabs)')); }}
           type="success"
-          title="Login Premium Berhasil"
+          title="Login Berhasil"
           icon="checkmark-circle"
-          message="Akun Premium Anda sudah aktif. Belum ada backup data yang ditemukan."
+          message="Akun Cloud Anda sudah aktif. Belum ada backup data yang ditemukan."
           primaryAction={{
             label: 'Mulai Gunakan AdaKasir',
             onPress: () => { resetRestoreFlow(); setIsOnboardingComplete(true).then(() => router.replace('/(tabs)')); },

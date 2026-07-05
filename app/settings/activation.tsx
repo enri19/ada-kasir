@@ -36,6 +36,7 @@ export default function ActivationScreen() {
   const [resultTitle, setResultTitle] = useState('');
   const [resultMessage, setResultMessage] = useState('');
   const [isPremiumManualSuccess, setIsPremiumManualSuccess] = useState(false);
+  const [showPaketPicker, setShowPaketPicker] = useState(false);
 
   const isPremium = licenseStatus === 'premium_active';
 
@@ -105,7 +106,7 @@ export default function ActivationScreen() {
         isLifetime
           ? 'Lifetime Basic berhasil diaktifkan di perangkat ini.'
           : isPremiumManual
-          ? 'Fitur Premium sudah aktif di perangkat ini. Agar bisa backup dan restore saat pindah perangkat, hubungkan akun Premium Anda.'
+          ? 'Fitur Premium sudah aktif di perangkat ini. Masuk atau daftar Akun Cloud untuk backup dan restore data.'
           : `Fitur Premium AdaKasir sudah aktif sampai tanggal ${expiryDate}.`
       );
       setShowResultModal(true);
@@ -120,12 +121,24 @@ export default function ActivationScreen() {
   };
 
   const handleContactAdmin = () => {
-    const message = LicenseService.buildActivationMessage(
-      activeStore?.name ?? '',
-      deviceCode ?? '',
-      activeStore?.ownerName,
-      activeStore?.phone,
-    );
+    setShowPaketPicker(true);
+  };
+
+  const sendWaMessage = async (plan: string) => {
+    const message = plan === 'Lifetime'
+      ? LicenseService.buildActivationMessage(
+          activeStore?.name ?? '',
+          deviceCode ?? '',
+          activeStore?.ownerName,
+          activeStore?.phone,
+        )
+      : LicenseService.buildPremiumMessage(
+          activeStore?.name ?? '',
+          deviceCode ?? '',
+          'Premium',
+          activeStore?.ownerName,
+          activeStore?.phone,
+        );
     const url = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
     Linking.openURL(url).catch(() => {
       Alert.alert('Gagal', 'Pastikan WhatsApp tersedia di perangkat Anda.');
@@ -165,7 +178,17 @@ export default function ActivationScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <CustomHeader title="Aktivasi Lisensi" onBack={() => router.back()} />
+      <CustomHeader
+        title="Aktivasi Lisensi"
+        onBack={() => {
+          // Jika dari onboarding atau sudah Premium, langsung ke kasir
+          if (!isOnboardingComplete || isPremium) {
+            router.replace('/(tabs)');
+          } else {
+            router.back();
+          }
+        }}
+      />
       <ScrollView
         style={styles.content}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}
@@ -251,8 +274,8 @@ export default function ActivationScreen() {
 
         {/* Catatan */}
         <Text style={styles.footerNote}>
-          Lifetime Basic aktif untuk perangkat ini. Premium Account dapat digunakan dengan login saat
-          pindah perangkat.
+          Lifetime Basic aktif untuk perangkat ini. Masuk atau daftar Akun Cloud untuk backup dan
+          restore data saat pindah perangkat.
         </Text>
       </ScrollView>
 
@@ -266,7 +289,7 @@ export default function ActivationScreen() {
           icon="checkmark-circle"
           message={resultMessage}
           primaryAction={{
-            label: 'Hubungkan Akun Premium',
+            label: 'Masuk Akun Cloud',
             onPress: async () => {
               setShowResultModal(false);
               if (!isOnboardingComplete) {
@@ -286,23 +309,30 @@ export default function ActivationScreen() {
                 }
                 setIsOnboardingComplete(true);
               }
-              router.replace('/settings/account');
+              // Navigasi ke Cloud Backup
+              if (!isOnboardingComplete) {
+                await setIsOnboardingComplete(true);
+              }
+              router.push('/settings/cloud-backup');
             },
             variant: 'primary',
           }}
           secondaryAction={{
             label: 'Mulai Gunakan AdaKasir',
-            onPress: handleResultDone,
+            onPress: () => {
+              setIsOnboardingComplete(true).then(() => router.replace('/(tabs)'));
+            },
             variant: 'outline',
           }}
         />
-      ) : (
+      ) : resultType === 'success' ? (
+        // Sukses aktivasi Lifetime / Premium normal
         <AppModal
           visible={showResultModal}
           onClose={handleResultDone}
-          type={resultType === 'success' ? 'success' : 'warning'}
+          type="success"
           title={resultTitle}
-          icon={resultType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+          icon="checkmark-circle"
           message={resultMessage}
           primaryAction={{
             label: 'Mulai Gunakan AdaKasir',
@@ -310,7 +340,54 @@ export default function ActivationScreen() {
             variant: 'primary',
           }}
         />
+      ) : (
+        // Gagal aktivasi — jangan kasih akses ke kasir
+        <AppModal
+          visible={showResultModal}
+          onClose={() => setShowResultModal(false)}
+          type="warning"
+          title={resultTitle}
+          icon="alert-circle"
+          message={resultMessage}
+          primaryAction={{
+            label: 'Coba Lagi',
+            onPress: () => setShowResultModal(false),
+            variant: 'primary',
+          }}
+          secondaryAction={{
+            label: 'Kembali',
+            onPress: () => { setShowResultModal(false); router.back(); },
+            variant: 'outline',
+          }}
+        />
       )}
+
+      {/* ── Modal Pilih Paket ── */}
+      <AppModal
+        visible={showPaketPicker}
+        onClose={() => setShowPaketPicker(false)}
+        type="info"
+        title="Hubungi Admin"
+        icon="logo-whatsapp"
+        message="Pilih paket yang diinginkan untuk menghubungi admin."
+        actions={[
+          {
+            label: 'Lifetime',
+            onPress: () => { setShowPaketPicker(false); sendWaMessage('Lifetime'); },
+            variant: 'primary',
+          },
+          {
+            label: 'Premium',
+            onPress: () => { setShowPaketPicker(false); sendWaMessage('Premium'); },
+            variant: 'outline',
+          },
+          {
+            label: 'Batal',
+            onPress: () => setShowPaketPicker(false),
+            variant: 'outline',
+          },
+        ]}
+      />
     </View>
   );
 }

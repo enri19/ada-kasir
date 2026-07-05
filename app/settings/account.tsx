@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, TextInput } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePickImage } from '../../src/components/PickImageModal';
 import * as Linking from 'expo-linking';
@@ -16,28 +16,25 @@ import { CustomHeader } from '../../src/components/CustomHeader';
 import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
 import { AppModal } from '../../src/components/ui/AppModal';
-import { RestoreProgressModal } from '../../src/components/ui/RestoreProgressModal';
 import { AppButton } from '../../src/components/ui/AppButton';
 import { ADMIN_WHATSAPP } from '../../src/utils/constants';
 import { AppImages } from '../../src/constants/assets';
-import { usePremiumLogin } from '../../src/hooks/usePremiumLogin';
-import { getUserId } from '../../src/services/supabase.client';
-import { BackupService } from '../../src/services/backup.service';
+import { useCloudAccount } from '../../src/hooks/useCloudAccount';
 
 // ─── Constants ──────────────────────────────────────────────────────────
 const STATUS_LABELS: Record<string, string> = {
   trial_active: 'Trial Aktif',
   trial_expired: 'Trial Berakhir',
-  lifetime: 'Lifetime',
+  lifetime: 'Lifetime Basic',
   premium_active: 'Premium Aktif',
   premium_expired: 'Premium Berakhir',
 };
 
 const SOURCE_LABELS: Record<string, string> = {
-  trial: 'Trial',
-  local_device: 'Kode Perangkat',
+  trial: 'Trial Gratis',
+  local_device: 'Kode Lisensi',
   manual_fallback: 'Kode Premium',
-  account: 'Akun Premium',
+  account: 'Premium Account (legacy)',
 };
 
 function formatDate(value: string | null): string {
@@ -58,37 +55,38 @@ export default function AccountScreen() {
   const refreshLicenseStatus = useLicenseStore((state) => state.refreshStatus);
   const isReadOnly = useLicenseStore((s) => s.isReadOnlyMode());
   const source = useLicenseStore((s) => s.source);
-  const premiumAccountId = useLicenseStore((s) => s.premiumAccountId);
-  const setPremiumAccount = useLicenseStore((s) => s.setPremiumAccount);
-  const clearPremiumAccount = useLicenseStore((s) => s.clearPremiumAccount);
+  const hasLifetime = useLicenseStore((s) => s.hasLifetime);
+  const cloudUserId = useLicenseStore((s) => s.cloudUserId);
+  const cloudEmail = useLicenseStore((s) => s.cloudEmail);
+  const isCloudLoggedIn = useLicenseStore((s) => s.isCloudLoggedIn);
+  const canUsePremiumFeatures = useLicenseStore((s) => s.canUsePremiumFeatures);
 
   const isPremium = licenseStatus === 'premium_active';
-  const isPremiumAccount = source === 'account';
-  const isManualFallback = isPremium && source === 'manual_fallback';
-  const canUsePremiumFeatures = useLicenseStore((s) => s.canUsePremiumFeatures);
-  const canRestoreCloudBackup = useLicenseStore((s) => s.canRestoreCloudBackup);
 
-  const [showConnectAccountModal, setShowConnectAccountModal] = useState(false);
-
-  // ── Premium login / restore ──
   const {
-    login,
+    loginCloud,
     isLoggingIn,
-    restoreState,
-    restoreMessage,
-    backupInfo,
-    isRestoring,
-    executeRestore,
-    skipRestore,
-    resetRestoreFlow,
-    restoreProgress,
-  } = usePremiumLogin();
+    registerCloud,
+    isRegistering,
+    logoutCloud,
+  } = useCloudAccount();
 
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showLoginErrorModal, setShowLoginErrorModal] = useState(false);
-  const [loginErrorTitle, setLoginErrorTitle] = useState('Login Premium');
-  const [loginErrorMessage, setLoginErrorMessage] = useState('');
-  const [loginInput, setLoginInput] = useState('');
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successTitle, setSuccessTitle] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Login modal state
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // Register modal state
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regError, setRegError] = useState('');
 
   // ── Store form state ──
   const [storeName, setStoreName] = useState(activeStore?.name || '');
@@ -97,8 +95,6 @@ export default function AccountScreen() {
   const [address, setAddress] = useState(activeStore?.address || '');
   const [logoUri, setLogoUri] = useState<string | null>(activeStore?.logoUri ?? null);
   const [isSaving, setIsSaving] = useState(false);
-
-  // ── License state ──
   const [showPaketPicker, setShowPaketPicker] = useState(false);
 
   // ── Init ──
@@ -112,9 +108,11 @@ export default function AccountScreen() {
     }
   }, [activeStore]);
 
-  useEffect(() => {
-    refreshLicenseStatus();
-  }, [refreshLicenseStatus]);
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshLicenseStatus();
+    }, [refreshLicenseStatus])
+  );
 
   // ── Pick logo ──
   const pickLogo = useCallback(async () => {
@@ -155,69 +153,79 @@ export default function AccountScreen() {
     }
   };
 
-  // ── Login Premium ──
-  const handleLoginPremium = async () => {
-    if (!loginInput.trim()) {
-      Alert.alert('Input kosong', 'Masukkan nomor WhatsApp atau email Anda.');
-      return;
-    }
-
-    const result = await login({ phoneOrEmail: loginInput.trim() });
-
+  // ─── Login Cloud ──────────────────────────────────────────────────────
+  const handleLoginCloud = async () => {
+    setLoginError('');
+    if (!loginEmail.trim()) { setLoginError('Masukkan email.'); return; }
+    if (!loginPassword) { setLoginError('Masukkan password.'); return; }
+    const result = await loginCloud(loginEmail.trim(), loginPassword);
     if (!result.success) {
-      setShowLoginModal(false);
-      setLoginInput('');
-      setLoginErrorTitle('Login Premium Gagal');
-      setLoginErrorMessage(result.message || 'Email atau nomor HP tidak ditemukan sebagai pelanggan Premium.');
-      setShowLoginErrorModal(true);
+      setLoginError(result.message);
       return;
     }
-    // Jika sukses — restore flow sudah dijalankan otomatis di hook
+    // Success — show confirmation
     setShowLoginModal(false);
-    setLoginInput('');
+    setLoginEmail('');
+    setLoginPassword('');
+    setSuccessTitle('Login Berhasil');
+    setSuccessMessage('Akun Cloud berhasil dihubungkan. Data Anda dapat dicadangkan ke cloud.');
+    setShowSuccessModal(true);
   };
 
-  // ── Handle restore dari backup ──
-  const handleRestoreFromBackup = async () => {
-    if (!canUsePremiumFeatures()) {
-      Alert.alert('Fitur Premium', 'Restore backup hanya tersedia untuk akun Premium aktif.');
-      return;
-    }
-    if (!canRestoreCloudBackup()) {
-      // Case B: Premium manual fallback — tampilkan modal hubungkan akun
-      setShowConnectAccountModal(true);
-      return;
-    }
-    await executeRestore();
+  const resetLoginModal = () => {
+    setLoginEmail('');
+    setLoginPassword('');
+    setLoginError('');
+    setShowLoginModal(false);
   };
 
-  // ── Backup manual ──
-  const handleBackupNow = async () => {
-    if (!canUsePremiumFeatures()) {
-      Alert.alert('Fitur Premium', 'Backup cloud hanya tersedia untuk akun Premium aktif.');
+  // ─── Register Cloud ───────────────────────────────────────────────────
+  const handleRegisterCloud = async () => {
+    setRegError('');
+    if (!regEmail.trim()) { setRegError('Masukkan email.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
+      setRegError('Format email tidak valid.');
       return;
     }
-    try {
-      await BackupService.backupToCloud();
-      Alert.alert('Berhasil', 'Data berhasil dicadangkan ke cloud.');
-    } catch (error: any) {
-      Alert.alert('Gagal', error?.message || 'Backup gagal.');
+    if (!regPassword || regPassword.length < 6) { setRegError('Password minimal 6 karakter.'); return; }
+    if (regPassword !== regConfirmPassword) { setRegError('Konfirmasi password tidak cocok.'); return; }
+
+    const result = await registerCloud(regEmail.trim(), regPassword);
+    if (!result.success) {
+      setRegError(result.message);
+      return;
     }
+    setShowRegisterModal(false);
+    setRegEmail('');
+    setRegPassword('');
+    setRegConfirmPassword('');
+    setSuccessTitle('Pendaftaran Berhasil');
+    setSuccessMessage(result.message);
+    setShowSuccessModal(true);
   };
 
-  // ── Logout Premium ──
-  const handleLogoutPremium = async () => {
+  const resetRegisterModal = () => {
+    setRegEmail('');
+    setRegPassword('');
+    setRegConfirmPassword('');
+    setRegError('');
+    setShowRegisterModal(false);
+  };
+
+  // ─── Logout Cloud ─────────────────────────────────────────────────────
+  const handleLogoutCloud = () => {
     Alert.alert(
-      'Logout Premium',
-      'Anda akan logout dari akun Premium. Fitur Premium akan dinonaktifkan. Lanjutkan?',
+      'Logout Akun Cloud',
+      'Anda akan logout dari akun cloud. Lisensi Premium di perangkat ini tetap aktif. Lanjutkan?',
       [
         { text: 'Batal', style: 'cancel' },
         {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            await PremiumAccountService.clearAccount();
-            await clearPremiumAccount();
+            await logoutCloud();
+            // Also cleanup legacy premium account data if any
+            await PremiumAccountService.clearAccount().catch(() => {});
             await refreshLicenseStatus();
           },
         },
@@ -257,38 +265,12 @@ export default function AccountScreen() {
     }
   };
 
-  // ── Render ──
-  const renderStatusDescription = () => {
-    if (isPremium && isPremiumAccount) {
-      return (
-        <Text style={styles.statusDesc}>
-          Premium dapat digunakan dengan akun. Saat pindah perangkat, cukup login dan pulihkan data dari backup.
-        </Text>
-      );
-    }
-    if (isPremium && source === 'manual_fallback') {
-      return (
-        <Text style={styles.statusDesc}>
-          Premium manual fallback. Untuk sementara sebelum Premium account login tersedia.
-        </Text>
-      );
-    }
-    if (licenseStatus === 'lifetime') {
-      return (
-        <Text style={styles.statusDesc}>
-          Lifetime Basic aktif untuk perangkat ini.
-        </Text>
-      );
-    }
-    return null;
-  };
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CustomHeader title="Akun & Lisensi" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
         {/* ════════════════════════════════════════════════════════════
-            SECTION 1: Status Paket
+            SECTION 1: Status Paket / Lisensi
             ════════════════════════════════════════════════════════════ */}
         <Card style={styles.sectionCard}>
           <View style={styles.statusHeader}>
@@ -309,162 +291,128 @@ export default function AccountScreen() {
             </View>
           </View>
 
-          {renderStatusDescription()}
-
+          {/* Detail lisensi */}
           <View style={styles.statusMetaRow}>
             <Text style={styles.statusMetaLabel}>Sumber</Text>
             <Text style={styles.statusMetaValue}>{SOURCE_LABELS[source] || source}</Text>
           </View>
 
-          {isPremium && source === 'account' && premiumAccountId && (
-            <View style={styles.statusMetaRow}>
-              <Text style={styles.statusMetaLabel}>Akun Premium</Text>
-              <View style={styles.idRow}>
-                <Text style={styles.statusMetaValue} numberOfLines={1}>
-                  {premiumAccountId.length > 20
-                    ? premiumAccountId.substring(0, 8) + '...' + premiumAccountId.slice(-4)
-                    : premiumAccountId}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    Alert.alert('ID Akun Premium', premiumAccountId);
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="copy-outline" size={16} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
           {isPremium && expiresAt && (
             <View style={styles.statusMetaRow}>
-              <Text style={styles.statusMetaLabel}>Berlaku sampai</Text>
+              <Text style={styles.statusMetaLabel}>Masa Aktif</Text>
               <Text style={styles.statusMetaValue}>{formatDate(expiresAt)}</Text>
             </View>
           )}
 
-          {!isPremium && (
+          {hasLifetime && (
             <View style={styles.statusMetaRow}>
-              <Text style={styles.statusMetaLabel}>Trial berakhir</Text>
+              <Text style={styles.statusMetaLabel}>Lifetime Basic</Text>
+              <Text style={styles.statusMetaValue}>Aktif Selamanya</Text>
+            </View>
+          )}
+
+          {!isPremium && !hasLifetime && (
+            <View style={styles.statusMetaRow}>
+              <Text style={styles.statusMetaLabel}>Trial Berakhir</Text>
               <Text style={styles.statusMetaValue}>{formatDate(trialEndsAt)}</Text>
+            </View>
+          )}
+
+          {/* Tombol aktivasi jika perlu */}
+          {!isPremium && (
+            <View style={styles.sectionAction}>
+              <AppButton
+                title="Aktivasi Lisensi"
+                onPress={() => router.push('/settings/activation')}
+                variant="primary"
+                fullWidth
+                size="md"
+                icon={<Ionicons name="key-outline" size={18} color={colors.onPrimary} />}
+              />
+              <View style={styles.sectionActionSpacer} />
+              <AppButton
+                title="Hubungi Admin"
+                onPress={handleContactAdmin}
+                variant="outline"
+                fullWidth
+                size="sm"
+                icon={<Ionicons name="logo-whatsapp" size={16} color={colors.primary} />}
+              />
             </View>
           )}
         </Card>
 
         {/* ════════════════════════════════════════════════════════════
-            SECTION 2a: Info card untuk Premium manual fallback
+            SECTION 2: Akun Cloud
             ════════════════════════════════════════════════════════════ */}
-        {isManualFallback && (
-          <Card style={[styles.sectionCard, styles.manualFallbackCard]}>
-            <View style={styles.premiumActiveHeader}>
-              <Ionicons name="key-outline" size={22} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Premium Aktif via Kode Lisensi</Text>
-            </View>
-            <Text style={styles.premiumActiveDesc}>
-              Fitur Premium sudah aktif di perangkat ini. Untuk backup dan restore cloud saat pindah perangkat, hubungkan akun Premium Anda.
-            </Text>
-            <AppButton
-              title="Hubungkan Akun Premium"
-              onPress={() => setShowLoginModal(true)}
-              variant="primary"
-              fullWidth
-              size="md"
-              icon={<Ionicons name="log-in-outline" size={18} color={colors.onPrimary} />}
-            />
-          </Card>
-        )}
-
-        {/* ════════════════════════════════════════════════════════════
-            SECTION 2: Akun Premium
-            ════════════════════════════════════════════════════════════ */}
-        {isPremiumAccount && (
         <Card style={styles.sectionCard}>
-          <View style={styles.premiumActiveHeader}>
-            <Ionicons name="checkmark-circle" size={22} color={colors.secondary} />
-            <Text style={styles.sectionTitle}>Akun Premium Aktif</Text>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="cloud-outline" size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Akun Cloud AdaKasir</Text>
           </View>
-          <Text style={styles.premiumActiveDesc}>
-            Anda sudah login akun Premium. Data dapat dicadangkan dan dipulihkan kapan saja.
-          </Text>
-          <View style={styles.premiumActionRow}>
-            <AppButton
-              title="Restore Backup"
-              onPress={handleRestoreFromBackup}
-              variant="primary"
-              size="sm"
-              fullWidth
-            />
-          </View>
-          <View style={styles.premiumActionRow}>
-            <AppButton
-              title="Backup Sekarang"
-              onPress={handleBackupNow}
-              variant="outline"
-              size="sm"
-              fullWidth
-            />
-          </View>
-          <View style={styles.premiumActionRow}>
-            <AppButton
-              title="Logout Premium"
-              onPress={handleLogoutPremium}
-              variant="ghost"
-              size="sm"
-              fullWidth
-            />
-          </View>
+
+          {isCloudLoggedIn && cloudUserId ? (
+            // ── Terhubung ──
+            <>
+              <View style={styles.cloudStatusRow}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.secondary} />
+                <Text style={styles.cloudStatusLabel}>Terhubung</Text>
+              </View>
+              <Text style={styles.cloudEmailText}>{cloudEmail || '-'}</Text>
+              <View style={styles.cloudActionSpacer} />
+              <AppButton
+                title="Logout Akun Cloud"
+                onPress={handleLogoutCloud}
+                variant="ghost"
+                fullWidth
+                size="sm"
+                icon={<Ionicons name="log-out-outline" size={16} color={colors.error} />}
+              />
+            </>
+          ) : (
+            // ── Belum Terhubung ──
+            <>
+              <Text style={styles.cloudDesc}>
+                {isPremium
+                  ? 'Masuk atau daftar Akun Cloud untuk menyimpan dan memulihkan backup data Anda.'
+                  : 'Cloud Backup tersedia untuk pengguna Premium. Aktifkan Premium terlebih dahulu.'}
+              </Text>
+              {isPremium && (
+                <View style={styles.cloudActions}>
+                  <AppButton
+                    title="Masuk Akun Cloud"
+                    onPress={() => setShowLoginModal(true)}
+                    variant="primary"
+                    fullWidth
+                    size="md"
+                    icon={<Ionicons name="log-in-outline" size={18} color={colors.onPrimary} />}
+                  />
+                  <View style={styles.cloudActionSpacer} />
+                  <AppButton
+                    title="Daftar Akun Cloud"
+                    onPress={() => setShowRegisterModal(true)}
+                    variant="outline"
+                    fullWidth
+                    size="md"
+                    icon={<Ionicons name="person-add-outline" size={18} color={colors.primary} />}
+                  />
+                </View>
+              )}
+            </>
+          )}
         </Card>
-        )}
 
         {/* ════════════════════════════════════════════════════════════
-            SECTION 3: Aktivasi Lisensi (Lifetime / Premium manual)
-            ════════════════════════════════════════════════════════════ */}
-        {!isPremiumAccount && (
-          <Card style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Aktivasi Lisensi</Text>
-            <Text style={styles.activationDesc}>
-              Aktivasi Lifetime atau Premium menggunakan kode lisensi dari admin AdaKasir.
-            </Text>
-            <AppButton
-              title="Aktivasi Lisensi"
-              onPress={() => router.push('/settings/activation')}
-              variant="outline"
-              fullWidth
-              size="md"
-              icon={<Ionicons name="key-outline" size={18} color={colors.primary} />}
-            />
-          </Card>
-        )}
-
-        {/* ════════════════════════════════════════════════════════════
-            SECTION 5: Fitur Premium
+            SECTION 3: Fitur Premium (navigasi)
             ════════════════════════════════════════════════════════════ */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Fitur Premium</Text>
-
           <View style={styles.featureList}>
             <FeatureRow icon="cloud-outline" text="Cadangan Data Cloud" />
             <FeatureRow icon="download-outline" text="Export laporan PDF/CSV" />
             <FeatureRow icon="print-outline" text="Printer Struk" />
             <FeatureRow icon="chatbubble-ellipses-outline" text="Support prioritas" />
           </View>
-
-          {!isPremiumAccount && !isPremium && (
-            <View style={{ marginBottom: spacing.stackMd }}>
-              <Text style={styles.premiumDesc}>
-                Premium dapat digunakan dengan akun. Saat pindah perangkat, cukup login dan pulihkan data dari backup.
-              </Text>
-              <AppButton
-                title="Login Premium"
-                onPress={() => setShowLoginModal(true)}
-                variant="primary"
-                fullWidth
-                size="md"
-              />
-            </View>
-          )}
-
           <Button
             title="Lihat Fitur Premium"
             onPress={() => router.push('/settings/premium')}
@@ -475,7 +423,7 @@ export default function AccountScreen() {
         </Card>
 
         {/* ════════════════════════════════════════════════════════════
-            SECTION 6: Data Akun / Toko
+            SECTION 4: Data Akun / Toko
             ════════════════════════════════════════════════════════════ */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Data Akun / Toko</Text>
@@ -532,234 +480,143 @@ export default function AccountScreen() {
         </Card>
       </ScrollView>
 
-      {/* ── Modal Login Premium ── */}
+      {/* ─── Modal: Login Akun Cloud ─────────────────────────────── */}
       <AppModal
         visible={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
+        onClose={resetLoginModal}
         type="info"
-        title="Login Premium"
+        title="Masuk Akun Cloud"
         icon="log-in"
-        message="Masukkan nomor WhatsApp atau email yang terdaftar untuk login akun Premium."
+        message="Masukkan email dan password akun cloud Anda."
         primaryAction={{
-          label: isLoggingIn ? 'Memproses...' : 'Login',
-          onPress: handleLoginPremium,
+          label: isLoggingIn ? 'Memproses...' : 'Masuk',
+          onPress: handleLoginCloud,
           variant: 'primary',
           loading: isLoggingIn,
         }}
         secondaryAction={{
-          label: 'Batal',
-          onPress: () => { setShowLoginModal(false); setLoginInput(''); },
-          variant: 'outline',
+          label: 'Daftar Akun Cloud',
+          onPress: () => { resetLoginModal(); setShowRegisterModal(true); },
+          variant: 'ghost',
         }}
       >
-        <View style={loginStyles.inputRow}>
+        {loginError ? (
+          <View style={styles.errorRow}>
+            <Ionicons name="alert-circle" size={16} color={colors.error} />
+            <Text style={styles.errorText}>{loginError}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.inputRow}>
           <TextInput
-            style={loginStyles.input}
-            value={loginInput}
-            onChangeText={setLoginInput}
-            placeholder="08xxxxxx atau email@contoh.com"
+            style={styles.input}
+            value={loginEmail}
+            onChangeText={setLoginEmail}
+            placeholder="email@contoh.com"
             placeholderTextColor={colors.onSurfaceVariant}
             keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isLoggingIn}
+          />
+        </View>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={loginPassword}
+            onChangeText={setLoginPassword}
+            placeholder="Password"
+            placeholderTextColor={colors.onSurfaceVariant}
+            secureTextEntry
             autoCapitalize="none"
             editable={!isLoggingIn}
           />
         </View>
       </AppModal>
 
-      {/* ── Modal Restore Backup ── */}
+      {/* ─── Modal: Daftar Akun Cloud ────────────────────────────── */}
       <AppModal
-        visible={restoreState === 'backup_found'}
-        onClose={skipRestore}
+        visible={showRegisterModal}
+        onClose={resetRegisterModal}
         type="info"
-        title="Pulihkan Data?"
-        icon="cloud-download"
-        message={restoreMessage}
+        title="Daftar Akun Cloud"
+        icon="person-add"
+        message="Buat akun cloud untuk menyimpan backup data AdaKasir."
         primaryAction={{
-          label: isRestoring ? 'Memulihkan...' : 'Restore Sekarang',
-          onPress: handleRestoreFromBackup,
+          label: isRegistering ? 'Mendaftarkan...' : 'Daftar',
+          onPress: handleRegisterCloud,
           variant: 'primary',
-          loading: isRestoring,
+          loading: isRegistering,
         }}
         secondaryAction={{
-          label: 'Lewati Dulu',
-          onPress: skipRestore,
+          label: 'Sudah punya akun? Masuk',
+          onPress: () => { resetRegisterModal(); setShowLoginModal(true); },
           variant: 'outline',
         }}
       >
-        {backupInfo && (
-          <View style={loginStyles.backupDetail}>
-            {backupInfo.storeName && (
-              <Text style={loginStyles.backupText}>Toko: {backupInfo.storeName}</Text>
-            )}
-            <Text style={loginStyles.backupText}>
-              Backup: {new Date(backupInfo.createdAt).toLocaleDateString('id-ID')}
-            </Text>
-            <Text style={loginStyles.backupText}>
-              Data: {backupInfo.recordCounts.products || 0} produk, {backupInfo.recordCounts.customers || 0} pelanggan
-            </Text>
+        {regError ? (
+          <View style={styles.errorRow}>
+            <Ionicons name="alert-circle" size={16} color={colors.error} />
+            <Text style={styles.errorText}>{regError}</Text>
           </View>
-        )}
+        ) : null}
+
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={regEmail}
+            onChangeText={setRegEmail}
+            placeholder="Email"
+            placeholderTextColor={colors.onSurfaceVariant}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isRegistering}
+          />
+        </View>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={regPassword}
+            onChangeText={setRegPassword}
+            placeholder="Password (min. 6 karakter)"
+            placeholderTextColor={colors.onSurfaceVariant}
+            secureTextEntry
+            autoCapitalize="none"
+            editable={!isRegistering}
+          />
+        </View>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={regConfirmPassword}
+            onChangeText={setRegConfirmPassword}
+            placeholder="Konfirmasi Password"
+            placeholderTextColor={colors.onSurfaceVariant}
+            secureTextEntry
+            autoCapitalize="none"
+            editable={!isRegistering}
+          />
+        </View>
       </AppModal>
 
-      {/* ── Modal Konfirmasi Overwrite ── */}
+      {/* ─── Modal: Sukses Login/Daftar Cloud ────────────────────── */}
       <AppModal
-        visible={restoreState === 'confirm_overwrite'}
-        onClose={skipRestore}
-        type="warning"
-        title="Timpa Data Lokal?"
-        icon="warning"
-        message={restoreMessage}
-        primaryAction={{
-          label: isRestoring ? 'Memulihkan...' : 'Restore',
-          onPress: handleRestoreFromBackup,
-          variant: 'danger',
-          loading: isRestoring,
-        }}
-        secondaryAction={{
-          label: 'Batal',
-          onPress: skipRestore,
-          variant: 'outline',
-        }}
-      >
-        {backupInfo && (
-          <View style={loginStyles.backupDetail}>
-            {backupInfo.storeName && (
-              <Text style={loginStyles.backupText}>Toko: {backupInfo.storeName}</Text>
-            )}
-            <Text style={loginStyles.backupText}>
-              Backup: {new Date(backupInfo.createdAt).toLocaleDateString('id-ID')}
-            </Text>
-            <Text style={loginStyles.backupText}>
-              Data: {backupInfo.recordCounts.products || 0} produk, {backupInfo.recordCounts.customers || 0} pelanggan
-            </Text>
-          </View>
-        )}
-      </AppModal>
-
-      {/* ── Modal Restore Berhasil ── */}
-      <AppModal
-        visible={restoreState === 'restore_success'}
-        onClose={() => {
-          resetRestoreFlow();
-          router.replace('/(tabs)');
-        }}
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
         type="success"
-        title="Restore Berhasil"
+        title={successTitle}
         icon="checkmark-circle"
-        message="Data toko berhasil dipulihkan ke perangkat ini."
-        primaryAction={{
-          label: 'Mulai Gunakan AdaKasir',
-          onPress: () => {
-            resetRestoreFlow();
-            router.replace('/(tabs)');
-          },
-          variant: 'primary',
-        }}
-      />
-
-      {/* ── Modal Restore Gagal ── */}
-      <AppModal
-        visible={restoreState === 'restore_error'}
-        onClose={resetRestoreFlow}
-        type="warning"
-        title="Restore Gagal"
-        icon="alert-circle"
-        message={restoreMessage || 'Data belum berhasil dipulihkan. Coba lagi atau hubungi admin AdaKasir.'}
-        primaryAction={{
-          label: 'Coba Lagi',
-          onPress: handleRestoreFromBackup,
-          variant: 'primary',
-          loading: isRestoring,
-        }}
-        secondaryAction={{
-          label: 'Tutup',
-          onPress: resetRestoreFlow,
-          variant: 'outline',
-        }}
-      />
-
-      {/* ── Modal No Backup ── */}
-      <AppModal
-        visible={restoreState === 'no_backup'}
-        onClose={() => {
-          resetRestoreFlow();
-          router.replace('/(tabs)');
-        }}
-        type="info"
-        title="Login Premium Berhasil"
-        icon="checkmark-circle"
-        message="Belum ada backup data yang ditemukan untuk akun Premium ini."
-        primaryAction={{
-          label: 'Mulai Gunakan AdaKasir',
-          onPress: () => {
-            resetRestoreFlow();
-            router.replace('/(tabs)');
-          },
-          variant: 'primary',
-        }}
-      />
-
-      {/* ── Modal Hubungkan Akun Premium (manual fallback) ── */}
-      <AppModal
-        visible={showConnectAccountModal}
-        onClose={() => setShowConnectAccountModal(false)}
-        type="info"
-        title="Hubungkan Akun Premium"
-        icon="cloud-offline-outline"
-        message="Restore cloud membutuhkan akun Premium. Anda sudah mengaktifkan Premium menggunakan kode lisensi, tetapi belum login ke akun Premium. Silakan login dengan email atau nomor WhatsApp yang terdaftar agar backup cloud dapat ditemukan."
-        primaryAction={{
-          label: 'Login Premium',
-          onPress: () => { setShowConnectAccountModal(false); setShowLoginModal(true); },
-          variant: 'primary',
-        }}
-        secondaryAction={{
-          label: 'Nanti',
-          onPress: () => setShowConnectAccountModal(false),
-          variant: 'outline',
-        }}
-      />
-
-      {/* ── Modal Login Error ── */}
-      <AppModal
-        visible={showLoginErrorModal}
-        onClose={() => setShowLoginErrorModal(false)}
-        type="warning"
-        title={loginErrorTitle}
-        icon="alert-circle"
-        message={loginErrorMessage}
-        primaryAction={{
-          label: 'Hubungi Admin',
-          onPress: () => {
-            setShowLoginErrorModal(false);
-            setShowPaketPicker(true);
-          },
-          variant: 'primary',
-        }}
-        secondaryAction={{
-          label: 'Tutup',
-          onPress: () => setShowLoginErrorModal(false),
-          variant: 'ghost',
-        }}
-      />
-
-      {/* ── Modal Skipped ── */}
-      <AppModal
-        visible={restoreState === 'skipped'}
-        onClose={() => {
-          resetRestoreFlow();
-          router.replace('/(tabs)');
-        }}
-        type="info"
-        title="Restore Dilewati"
-        icon="information-circle"
-        message="Anda dapat melakukan restore kapan saja dari menu Akun & Lisensi."
+        message={successMessage}
         primaryAction={{
           label: 'Kembali ke Kasir',
-          onPress: () => {
-            resetRestoreFlow();
-            router.replace('/(tabs)');
-          },
+          onPress: () => router.replace('/(tabs)'),
           variant: 'primary',
+        }}
+        secondaryAction={{
+          label: 'Tutup',
+          onPress: () => setShowSuccessModal(false),
+          variant: 'outline',
         }}
       />
 
@@ -789,7 +646,6 @@ export default function AccountScreen() {
           },
         ]}
       />
-      <RestoreProgressModal progress={restoreProgress} />
       {modal}
     </View>
   );
@@ -820,12 +676,6 @@ const styles = StyleSheet.create({
   statusBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusLabel: { ...typography.labelSm, color: colors.onSurfaceVariant },
-  statusDesc: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    marginTop: spacing.stackSm,
-    lineHeight: 18,
-  },
   statusMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -836,68 +686,45 @@ const styles = StyleSheet.create({
   },
   statusMetaLabel: { ...typography.labelSm, color: colors.onSurfaceVariant },
   statusMetaValue: { ...typography.labelSm, color: colors.onSurface, fontWeight: '600' },
+  sectionAction: { marginTop: spacing.stackLg },
+  sectionActionSpacer: { height: spacing.stackSm },
 
-  idRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-
-  // ── Premium ──
-  premiumDesc: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    marginBottom: spacing.stackMd,
-    lineHeight: 20,
-  },
-
-  // ── Premium Active ──
-  premiumActiveHeader: {
+  // ── Section ──
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.stackSm,
-    marginBottom: spacing.stackSm,
-  },
-  premiumActiveDesc: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
     marginBottom: spacing.stackMd,
-    lineHeight: 20,
   },
-  manualFallbackCard: {
-    borderWidth: 1,
-    borderColor: colors.primary + '40',
-    backgroundColor: colors.primaryFixed + '30',
-  },
-  premiumActionRow: {
-    marginBottom: spacing.stackSm,
-  },
-  activationDesc: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    marginBottom: spacing.stackMd,
-    lineHeight: 20,
-  },
-
-  // ── Section title ──
   sectionTitle: { ...typography.bodyLg, color: colors.onSurface, fontWeight: '700' },
+
+  // ── Cloud Account ──
+  cloudStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  cloudStatusLabel: { ...typography.bodyMd, color: colors.secondary, fontWeight: '600' },
+  cloudEmailText: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm },
+  cloudDesc: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    lineHeight: 20,
+    marginBottom: spacing.stackMd,
+  },
+  cloudActions: { width: '100%' },
+  cloudActionSpacer: { height: spacing.stackSm },
+
+  // ── Features ──
+  featureList: { gap: spacing.stackSm, marginBottom: spacing.stackMd },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
+  featureText: { ...typography.bodyMd, color: colors.onSurface },
 
   // ── Data Akun ──
   label: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm, alignSelf: 'flex-start' },
   logoUpload: { alignItems: 'center', marginBottom: spacing.stackLg },
   logoBox: {
-    width: 104,
-    height: 104,
+    width: 104, height: 104,
     borderRadius: borderRadius.lg,
-    borderWidth: 2,
-    borderColor: colors.outlineVariant,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceContainerLow,
-    overflow: 'hidden',
+    borderWidth: 2, borderColor: colors.outlineVariant, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.surfaceContainerLow, overflow: 'hidden',
   },
   logoPreview: { width: '100%', height: '100%' },
   logoCameraBadge: {
@@ -905,38 +732,21 @@ const styles = StyleSheet.create({
     width: 24, height: 24, borderRadius: 12,
     backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
   },
-  logoHint: {
-    ...typography.labelSm, color: colors.primary, fontWeight: '600', marginTop: spacing.stackSm, textAlign: 'center',
-  },
+  logoHint: { ...typography.labelSm, color: colors.primary, fontWeight: '600', marginTop: spacing.stackSm, textAlign: 'center' },
 
-  // ── Fitur Premium ──
-  featureList: { gap: spacing.stackSm, marginBottom: spacing.stackMd },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.stackSm },
-  featureText: { ...typography.bodyMd, color: colors.onSurface },
-
-});
-
-const loginStyles = StyleSheet.create({
+  // ── Input ──
   inputRow: {
     flexDirection: 'row', alignItems: 'center', width: '100%',
     backgroundColor: colors.surfaceContainerLow, borderRadius: 12,
     borderWidth: 1, borderColor: colors.outlineVariant, padding: spacing.stackMd,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  input: {
-    flex: 1, ...typography.bodyLg, color: colors.onSurface,
-    paddingVertical: 0,
+  input: { flex: 1, ...typography.bodyLg, color: colors.onSurface, paddingVertical: 0 },
+
+  // ── Error ──
+  errorRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    width: '100%', marginBottom: 12,
   },
-  backupDetail: {
-    width: '100%',
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: 12,
-    padding: spacing.stackMd,
-    marginBottom: 16,
-    gap: 4,
-  },
-  backupText: {
-    ...typography.bodyMd,
-    color: colors.onSurface,
-  },
+  errorText: { flex: 1, ...typography.labelSm, color: colors.error },
 });

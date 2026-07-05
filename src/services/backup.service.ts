@@ -437,7 +437,7 @@ export const BackupService = {
         store_name: activeStore?.name || '',
       };
 
-      // 4. Simpan ke Supabase (upsert: satu backup per user + device)
+      // 4. Simpan ke Supabase (satu backup terbaru per user)
       const payload = {
         user_id: userId,
         store_id: storeId,
@@ -449,12 +449,13 @@ export const BackupService = {
         updated_at: new Date().toISOString(),
       };
 
-      // Upsert: cari dulu apakah sudah ada backup untuk user+device ini
+      // Upsert: cari backup terbaru untuk user ini
       const { data: existing } = await supabase
         .from('cloud_backups')
         .select('id')
         .eq('user_id', userId)
-        .eq('device_id', deviceId)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (existing) {
@@ -531,14 +532,11 @@ export const BackupService = {
     }
 
     try {
-      // 1. Ambil backup terbaru dari Supabase
-      const deviceId = await getDeviceId();
-
+      // 1. Ambil backup terbaru dari Supabase (berdasarkan user_id saja)
       const { data: backups, error } = await supabase
         .from('cloud_backups')
         .select('backup_data')
         .eq('user_id', userId)
-        .eq('device_id', deviceId)
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -625,13 +623,12 @@ export const BackupService = {
     const supabase = getSupabaseClient();
     if (!supabase) return [];
 
-    const deviceId = await getDeviceId();
+    
 
     const { data } = await supabase
       .from('cloud_backups')
       .select('id, created_at, record_counts, app_version')
       .eq('user_id', userId)
-      .eq('device_id', deviceId)
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -662,13 +659,12 @@ export const BackupService = {
       throw new Error('Cloud belum dikonfigurasi.');
     }
 
-    const deviceId = await getDeviceId();
+    
 
     const { error } = await supabase
       .from('cloud_backups')
       .delete()
       .eq('user_id', userId)
-      .eq('device_id', deviceId);
 
     if (error) throw error;
 

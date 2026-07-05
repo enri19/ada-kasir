@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../utils/constants';
 import { LicenseData, LicenseService, LicenseStatus, ActivationResult } from '../services/license.service';
-import { getSupabaseClient } from '../services/supabase.client';
+import { getSupabaseClient, getSession } from '../services/supabase.client';
 
 export type { LicenseData, LicenseStatus, ActivationResult } from '../services/license.service';
 
@@ -37,6 +37,12 @@ interface LicenseState {
   setPremiumAccount: (data: { accountId: string; name: string; phone: string; email: string; premiumExpiresAt: string }) => Promise<void>;
   clearPremiumAccount: () => Promise<void>;
 
+  // Cloud Account fields — separate from license
+  cloudUserId: string | null;
+  cloudEmail: string | null;
+  isCloudLoggedIn: boolean;
+  lastCloudLoginAt: string | null;
+
   // Permission helpers (computed from status)
   canUseBasicFeatures: () => boolean;
   canCreateTransaction: () => boolean;
@@ -48,6 +54,10 @@ interface LicenseState {
   canRestoreCloudBackup: () => boolean;
   isReadOnlyMode: () => boolean;
   isTrialExpired: () => boolean;
+
+  // Actions — cloud
+  setCloudAccount: (data: { userId: string; email: string | null }) => void;
+  clearCloudAccount: () => void;
 }
 
 const VALID_STATUSES: LicenseStatus[] = [
@@ -95,6 +105,10 @@ function parseStoredLicense(raw: string | null): LicenseData | null {
       hasCloudBackup: v.hasCloudBackup === true,
       premiumExpiresAt: isDateString(v.premiumExpiresAt) ? v.premiumExpiresAt : null,
       isPremiumAccountLogin: v.isPremiumAccountLogin === true,
+      cloudUserId: typeof v.cloudUserId === 'string' ? v.cloudUserId : null,
+      cloudEmail: typeof v.cloudEmail === 'string' ? v.cloudEmail : null,
+      isCloudLoggedIn: v.isCloudLoggedIn === true,
+      lastCloudLoginAt: typeof v.lastCloudLoginAt === 'string' ? v.lastCloudLoginAt : null,
     };
   } catch {
     return null;
@@ -125,6 +139,10 @@ function toState(data: LicenseData) {
     hasCloudBackup: data.hasCloudBackup || false,
     premiumExpiresAt: data.premiumExpiresAt || null,
     isPremiumAccountLogin: data.isPremiumAccountLogin === true,
+    cloudUserId: data.cloudUserId || null,
+    cloudEmail: data.cloudEmail || null,
+    isCloudLoggedIn: data.isCloudLoggedIn === true,
+    lastCloudLoginAt: data.lastCloudLoginAt || null,
   };
 }
 
@@ -148,6 +166,10 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   premiumExpiresAt: null,
   isPremiumAccountLogin: false,
   isLicenseLoaded: false,
+  cloudUserId: null,
+  cloudEmail: null,
+  isCloudLoggedIn: false,
+  lastCloudLoginAt: null,
 
   loadFromStorage: async () => {
     try {
@@ -165,6 +187,15 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
           if (meta?.lastBackupAt) data.lastBackupAt = meta.lastBackupAt;
         } catch {}
       }
+      // Sync cloud login state dari Supabase session yang masih aktif
+      try {
+        const session = await getSession();
+        if (session?.user) {
+          data.cloudUserId = session.user.id;
+          data.cloudEmail = session.user.email || data.cloudEmail;
+          data.isCloudLoggedIn = true;
+        }
+      } catch {}
       await saveLicense(data);
       console.log('[License] loaded from storage', stored ? { status: stored.status, source: stored.source } : null);
       console.log('[License] resolved status', data.status);
@@ -201,6 +232,10 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       hasCloudBackup: s.hasCloudBackup,
       premiumExpiresAt: s.premiumExpiresAt,
       isPremiumAccountLogin: s.isPremiumAccountLogin,
+      cloudUserId: s.cloudUserId,
+      cloudEmail: s.cloudEmail,
+      isCloudLoggedIn: s.isCloudLoggedIn,
+      lastCloudLoginAt: s.lastCloudLoginAt,
     };
     const status = LicenseService.resolveStatus(data);
     if (status === s.status) return;
@@ -249,6 +284,11 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       hasCloudBackup: false,
       premiumExpiresAt: result.expiresAt,
       isPremiumAccountLogin: false,
+      // Preserve cloud login state
+      cloudUserId: s.cloudUserId,
+      cloudEmail: s.cloudEmail,
+      isCloudLoggedIn: s.isCloudLoggedIn,
+      lastCloudLoginAt: s.lastCloudLoginAt,
     };
     data.status = LicenseService.resolveStatus(data);
     await saveLicense(data);
@@ -385,6 +425,80 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
     set(toState(data));
   },
 
+  // ─── Cloud Account ─────────────────────────────────────────────────────
+
+  setCloudAccount: async (data) => {
+    const s = get();
+    const now = new Date().toISOString();
+    const licenseData: LicenseData = {
+      deviceCode: s.deviceCode || LicenseService.generateDeviceCode(),
+      status: s.status,
+      installedAt: s.installedAt || now,
+      trialEndsAt: s.trialEndsAt || now,
+      activatedAt: s.activatedAt,
+      expiresAt: s.expiresAt,
+      licenseKey: s.licenseKey,
+      hasLifetime: s.hasLifetime,
+      source: s.source,
+      premiumAccountId: s.premiumAccountId,
+      premiumEmail: s.premiumEmail,
+      premiumPhone: s.premiumPhone,
+      premiumName: s.premiumName,
+      lastPremiumCheckAt: s.lastPremiumCheckAt,
+      lastBackupAt: s.lastBackupAt,
+      hasCloudBackup: s.hasCloudBackup,
+      premiumExpiresAt: s.premiumExpiresAt,
+      isPremiumAccountLogin: s.isPremiumAccountLogin,
+      cloudUserId: data.userId,
+      cloudEmail: data.email,
+      isCloudLoggedIn: true,
+      lastCloudLoginAt: now,
+    };
+    await saveLicense(licenseData);
+    set({
+      cloudUserId: data.userId,
+      cloudEmail: data.email,
+      isCloudLoggedIn: true,
+      lastCloudLoginAt: now,
+    });
+  },
+
+  clearCloudAccount: async () => {
+    const s = get();
+    const licenseData: LicenseData = {
+      deviceCode: s.deviceCode || LicenseService.generateDeviceCode(),
+      status: s.status,
+      installedAt: s.installedAt || new Date().toISOString(),
+      trialEndsAt: s.trialEndsAt || new Date().toISOString(),
+      activatedAt: s.activatedAt,
+      expiresAt: s.expiresAt,
+      licenseKey: s.licenseKey,
+      hasLifetime: s.hasLifetime,
+      source: s.source,
+      premiumAccountId: s.premiumAccountId,
+      premiumEmail: s.premiumEmail,
+      premiumPhone: s.premiumPhone,
+      premiumName: s.premiumName,
+      lastPremiumCheckAt: s.lastPremiumCheckAt,
+      lastBackupAt: s.lastBackupAt,
+      hasCloudBackup: false,
+      premiumExpiresAt: s.premiumExpiresAt,
+      isPremiumAccountLogin: false,
+      cloudUserId: null,
+      cloudEmail: null,
+      isCloudLoggedIn: false,
+      lastCloudLoginAt: null,
+    };
+    await saveLicense(licenseData);
+    set({
+      cloudUserId: null,
+      cloudEmail: null,
+      isCloudLoggedIn: false,
+      lastCloudLoginAt: null,
+      hasCloudBackup: false,
+    });
+  },
+
   // ─── Permission helpers ───────────────────────────────────────────────────
   canUseBasicFeatures: () => LicenseService.canUseBasicFeatures(get().status),
   canCreateTransaction: () => LicenseService.canCreateTransaction(get().status),
@@ -395,19 +509,17 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   canUseCloudBackup: () => {
     const s = get();
     return (
-      s.status === 'premium_active' &&
-      s.source === 'account' &&
-      s.isPremiumAccountLogin === true &&
-      Boolean(s.premiumAccountId)
+      (s.status === 'premium_active' || s.status === 'lifetime') &&
+      s.isCloudLoggedIn === true &&
+      Boolean(s.cloudUserId)
     );
   },
   canRestoreCloudBackup: () => {
     const s = get();
     return (
-      s.status === 'premium_active' &&
-      s.source === 'account' &&
-      s.isPremiumAccountLogin === true &&
-      Boolean(s.premiumAccountId)
+      (s.status === 'premium_active' || s.status === 'lifetime') &&
+      s.isCloudLoggedIn === true &&
+      Boolean(s.cloudUserId)
     );
   },
   isReadOnlyMode: () => LicenseService.isReadOnlyMode(get().status),

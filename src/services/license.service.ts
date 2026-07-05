@@ -57,6 +57,16 @@ export interface LicenseData {
   premiumExpiresAt?: string | null;
   /** Apakah login via Premium Account (bukan manual fallback) */
   isPremiumAccountLogin?: boolean;
+
+  // ─── Cloud Account fields ─────────────────────────────────────────
+  /** User ID dari Supabase Auth session */
+  cloudUserId?: string | null;
+  /** Email akun cloud */
+  cloudEmail?: string | null;
+  /** Status login cloud */
+  isCloudLoggedIn?: boolean;
+  /** Kapan terakhir login cloud */
+  lastCloudLoginAt?: string | null;
 }
 
 export type LicenseValidationResult =
@@ -274,16 +284,15 @@ export const LicenseService = {
     return status === 'trial_expired';
   },
 
-  /** Cloud backup hanya tersedia untuk Premium Account login */
-  canUseCloudBackup(data: { status: LicenseStatus; source: string | undefined; isPremiumAccountLogin: boolean | undefined; premiumAccountId: string | null | undefined }): boolean {
-    return data.status === 'premium_active' &&
-      data.source === 'account' &&
-      data.isPremiumAccountLogin === true &&
-      Boolean(data.premiumAccountId);
+  /** Cloud backup tersedia untuk Premium/Lifetime + sudah login cloud */
+  canUseCloudBackup(data: { status: LicenseStatus; isCloudLoggedIn: boolean; cloudUserId: string | null | undefined }): boolean {
+    return (data.status === 'premium_active' || data.status === 'lifetime') &&
+      data.isCloudLoggedIn === true &&
+      Boolean(data.cloudUserId);
   },
 
-  /** Restore cloud hanya tersedia untuk Premium Account aktif */
-  canRestoreCloudBackup(data: { status: LicenseStatus; source: string | undefined; isPremiumAccountLogin: boolean | undefined; premiumAccountId: string | null | undefined }): boolean {
+  /** Restore cloud — sama dengan canUseCloudBackup */
+  canRestoreCloudBackup(data: { status: LicenseStatus; isCloudLoggedIn: boolean; cloudUserId: string | null | undefined }): boolean {
     return this.canUseCloudBackup(data);
   },
 
