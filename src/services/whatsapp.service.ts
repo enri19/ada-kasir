@@ -68,6 +68,5 @@ export const WhatsAppService = {
     const encoded = encodeURIComponent(text);
     const url = `https://wa.me/${formatted}?text=${encoded}`;
     // In React Native, use Linking.openURL(url)
-    console.log('WhatsApp URL:', url);
   },
 };

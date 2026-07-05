@@ -21,7 +21,6 @@ export default function StokHabisScreen() {
       const items = await ProductRepository.getOutOfStockProducts();
       setProducts(items);
     } catch (error) {
-      console.error('Error loading out of stock products:', error);
     }
   };
 

@@ -45,7 +45,7 @@ export const DebtRepository = {
     const db = await getDatabase();
     const debts = await db.getAllAsync<any>(
       `SELECT d.id, d.customer_id as customerId, d.sale_id as saleId, d.source as source, d.amount, d.paid_amount as paidAmount, d.remaining_amount as remainingAmount, d.status, d.due_date as dueDate, d.note, d.created_at as createdAt, d.updated_at as updatedAt, c.name as customerName, c.phone as customerPhone
-       FROM debts d JOIN customers c ON d.customer_id = c.id ORDER BY d.created_at DESC`
+       FROM debts d JOIN customers c ON d.customer_id = c.id ORDER BY d.created_at DESC LIMIT 100`
     );
     return debts;
   },

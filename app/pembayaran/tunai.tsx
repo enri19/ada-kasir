@@ -98,7 +98,6 @@ export default function PembayaranTunaiScreen() {
         },
       });
     } catch (error: any) {
-      console.error('Payment error:', error);
       if (error.code === 'STOCK_INSUFFICIENT' && error.details) {
         Alert.alert(
           'Stok Tidak Cukup',

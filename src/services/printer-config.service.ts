@@ -16,7 +16,6 @@ export const PrinterConfigService = {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     } catch (error) {
-      console.error('Gagal menyimpan konfigurasi printer:', error);
     }
   },
 
@@ -35,7 +34,6 @@ export const PrinterConfigService = {
         };
       }
     } catch (error) {
-      console.error('Gagal membaca konfigurasi printer:', error);
     }
     return { ...DEFAULT_PRINTER_CONFIG };
   },
@@ -47,7 +45,6 @@ export const PrinterConfigService = {
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
     } catch (error) {
-      console.error('Gagal menghapus konfigurasi printer:', error);
     }
   },
 

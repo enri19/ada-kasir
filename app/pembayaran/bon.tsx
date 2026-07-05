@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../src/config/theme';
@@ -31,18 +31,19 @@ export default function PembayaranBonScreen() {
 
   const totalPrice = getTotal();
 
-  useEffect(() => {
-    loadCustomers();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadCustomers();
+    }, [])
+  );
 
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     try {
       const data = await CustomerRepository.getActive();
       setCustomers(data);
     } catch (error) {
-      console.error('Error loading customers:', error);
     }
-  };
+  }, []);
 
   const filteredCustomers = customers.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -91,7 +92,6 @@ export default function PembayaranBonScreen() {
         },
       });
     } catch (error: any) {
-      console.error('Debt payment error:', error);
       if (error.code === 'STOCK_INSUFFICIENT' && error.details) {
         Alert.alert(
           'Stok Tidak Cukup',

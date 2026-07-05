@@ -29,7 +29,7 @@ export default function DetailTransaksiScreen() {
 
   useEffect(() => {
     if (id) {
-      SaleRepository.getById(id).then(setSale).catch(console.error);
+      SaleRepository.getById(id).then(setSale).catch(() => {});
     }
   }, [id]);
 

@@ -142,6 +142,26 @@ export const CREATE_STOCK_MOVEMENTS_TABLE = `
 `;
 
 export const ALL_MIGRATIONS = [
+  // ========================
+  // STEP 5: Performance Indexes
+  // ========================
+  'CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_sales_payment_method ON sales(payment_method)',
+  'CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id)',
+  'CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON sale_items(product_id)',
+  'CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)',
+  'CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id)',
+  'CREATE INDEX IF NOT EXISTS idx_debts_customer_id ON debts(customer_id)',
+  'CREATE INDEX IF NOT EXISTS idx_debts_status ON debts(status)',
+  'CREATE INDEX IF NOT EXISTS idx_debts_due_date ON debts(due_date)',
+  'CREATE INDEX IF NOT EXISTS idx_debts_created_at ON debts(created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_debt_payments_debt_id ON debt_payments(debt_id)',
+  'CREATE INDEX IF NOT EXISTS idx_debt_payments_paid_at ON debt_payments(paid_at)',
+  'CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)',
+
+  // ========================
+  // Table Creation (original)
+  // ========================
   CREATE_STORES_TABLE,
   CREATE_CATEGORIES_TABLE,
   CREATE_PRODUCTS_TABLE,

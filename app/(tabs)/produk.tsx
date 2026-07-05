@@ -109,7 +109,6 @@ export default function ProdukScreen() {
       setCategories(cats);
       setNeedsRefresh(false);
     } catch (error) {
-      console.error('Error loading products:', error);
     } finally {
       setIsInitialLoading(false);
     }
@@ -197,7 +196,6 @@ export default function ProdukScreen() {
       await ProductRepository.update(product.id, { isActive: !product.isActive });
       await loadData();
     } catch (error) {
-      console.error('Error toggling product:', error);
     }
   }, [loadData]);
 
@@ -207,7 +205,6 @@ export default function ProdukScreen() {
       alert(`Selesai! ${inserted} produk ditambahkan, ${skipped} dilewati.`);
       await loadData();
     } catch (error) {
-      console.error('Seed error:', error);
       alert('Gagal mengisi dummy produk.');
     }
   };

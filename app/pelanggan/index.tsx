@@ -96,7 +96,6 @@ export default function KelolaPelangganScreen() {
       all.forEach((c, i) => { map[c.id] = summaries[i]; });
       setDebtMap(map);
     } catch (e) {
-      console.error('kelola pelanggan load error', e);
     }
   }, []);
 

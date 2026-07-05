@@ -614,7 +614,6 @@ export async function generatePdf(
 
     return dest;
   } catch (error) {
-    console.error('Gagal membuat file PDF:', error);
     throw new Error('Gagal membuat file PDF laporan.');
   }
 }
@@ -647,7 +646,6 @@ export async function generateCsvFile(
 
     return filePath;
   } catch (error) {
-    console.error('Gagal membuat file CSV:', error);
     throw new Error('Gagal membuat file CSV laporan.');
   }
 }
@@ -669,11 +667,9 @@ export async function shareFile(filePath: string): Promise<boolean> {
       });
       return true;
     } else {
-      console.log('Sharing tidak tersedia di perangkat ini. File tersimpan di:', filePath);
       return false;
     }
   } catch (error) {
-    console.error('Gagal membagikan file:', error);
     // Jangan throw — share gagal bukan error fatal
     return false;
   }
@@ -743,7 +739,6 @@ export async function saveFileToDevice(
       if (error?.message?.includes('user')) {
         return { cancelled: true };
       }
-      console.error('SAF save error, falling back:', error);
     }
   }
 

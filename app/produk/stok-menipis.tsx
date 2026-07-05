@@ -21,7 +21,6 @@ export default function StokMenipisScreen() {
       const items = await ProductRepository.getLowStockProducts();
       setProducts(items);
     } catch (error) {
-      console.error('Error loading low stock products:', error);
     }
   };
 

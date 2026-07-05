@@ -71,7 +71,6 @@ export default function PembayaranQRISScreen() {
                 },
               });
             } catch (error: any) {
-              console.error('QRIS payment error:', error);
               if (error.code === 'STOCK_INSUFFICIENT' && error.details) {
                 Alert.alert(
                   'Stok Tidak Cukup',

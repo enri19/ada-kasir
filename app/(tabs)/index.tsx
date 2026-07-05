@@ -74,7 +74,6 @@ export default function KasirScreen() {
       setCategories(cats);
       setNeedsRefresh(false);
     } catch (error) {
-      console.error('Error loading products:', error);
     } finally {
       setIsInitialLoading(false);
     }

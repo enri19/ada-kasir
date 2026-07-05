@@ -39,7 +39,7 @@ export default function TambahProdukScreen() {
   const [allowNegativeStock, setAllowNegativeStock] = useState(true);
 
   useEffect(() => {
-    CategoryRepository.getAll().then(setCategories).catch(console.error);
+    CategoryRepository.getAll().then(setCategories).catch(() => {});
   }, []);
 
   const getCategoryImageKey = (categoryName?: string): ProductImageKey => {
@@ -103,7 +103,6 @@ export default function TambahProdukScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
-      console.error('Save product error:', error);
       Alert.alert('Error', `Gagal menyimpan produk: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setSaving(false);

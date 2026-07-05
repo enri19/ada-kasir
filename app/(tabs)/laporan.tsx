@@ -34,7 +34,6 @@ export default function LaporanScreen() {
       setReport(daily);
       setLowStock(stock);
     } catch (e) {
-      console.error('laporan load error', e);
     }
   }, []);
 

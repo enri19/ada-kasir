@@ -91,7 +91,6 @@ export default function DetailPelangganScreen() {
       const payments = await DebtRepository.getDebtPaymentsByCustomerId(id);
       setPaymentHistory(payments);
     } catch (e) {
-      console.error('detail pelanggan error', e);
     }
   }, [id]);
 

@@ -193,7 +193,6 @@ export default function DetailLaporanScreen() {
       setTopProducts(top);
       setLowStock(stock);
     } catch (e) {
-      console.error('detail laporan error', e);
     } finally {
       setLoading(false);
     }

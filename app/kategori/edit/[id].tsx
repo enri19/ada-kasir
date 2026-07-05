@@ -26,7 +26,7 @@ export default function EditKategoriScreen() {
           setName(cat.name);
           setSortOrder(String(cat.sortOrder));
         }
-      }).catch(console.error);
+      }).catch(() => {});
     }
   }, [id]);
 

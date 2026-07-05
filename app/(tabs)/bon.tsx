@@ -156,7 +156,6 @@ export default function BonScreen() {
       }
       setActiveCustomers(customers);
     } catch (e) {
-      console.error('bon load error', e);
     }
   }, []);
 

@@ -40,7 +40,6 @@ export default function PilihPelangganScreen() {
       const data = await CustomerRepository.getAll();
       setCustomers(data);
     } catch (error) {
-      console.error('Error loading customers:', error);
     }
   };
 
@@ -76,7 +75,6 @@ export default function PilihPelangganScreen() {
         },
       });
     } catch (error) {
-      console.error('Debt payment error:', error);
       Alert.alert('Error', 'Gagal memproses pembayaran bon');
     } finally {
       setLoading(false);

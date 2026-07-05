@@ -19,84 +19,104 @@ export const ReportRepository = {
     const db = await getDatabase();
     const { startDate, endDate } = getLocalDayRange(date);
 
-    const salesResult = await db.getFirstAsync<{ total: number; count: number }>(
-      `SELECT COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled'`,
-      [startDate, endDate]
-    );
+    // Run all independent aggregate queries in parallel
+    const [
+      salesResult,
+      profitResult,
+      debtResult,
+      topProducts,
+      hourlySales,
+      paymentMethodRows,
+      debtPaymentRows,
+      stockSummary,
+    ] = await Promise.all([
+      // 1. Sales total + count
+      db.getFirstAsync<{ total: number; count: number }>(
+        `SELECT COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled'`,
+        [startDate, endDate]
+      ),
 
-    const profitResult = await db.getFirstAsync<{ profit: number }>(
-      `SELECT COALESCE(SUM((si.price - si.cost_price) * si.qty), 0) as profit 
-       FROM sale_items si JOIN sales s ON si.sale_id = s.id 
-       WHERE s.created_at >= ? AND s.created_at <= ? AND s.status != 'cancelled'`,
-      [startDate, endDate]
-    );
+      // 2. Profit
+      db.getFirstAsync<{ profit: number }>(
+        `SELECT COALESCE(SUM((si.price - si.cost_price) * si.qty), 0) as profit
+         FROM sale_items si JOIN sales s ON si.sale_id = s.id
+         WHERE s.created_at >= ? AND s.created_at <= ? AND s.status != 'cancelled'`,
+        [startDate, endDate]
+      ),
 
-    const debtResult = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(remaining_amount), 0) as total FROM debts WHERE status != 'paid'`
-    );
+      // 3. Total debt (unpaid)
+      db.getFirstAsync<{ total: number }>(
+        `SELECT COALESCE(SUM(remaining_amount), 0) as total FROM debts WHERE status != 'paid'`
+      ),
 
-    const topProducts = await db.getAllAsync<{ name: string; qty: number; revenue: number }>(
-      `SELECT si.product_name as name, SUM(si.qty) as qty, SUM(si.subtotal) as revenue 
-       FROM sale_items si JOIN sales s ON si.sale_id = s.id 
-       WHERE s.created_at >= ? AND s.created_at <= ? AND s.status != 'cancelled'
-       GROUP BY si.product_name ORDER BY qty DESC LIMIT 5`,
-      [startDate, endDate]
-    );
+      // 4. Top products
+      db.getAllAsync<{ name: string; qty: number; revenue: number }>(
+        `SELECT si.product_name as name, SUM(si.qty) as qty, SUM(si.subtotal) as revenue
+         FROM sale_items si JOIN sales s ON si.sale_id = s.id
+         WHERE s.created_at >= ? AND s.created_at <= ? AND s.status != 'cancelled'
+         GROUP BY si.product_name ORDER BY qty DESC LIMIT 5`,
+        [startDate, endDate]
+      ),
 
-    const hourlySales = await db.getAllAsync<{ hour: number; total: number }>(
-      `SELECT CAST(strftime('%H', created_at, 'localtime') AS INTEGER) as hour, COUNT(*) as total 
-       FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled'
-       GROUP BY hour ORDER BY hour`,
-      [startDate, endDate]
-    );
+      // 5. Hourly sales
+      db.getAllAsync<{ hour: number; total: number }>(
+        `SELECT CAST(strftime('%H', created_at, 'localtime') AS INTEGER) as hour, COUNT(*) as total
+         FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled'
+         GROUP BY hour ORDER BY hour`,
+        [startDate, endDate]
+      ),
 
-    const cashResult = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE created_at >= ? AND created_at <= ? AND payment_method = 'cash' AND status != 'cancelled'`,
-      [startDate, endDate]
-    );
+      // 6. Combined: sales totals by payment method (cash, qris, debt)
+      db.getAllAsync<{ paymentMethod: string; total: number }>(
+        `SELECT payment_method as paymentMethod, COALESCE(SUM(total_amount), 0) as total
+         FROM sales WHERE created_at >= ? AND created_at <= ? AND status != 'cancelled'
+         GROUP BY payment_method`,
+        [startDate, endDate]
+      ),
 
-    const qrisResult = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE created_at >= ? AND created_at <= ? AND payment_method = 'qris_static' AND status != 'cancelled'`,
-      [startDate, endDate]
-    );
+      // 7. Combined: debt payments by payment method (cash, qris)
+      db.getAllAsync<{ paymentMethod: string; total: number }>(
+        `SELECT payment_method as paymentMethod, COALESCE(SUM(amount), 0) as total
+         FROM debt_payments WHERE paid_at >= ? AND paid_at <= ?
+         GROUP BY payment_method`,
+        [startDate, endDate]
+      ),
 
-    const debtResult2 = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE created_at >= ? AND created_at <= ? AND payment_method = 'debt' AND status != 'cancelled'`,
-      [startDate, endDate]
-    );
+      // 8. Stock summary
+      db.getFirstAsync<{
+        totalProducts: number;
+        totalActiveProducts: number;
+        totalStockLow: number;
+        totalStockOut: number;
+        totalStockValue: number;
+      }>(
+        `SELECT
+           COUNT(*) as totalProducts,
+           SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as totalActiveProducts,
+           SUM(CASE WHEN track_stock = 1 AND min_stock > 0 AND stock <= min_stock THEN 1 ELSE 0 END) as totalStockLow,
+           SUM(CASE WHEN track_stock = 1 AND stock <= 0 THEN 1 ELSE 0 END) as totalStockOut,
+           COALESCE(SUM(stock * cost_price), 0) as totalStockValue
+         FROM products`,
+        []
+      ),
+    ]);
 
-    const debtPaymentsCash = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE paid_at >= ? AND paid_at <= ? AND payment_method = 'cash'`,
-      [startDate, endDate]
-    );
+    // Parse grouped payment methods
+    const pmtMap = new Map<string, number>();
+    for (const row of paymentMethodRows || []) {
+      pmtMap.set(row.paymentMethod, row.total);
+    }
+    const cashTotal = pmtMap.get('cash') || 0;
+    const qrisTotal = pmtMap.get('qris_static') || 0;
+    const debtTotal = pmtMap.get('debt') || 0;
 
-    const debtPaymentsQris = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM debt_payments WHERE paid_at >= ? AND paid_at <= ? AND payment_method = 'qris_static'`,
-      [startDate, endDate]
-    );
-
-    const stockSummary = await db.getFirstAsync<{
-      totalProducts: number;
-      totalActiveProducts: number;
-      totalStockLow: number;
-      totalStockOut: number;
-      totalStockValue: number;
-    }>(
-      `SELECT
-         COUNT(*) as totalProducts,
-         SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as totalActiveProducts,
-         SUM(CASE WHEN track_stock = 1 AND min_stock > 0 AND stock <= min_stock THEN 1 ELSE 0 END) as totalStockLow,
-         SUM(CASE WHEN track_stock = 1 AND stock <= 0 THEN 1 ELSE 0 END) as totalStockOut,
-         COALESCE(SUM(stock * cost_price), 0) as totalStockValue
-       FROM products`,
-      []
-    );
-
-    const cashTotal = cashResult?.total || 0;
-    const qrisTotal = qrisResult?.total || 0;
-    const debtTotal = debtResult2?.total || 0;
-    const debtCashTotal = debtPaymentsCash?.total || 0;
-    const debtQrisTotal = debtPaymentsQris?.total || 0;
+    // Parse grouped debt payments
+    const dpMap = new Map<string, number>();
+    for (const row of debtPaymentRows || []) {
+      dpMap.set(row.paymentMethod, row.total);
+    }
+    const debtCashTotal = dpMap.get('cash') || 0;
+    const debtQrisTotal = dpMap.get('qris_static') || 0;
     const debtPaymentTotal = debtCashTotal + debtQrisTotal;
 
     return {

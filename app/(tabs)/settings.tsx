@@ -69,7 +69,6 @@ export default function SettingsScreen() {
         { cancelable: false }
       );
     } catch (error) {
-      console.error('Clear app data error:', error);
       Alert.alert('Gagal Menghapus Data', 'Terjadi kesalahan. Data Anda belum dihapus sepenuhnya.');
     } finally {
       setIsClearing(false);

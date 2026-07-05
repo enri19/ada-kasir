@@ -20,7 +20,6 @@ export default function KategoriScreen() {
       const data = await CategoryRepository.getAll();
       setCategories(data);
     } catch (error) {
-      console.error('Error loading categories:', error);
     }
   }, []);
 

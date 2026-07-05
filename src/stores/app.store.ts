@@ -41,7 +41,6 @@ export const useAppStore = create<AppState>((set) => ({
       try {
         store = await StoreRepository.getActiveStore();
       } catch (error) {
-        console.error('Error loading store:', error);
       }
     }
 

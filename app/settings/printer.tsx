@@ -158,7 +158,6 @@ function PrinterSettingsView({ insets }: { insets: { top: number; bottom: number
           {
             text: 'Salin ke Log',
             onPress: () => {
-              console.log('[Test Print Preview]\n' + result);
               Alert.alert('Tersalin', 'Preview test print telah dicatat di log aplikasi.');
             },
           },

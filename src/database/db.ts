@@ -28,7 +28,6 @@ const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
     await runMigrations();
     return db;
   } catch (error) {
-    console.error('Database initialization error:', error);
     db = null;
     throw error;
   }
@@ -42,7 +41,6 @@ const runMigrations = async () => {
     } catch (error) {
       // Ignore errors for ALTER TABLE if column already exists
       if (!migration.includes('ALTER TABLE')) {
-        console.error('Migration error:', error);
         throw error;
       }
     }

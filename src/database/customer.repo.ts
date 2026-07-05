@@ -45,7 +45,7 @@ export const CustomerRepository = {
   async search(query: string): Promise<Customer[]> {
     const db = await getDatabase();
     return db.getAllAsync<Customer>(
-      `${SELECT_CUSTOMER} WHERE (name LIKE ? OR phone LIKE ?) AND COALESCE(is_active, 1) = 1 ORDER BY name ASC`,
+      `${SELECT_CUSTOMER} WHERE (name LIKE ? OR phone LIKE ?) AND COALESCE(is_active, 1) = 1 ORDER BY name ASC LIMIT 50`,
       [`%${query}%`, `%${query}%`]
     );
   },

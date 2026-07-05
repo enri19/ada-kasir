@@ -198,11 +198,8 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
         }
       } catch {}
       await saveLicense(data);
-      console.log('[License] loaded from storage', stored ? { status: stored.status, source: stored.source } : null);
-      console.log('[License] resolved status', data.status);
       set(toState(data));
     } catch (error) {
-      console.error('[License] loadFromStorage error', error);
       const data = LicenseService.createTrialLicense();
       data.status = LicenseService.resolveStatus(data);
       set(toState(data));
@@ -294,17 +291,6 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
     data.status = LicenseService.resolveStatus(data);
     await saveLicense(data);
     set(toState(data));
-    console.log('[Activation] success result', { code: licenseKey, status: data.status });
-    console.log('[Activation] license state after save', {
-      status: data.status,
-      plan: data.source === 'account' ? 'premium' : (data.hasLifetime ? 'lifetime' : 'premium'),
-      source: data.source,
-      licenseKey: data.licenseKey,
-      expiresAt: data.expiresAt,
-      premiumExpiresAt: data.premiumExpiresAt,
-      hasLifetime: data.hasLifetime,
-      isPremiumAccountLogin: data.source === 'account',
-    });
     return 'ok';
   },
 

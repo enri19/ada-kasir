@@ -78,7 +78,6 @@ export default function QrisSettingsScreen() {
         },
       ]);
     } catch (error) {
-      console.error('Save QRIS error:', error);
       Alert.alert('Gagal Menyimpan', 'QRIS toko belum berhasil disimpan. Silakan coba lagi.');
     } finally {
       setIsSaving(false);

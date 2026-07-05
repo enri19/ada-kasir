@@ -79,7 +79,7 @@ export default function EditProdukScreen() {
           setImageKey(prod.imageKey || getCategoryImageKey(prod.name));
         }
         setCategories(cats);
-      }).catch(console.error);
+      }).catch(() => {});
     }
   }, [id]);
 
@@ -123,7 +123,6 @@ export default function EditProdukScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
-      console.error('Update product error:', error);
       Alert.alert('Error', `Gagal menyimpan produk: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setSaving(false);

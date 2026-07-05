@@ -48,7 +48,6 @@ export const ReportService = {
 
       return filePath;
     } catch (error: any) {
-      console.error('Report service: generateExcelReport error', error);
       throw error;
     }
   },
@@ -80,7 +79,6 @@ export const ReportService = {
 
       return filePath;
     } catch (error: any) {
-      console.error('Report service: generatePDFReport error', error);
       throw error;
     }
   },

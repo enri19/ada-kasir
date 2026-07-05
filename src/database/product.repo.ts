@@ -51,7 +51,6 @@ export const ProductRepository = {
         ]
       );
     } catch (error) {
-      console.error('ProductRepository.create error:', error);
       throw error;
     }
     return product;
@@ -108,7 +107,7 @@ export const ProductRepository = {
   async search(query: string): Promise<Product[]> {
     const db = await getDatabase();
     const rows = await db.getAllAsync<any>(
-      `SELECT id, category_id as categoryId, name, sku, barcode, cost_price as costPrice, sell_price as sellPrice, stock, min_stock as minStock, track_stock as trackStock, allow_negative_stock as allowNegativeStock, unit, image_uri as imageUri, image_key as imageKey, is_active as isActive, created_at as createdAt, updated_at as updatedAt FROM products WHERE name LIKE ? AND is_active = 1 ORDER BY name ASC`,
+      `SELECT id, category_id as categoryId, name, sku, barcode, cost_price as costPrice, sell_price as sellPrice, stock, min_stock as minStock, track_stock as trackStock, allow_negative_stock as allowNegativeStock, unit, image_uri as imageUri, image_key as imageKey, is_active as isActive, created_at as createdAt, updated_at as updatedAt FROM products WHERE name LIKE ? AND is_active = 1 ORDER BY name ASC LIMIT 50`,
       [`%${query}%`]
     );
     return rows.map((r: any) => ({ ...r, isActive: r.isActive === 1, trackStock: r.trackStock === 1, allowNegativeStock: r.allowNegativeStock === 1, imageKey: r.imageKey || 'default' }));

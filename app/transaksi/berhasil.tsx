@@ -62,11 +62,9 @@ export default function TransaksiBerhasilScreen() {
               createdAt: debt.createdAt,
             });
             setDebtDueDate(date);
-            setIsEstimated(isEstimated);
+            }
           }
-        }
       } catch (error) {
-        console.error('Failed to load sale data:', error);
       }
     };
 
@@ -138,7 +136,6 @@ export default function TransaksiBerhasilScreen() {
         Alert.alert('Berhasil', 'Struk berhasil dicetak.');
       }
     } catch (error) {
-      console.error('Print error:', error);
       Alert.alert('Gagal Cetak', 'Struk gagal dicetak. Periksa koneksi printer.');
     }
   };
@@ -157,7 +154,7 @@ export default function TransaksiBerhasilScreen() {
         await Linking.openURL(`https://wa.me/?text=${encoded}`);
       }
     } catch (error) {
-      console.error('Share error:', error);
+
       Alert.alert('Error', 'Gagal membuka WhatsApp');
     }
   };

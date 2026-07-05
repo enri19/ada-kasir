@@ -38,7 +38,7 @@ export default function DetailProdukKasirScreen() {
           const cat = cats.find((c) => c.id === prod.categoryId);
           setCategoryName(cat?.name || '');
         }
-      }).catch(console.error);
+      }).catch(() => {});
     }
   }, [id]);
 
