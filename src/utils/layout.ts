@@ -8,7 +8,7 @@
  * @returns Minimum of 16 or the safe area inset, whichever is larger
  */
 export function getSafeFooterPadding(bottomInset: number) {
-  return Math.max(bottomInset, 16);
+  return Math.max(bottomInset, 28);
 }
 
 /**
@@ -18,5 +18,5 @@ export function getSafeFooterPadding(bottomInset: number) {
  * @returns Footer height plus minimum safe area padding
  */
 export function getScrollBottomPadding(bottomInset: number, footerHeight = 96) {
-  return footerHeight + Math.max(bottomInset, 24);
+  return footerHeight + Math.max(bottomInset, 28);
 }

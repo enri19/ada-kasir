@@ -21,15 +21,14 @@ import { useLicenseStore } from '../../../src/stores/license.store';
 import { WhatsAppService } from '../../../src/services/whatsapp.service';
 import { AppModal } from '../../../src/components/ui/AppModal';
 import { AppButton } from '../../../src/components/ui/AppButton';
-
-function getStatusBadge(status: string) {
-  switch (status) {
-    case 'unpaid': return { text: 'BELUM LUNAS', color: colors.error, bg: '#ffebee' };
-    case 'partial': return { text: 'CICILAN', color: '#2196f3', bg: '#e3f2fd' };
-    case 'paid':    return { text: 'LUNAS', color: colors.secondary, bg: '#e8f5e9' };
-    default:        return { text: status, color: colors.onSurfaceVariant, bg: colors.surfaceContainerLow };
-  }
-}
+import { getDebtDueStatus, getDebtDueStatusColors } from '../../../src/utils/debtStatus';
+import {
+  formatDebtDate,
+  formatDebtDateTime,
+  getEffectiveDueDate,
+  getNearestDueDate,
+  getDueDateLabel,
+} from '../../../src/utils/debtDate';
 
 export default function DetailPelangganScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -282,14 +281,32 @@ export default function DetailPelangganScreen() {
           <View style={styles.debtBanner}>
             <Text style={styles.debtBannerLabel}>TOTAL BON BELUM LUNAS</Text>
             <CurrencyText amount={totalDebt} size="lg" color={colors.onPrimary} />
-            <Text style={styles.debtBannerSub}>
-              Terakhir:{' '}
-              {debts.length > 0
-                ? new Date(debts[0].createdAt).toLocaleDateString('id-ID', {
+            {debts.length > 0 && (
+              <>
+                <Text style={styles.debtBannerSub}>
+                  Bon terakhir dibuat:{' '}
+                  {new Date(debts[0].createdAt).toLocaleDateString('id-ID', {
                     day: 'numeric', month: 'short', year: 'numeric',
-                  })
-                : '-'}
-            </Text>
+                  })}
+                </Text>
+                {(() => {
+                  const nearestDue = getNearestDueDate(debts);
+                  if (!nearestDue) return null;
+                  const today = new Date();
+                  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                  const dueStart = new Date(nearestDue.getFullYear(), nearestDue.getMonth(), nearestDue.getDate());
+                  const diffDays = Math.round((dueStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+                  const isOverdue = diffDays < 0;
+                  return (
+                    <Text style={[styles.debtBannerSub, isOverdue && { color: '#ffcdd2' }]}>
+                      {isOverdue
+                        ? `Terlambat sejak: ${formatDebtDate(nearestDue)}`
+                        : `Jatuh tempo terdekat: ${formatDebtDate(nearestDue)}`}
+                    </Text>
+                  );
+                })()}
+              </>
+            )}
           </View>
         )}
 
@@ -311,28 +328,42 @@ export default function DetailPelangganScreen() {
           </View>
         ) : (
           debts.map((debt) => {
-            const badge = getStatusBadge(debt.status);
+            const statusResult = getDebtDueStatus({
+              status: debt.status,
+              remainingAmount: debt.remainingAmount,
+              dueDate: debt.dueDate,
+              createdAt: debt.createdAt,
+              defaultTermDays: 30,
+            });
+            const badge = getDebtDueStatusColors(statusResult.type);
+            const dueInfo = getEffectiveDueDate({
+              dueDate: debt.dueDate,
+              createdAt: debt.createdAt,
+            });
             return (
               <Card key={debt.id} style={styles.debtItem}>
                 <View style={styles.debtItemRow}>
                   <View style={styles.debtItemInfo}>
                     <Text style={styles.debtItemNote}>
                       {debt.note || `Bon #${debt.id.substring(0, 8)}`}
+                      {debt.source === 'manual' && (
+                        <Text style={styles.debtSourceLabel}> · Bon Manual</Text>
+                      )}
                     </Text>
                     <Text style={styles.debtItemDate}>
-                      {new Date(debt.createdAt).toLocaleDateString('id-ID', {
-                        day: 'numeric', month: 'short', year: 'numeric',
-                      })}
-                      {' · '}
-                      {new Date(debt.createdAt).toLocaleTimeString('id-ID', {
-                        hour: '2-digit', minute: '2-digit',
-                      })}
+                      {formatDebtDateTime(new Date(debt.createdAt))}
                     </Text>
+                    {dueInfo.date && (
+                      <Text style={styles.debtItemDueDate}>
+                        {dueInfo.isEstimated ? 'Jatuh tempo estimasi: ' : 'Jatuh tempo: '}
+                        {formatDebtDate(dueInfo.date)}
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.debtItemRight}>
                     <CurrencyText amount={debt.amount} size="sm" color={colors.primary} />
                     <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-                      <Text style={[styles.badgeText, { color: badge.color }]}>{badge.text}</Text>
+                      <Text style={[styles.badgeText, { color: badge.color }]}>{statusResult.label}</Text>
                     </View>
                   </View>
                 </View>
@@ -590,6 +621,8 @@ const styles = StyleSheet.create({
   debtItemInfo: { flex: 1, marginRight: spacing.stackMd },
   debtItemNote: { ...typography.bodyMd, fontWeight: '600', color: colors.onSurface },
   debtItemDate: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2 },
+  debtItemDueDate: { ...typography.labelSm, color: colors.primary, marginTop: 1, fontWeight: '600' },
+  debtSourceLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, fontStyle: 'italic' },
   debtItemRight: { alignItems: 'flex-end' },
   badge: { marginTop: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: borderRadius.sm },
   badgeText: { fontSize: 9, fontWeight: '700' },

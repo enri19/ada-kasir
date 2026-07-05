@@ -43,6 +43,9 @@ export const InvoiceService = {
     await StockService.reduceStockForSaleItems(items, sale.id, 'sale');
 
     if (paymentMethod === 'debt' && customerId) {
+      // Default due_date = 30 hari dari sekarang
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
       await DebtRepository.createDebt(
         customerId,
         sale.id,
@@ -50,7 +53,7 @@ export const InvoiceService = {
         0,
         totalAmount,
         'unpaid',
-        null,
+        dueDate.toISOString().slice(0, 10),
         null,
         'transaction'
       );

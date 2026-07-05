@@ -117,7 +117,7 @@ export default function PilihPelangganScreen() {
 
       <ScrollView style={styles.content} contentContainerStyle={{
         padding: spacing.marginMobile,
-        paddingBottom: 120 + Math.max(insets.bottom, 24)
+        paddingBottom: 120 + Math.max(insets.bottom, 28)
       }}>
         <Text style={styles.sectionTitle}>DAFTAR PELANGGAN</Text>
 

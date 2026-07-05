@@ -97,7 +97,7 @@ export default function DetailProdukKasirScreen() {
       <CustomHeader title="Detail Produk" onBack={() => router.back()} />
       <ScrollView style={styles.content} contentContainerStyle={{
         ...styles.contentContainer,
-        paddingBottom: 120 + Math.max(insets.bottom, 24)
+        paddingBottom: 120 + Math.max(insets.bottom, 28)
       }}>
         {/* Image Section */}
         <View style={styles.imageContainer}>
@@ -182,7 +182,7 @@ export default function DetailProdukKasirScreen() {
       </ScrollView>
 
        <View style={[styles.bottomBar, {
-         paddingBottom: Math.max(insets.bottom, 16)
+         paddingBottom: Math.max(insets.bottom, 28)
        }]}>
         <TouchableOpacity
           style={styles.bottomButton}

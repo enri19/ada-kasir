@@ -18,19 +18,9 @@ import { useAppStore } from '../../src/stores/app.store';
 import { useLicenseStore } from '../../src/stores/license.store';
 import { AppModal } from '../../src/components/ui/AppModal';
 import { AppButton } from '../../src/components/ui/AppButton';
+import { getDebtDueStatus, getDebtDueStatusColors } from '../../src/utils/debtStatus';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getStatusInfo(status: string, remainingAmount: number, createdAt: string, dueDate?: string | null) {
-  if (status === 'paid') return { text: 'LUNAS', color: colors.secondary, bg: '#e8f5e9' };
-  if (remainingAmount > 0) {
-    const daysSince = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000);
-    if (daysSince > 7) return { text: 'MENDESAK', color: '#f44336', bg: '#ffebee' };
-    if (dueDate && new Date(dueDate) < new Date()) return { text: 'JATUH TEMPO', color: '#ff9800', bg: '#fff3e0' };
-    return { text: 'BELUM LUNAS', color: colors.error, bg: '#ffebee' };
-  }
-  return { text: 'CICILAN', color: '#2196f3', bg: '#e3f2fd' };
-}
 
 function getTimeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -60,7 +50,14 @@ function formatDateLabel(date: Date) {
 // ─── DebtCard (memo, outside screen) ─────────────────────────────────────────
 
 const DebtCard = React.memo(({ item, onPress }: { item: DebtWithCustomer; onPress: () => void }) => {
-  const si = getStatusInfo(item.status, item.remainingAmount, item.createdAt, item.dueDate);
+  const statusResult = getDebtDueStatus({
+    status: item.status,
+    remainingAmount: item.remainingAmount,
+    dueDate: item.dueDate,
+    createdAt: item.createdAt,
+    defaultTermDays: 30,
+  });
+  const badge = getDebtDueStatusColors(statusResult.type);
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={styles.debtCardWrap}>
       <Card style={styles.debtCardInner}>
@@ -84,8 +81,8 @@ const DebtCard = React.memo(({ item, onPress }: { item: DebtWithCustomer; onPres
           </View>
           <View style={styles.debtAmountCol}>
             <CurrencyText amount={item.remainingAmount} size="sm" color={colors.primary} />
-            <View style={[styles.statusBadge, { backgroundColor: si.bg }]}>
-              <Text style={[styles.statusBadgeText, { color: si.color }]}>{si.text}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.statusBadgeText, { color: badge.color }]}>{statusResult.label}</Text>
             </View>
           </View>
         </View>
@@ -122,6 +119,13 @@ export default function BonScreen() {
   const [manualAmount, setManualAmount] = useState('');
   const [manualDate, setManualDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [manualDueDate, setManualDueDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d;
+  });
+  const [manualDueDateTouched, setManualDueDateTouched] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [manualNote, setManualNote] = useState('Sisa bon dari catatan lama');
   const [saving, setSaving] = useState(false);
 
@@ -167,10 +171,15 @@ export default function BonScreen() {
       setShowReadOnlyModal(true);
       return;
     }
+    const today = new Date();
+    const defaultDue = new Date(today);
+    defaultDue.setDate(defaultDue.getDate() + 30);
     setSelectedCustomer(null);
     setCustomerSearch('');
     setManualAmount('');
-    setManualDate(new Date());
+    setManualDate(today);
+    setManualDueDate(defaultDue);
+    setManualDueDateTouched(false);
     setManualNote('Sisa bon dari catatan lama');
     setShowModal(true);
   }, [isReadOnly]);
@@ -199,11 +208,19 @@ export default function BonScreen() {
       Alert.alert('Nominal tidak valid', 'Masukkan nominal bon yang benar.');
       return;
     }
+    // Validasi: due_date tidak boleh lebih awal dari tanggal bon
+    const bonDate = new Date(manualDate.getFullYear(), manualDate.getMonth(), manualDate.getDate());
+    const dueDate = new Date(manualDueDate.getFullYear(), manualDueDate.getMonth(), manualDueDate.getDate());
+    if (dueDate < bonDate) {
+      Alert.alert('Error', 'Tanggal jatuh tempo tidak boleh lebih awal dari tanggal bon.');
+      return;
+    }
     setSaving(true);
     try {
+      const dueDateStr = manualDueDate.toISOString().slice(0, 10);
       await DebtRepository.createDebt(
         selectedCustomer.id, null, amount, 0, amount, 'unpaid',
-        manualDate.toISOString().slice(0, 10),
+        dueDateStr,
         manualNote.trim() || 'Sisa bon dari catatan lama',
         'manual', manualDate.toISOString()
       );
@@ -216,7 +233,7 @@ export default function BonScreen() {
     } finally {
       setSaving(false);
     }
-  }, [selectedCustomer, manualAmount, manualDate, manualNote, loadData]);
+  }, [selectedCustomer, manualAmount, manualDate, manualDueDate, manualNote, loadData]);
 
   const renderDebt = useCallback(({ item }: { item: DebtWithCustomer }) => (
     <DebtCard item={item} onPress={() => router.push(`/pelanggan/detail/${item.customerId}` as never)} />
@@ -356,7 +373,35 @@ export default function BonScreen() {
                 maximumDate={new Date()}
                 onChange={(_e: DateTimePickerEvent, d?: Date) => {
                   setShowDatePicker(Platform.OS === 'ios');
-                  if (d) setManualDate(d);
+                  if (d) {
+                    setManualDate(d);
+                    // Auto-update due date only if user hasn't touched it manually
+                    if (!manualDueDateTouched) {
+                      const newDue = new Date(d);
+                      newDue.setDate(newDue.getDate() + 30);
+                      setManualDueDate(newDue);
+                    }
+                  }
+                }}
+              />
+            )}
+
+            {/* Tanggal Jatuh Tempo */}
+            <Text style={styles.fieldLabel}>Tanggal Jatuh Tempo</Text>
+            <TouchableOpacity style={styles.input} onPress={() => setShowDueDatePicker(true)}>
+              <Text style={styles.inputText}>{formatDateLabel(manualDueDate)}</Text>
+            </TouchableOpacity>
+            {showDueDatePicker && (
+              <DateTimePicker
+                value={manualDueDate}
+                mode="date"
+                display="default"
+                onChange={(_e: DateTimePickerEvent, d?: Date) => {
+                  setShowDueDatePicker(Platform.OS === 'ios');
+                  if (d) {
+                    setManualDueDate(d);
+                    setManualDueDateTouched(true);
+                  }
                 }}
               />
             )}

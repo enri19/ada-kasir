@@ -89,6 +89,9 @@ export default function PembayaranBonScreen() {
         saleItems
       );
 
+      // Default due_date = 30 hari dari sekarang
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
       await DebtRepository.createDebt(
         selectedCustomer.id,
         sale.id,
@@ -96,7 +99,7 @@ export default function PembayaranBonScreen() {
         0,
         totalPrice,
         'unpaid',
-        null,
+        dueDate.toISOString().slice(0, 10),
         note.trim() || null,
         'transaction'
       );

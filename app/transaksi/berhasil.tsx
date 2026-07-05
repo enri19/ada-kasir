@@ -150,7 +150,7 @@ export default function TransaksiBerhasilScreen() {
         contentContainerStyle={{
           paddingHorizontal: spacing.marginMobile,
           paddingTop: 16,
-          paddingBottom: 120 + Math.max(insets.bottom, 24)
+          paddingBottom: 120 + Math.max(insets.bottom, 28)
         }}
       >
         <View style={styles.successCard}>
@@ -233,7 +233,7 @@ export default function TransaksiBerhasilScreen() {
         />
       </AppFooterActions>
 
-      <Text style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>Sistem Kasir {activeStore?.name || APP_NAME} v{APP_VERSION}</Text>
+      <Text style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 28) }]}>Sistem Kasir {activeStore?.name || APP_NAME} v{APP_VERSION}</Text>
 
       <AppModal
         visible={premiumModalVisible}

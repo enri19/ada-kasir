@@ -123,7 +123,7 @@ export default function DetailTransaksiScreen() {
 
       <ScrollView style={styles.content} contentContainerStyle={{
         padding: spacing.marginMobile,
-        paddingBottom: 120 + Math.max(insets.bottom, 24)
+        paddingBottom: 120 + Math.max(insets.bottom, 28)
       }}>
         <Card style={styles.infoCard}>
           <Text style={styles.invoiceNumber}>{sale.invoiceNumber}</Text>

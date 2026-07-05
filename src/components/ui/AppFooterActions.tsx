@@ -2,7 +2,6 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../config/theme';
-import { getSafeFooterPadding } from '../../utils/layout';
 
 type AppFooterActionsProps = {
   children: React.ReactNode;
@@ -17,7 +16,7 @@ export function AppFooterActions({ children, style }: AppFooterActionsProps) {
       style={[
         styles.container,
         {
-          paddingBottom: getSafeFooterPadding(insets.bottom),
+          paddingBottom: Math.max(insets.bottom, 28),
         },
         style,
       ]}

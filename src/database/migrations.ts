@@ -165,4 +165,7 @@ export const ALL_MIGRATIONS = [
   "ALTER TABLE products ADD COLUMN image_key TEXT DEFAULT 'default'",
   "ALTER TABLE debts ADD COLUMN source TEXT NOT NULL DEFAULT 'transaction'",
   'ALTER TABLE customers ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
+
+  // Safe: add due_date if not already present (ignore error if exists)
+  "ALTER TABLE debts ADD COLUMN due_date TEXT",
 ];

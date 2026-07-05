@@ -15,7 +15,7 @@ export function BottomActionBar({ children, style }: BottomActionBarProps) {
     <View
       style={[
         styles.container,
-        { paddingBottom: Math.max(insets.bottom, 16) },
+        { paddingBottom: Math.max(insets.bottom, 28) },
         style,
       ]}
     >
