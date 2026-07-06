@@ -47,7 +47,7 @@ function getDescription(status: string): string {
     case 'premium_expired':
       return 'Masa aktif Premium sudah berakhir.';
     case 'lifetime':
-      return 'Lisensi seumur hidup aktif.';
+      return 'Akses aplikasi dasar seumur hidup aktif. Fitur Premium seperti Export dan Cloud Backup membutuhkan Premium aktif.';
     default:
       return '';
   }
@@ -73,6 +73,8 @@ export default function AccountScreen() {
   const isCloudLoggedIn = useLicenseStore((s) => s.isCloudLoggedIn);
 
   const hasPremium = isPremiumAccess(licenseStatus);
+  const hasCloudAccountAccess = licenseStatus === 'premium_active';
+  const isLifetime = licenseStatus === 'lifetime';
 
   // ── Store form state ──
   const [storeName, setStoreName] = useState(activeStore?.name || '');
@@ -190,11 +192,11 @@ export default function AccountScreen() {
             <Text style={styles.metaValueMono}>{deviceCode || '-'}</Text>
           </View>
 
-          {/* Tombol aktivasi */}
-          {!hasPremium && (
+          {/* Tombol aktivasi — hanya untuk user trial */}
+          {(licenseStatus === 'trial_active' || licenseStatus === 'trial_expired') && (
             <View style={styles.actionArea}>
               <AppButton
-                title="Aktifkan Premium"
+                title="Aktifkan Lisensi"
                 onPress={() => router.push('/settings/activation')}
                 variant="primary"
                 fullWidth
@@ -204,22 +206,24 @@ export default function AccountScreen() {
             </View>
           )}
 
-          {/* Info akun cloud ringkas */}
-          <View style={styles.cloudInfoBox}>
-            <Ionicons name="cloud-outline" size={16} color={colors.onSurfaceVariant} />
-            <Text style={styles.cloudInfoText}>
-              {isCloudLoggedIn && cloudEmail
-                ? `Akun Cloud: ${cloudEmail}`
-                : 'Akun Cloud: Belum Terhubung'}
-            </Text>
-            <AppButton
-              title="Kelola"
-              onPress={() => router.push('/settings/cloud-backup')}
-              variant="ghost"
-              size="sm"
-              icon={<Ionicons name="arrow-forward" size={14} color={colors.primary} />}
-            />
-          </View>
+          {/* Info akun cloud ringkas — hanya tampil untuk akun Premium */}
+          {hasCloudAccountAccess && (
+            <View style={styles.cloudInfoBox}>
+              <Ionicons name="cloud-outline" size={16} color={colors.onSurfaceVariant} />
+              <Text style={styles.cloudInfoText}>
+                {isCloudLoggedIn && cloudEmail
+                  ? `Akun Cloud: ${cloudEmail}`
+                  : 'Akun Cloud: Belum Terhubung'}
+              </Text>
+              <AppButton
+                title="Kelola"
+                onPress={() => router.push('/settings/cloud-backup')}
+                variant="ghost"
+                size="sm"
+                icon={<Ionicons name="arrow-forward" size={14} color={colors.primary} />}
+              />
+            </View>
+          )}
         </Card>
 
         {/* ════════════════════════════════════════════════════════════
@@ -249,7 +253,13 @@ export default function AccountScreen() {
             />
           ) : (
             <AppButton
-              title="Aktifkan Premium"
+              title={
+                licenseStatus === 'premium_expired'
+                  ? 'Perpanjang Premium'
+                  : licenseStatus === 'trial_expired'
+                  ? 'Aktifkan Lisensi'
+                  : 'Aktifkan Premium'
+              }
               onPress={() => router.push('/settings/activation')}
               variant="primary"
               fullWidth

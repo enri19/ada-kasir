@@ -1,3 +1,21 @@
+/**
+ * @deprecated LEGACY — Premium Account Login via email/phone (tanpa Supabase Auth)
+ *
+ * Service ini menggunakan RPC check_premium_account untuk login lewat email/phone
+ * ke tabel licenses, BUKAN melalui Supabase Auth.
+ *
+ * Flow ini sudah digantikan oleh Supabase Auth + cloud_backups.user_id.
+ * Lihat useCloudAccount.ts untuk flow yang benar.
+ *
+ * Jangan gunakan service ini untuk fitur baru.
+ * Jangan hapus dulu — mungkin diperlukan untuk backward compatibility.
+ *
+ * Related:
+ * - usePremiumLogin.ts (legacy hook)
+ * - RPC: check_premium_account (legacy — revoke anon nanti)
+ * - RPC: premium_restore_get_backup (legacy — revoke anon nanti)
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { getSupabaseClient } from './supabase.client';

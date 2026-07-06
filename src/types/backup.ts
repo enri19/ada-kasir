@@ -12,6 +12,18 @@ import { Store } from './store';
 export const BACKUP_SCHEMA_VERSION = 1;
 
 /**
+ * Metadata yang disimpan di dalam backup_data (JSONB).
+ * Digunakan untuk identifikasi backup tanpa perlu membaca seluruh records.
+ */
+export interface BackupDataMetadata {
+  user_id: string;
+  email?: string;
+  device_id: string;
+  store_name?: string;
+  created_at: string;
+}
+
+/**
  * Data lengkap yang akan dibackup ke cloud.
  * Berisi semua record dari SQLite lokal, dibungkus dalam satu JSON.
  */
@@ -26,7 +38,9 @@ export interface BackupData {
   records: BackupRecords;
   /** Jumlah record per tabel untuk verifikasi */
   recordCounts: Record<string, number>;
-  /** Nama toko (disimpan di root agar mudah dicari oleh RPC) */
+  /** Metadata backup (user_id, email, device_id, store_name, dll) */
+  metadata?: BackupDataMetadata;
+  /** @deprecated — pindah ke metadata.store_name. Jangan gunakan untuk query restore. */
   store_name?: string;
 }
 

@@ -196,8 +196,37 @@ export default function ActivationScreen() {
       >
         {/* Penjelasan */}
         <Text style={styles.subtitle}>
-          Masukkan kode lisensi yang diberikan oleh admin AdaKasir.
+          Masukkan kode lisensi Lifetime atau Premium yang diberikan oleh admin AdaKasir.
         </Text>
+
+        {/* Card Jenis Lisensi */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.codeCardHeader}>
+            <Ionicons name="diamond-outline" size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Jenis Lisensi</Text>
+          </View>
+          <View style={styles.planList}>
+            <View style={styles.planRow}>
+              <View style={[styles.planBadge, { backgroundColor: '#6a4e9c' + '20' }]}>
+                <Text style={[styles.planBadgeText, { color: '#6a4e9c' }]}>Lifetime</Text>
+              </View>
+              <View style={styles.planInfo}>
+                <Text style={styles.planName}>Lifetime Basic</Text>
+                <Text style={styles.planDesc}>Akses penuh selamanya di perangkat ini. Untuk pindah perangkat, hubungi admin.</Text>
+              </View>
+            </View>
+            <View style={styles.planDivider} />
+            <View style={styles.planRow}>
+              <View style={[styles.planBadge, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.planBadgeText, { color: colors.primary }]}>Premium</Text>
+              </View>
+              <View style={styles.planInfo}>
+                <Text style={styles.planName}>Premium Bulanan / Tahunan</Text>
+                <Text style={styles.planDesc}>Fitur lengkap + cloud backup & restore. Masuk Akun Cloud setelah aktivasi untuk backup data.</Text>
+              </View>
+            </View>
+          </View>
+        </Card>
 
         {/* Card Kode Perangkat */}
         <Card style={styles.sectionCard}>
@@ -227,16 +256,12 @@ export default function ActivationScreen() {
             <Text style={styles.sectionTitle}>Cara Aktivasi Lisensi</Text>
           </View>
           <View style={styles.stepsList}>
-            <StepItem number={1} text="Salin kode perangkat di atas." />
-            <StepItem number={2} text="Kirim kode perangkat ke admin AdaKasir melalui WhatsApp." />
+            <StepItem number={1} text='Klik "Hubungi Admin" dan pilih paket Lifetime atau Premium.' />
+            <StepItem number={2} text="WhatsApp akan terbuka dengan data toko & kode perangkat otomatis tercantum. Kirim pesan tersebut." />
             <StepItem number={3} text="Admin akan mengirimkan kode lisensi setelah pembayaran dikonfirmasi." />
-            <StepItem number={4} text="Masukkan kode lisensi pada kolom di bawah." />
-            <StepItem number={5} text="Tekan tombol Aktivasi." />
-          </View>
-          <View style={styles.codeExample}>
-            <Text style={styles.codeExampleLabel}>Contoh format kode:</Text>
-            <Text style={styles.codeExampleText}>Lifetime: ADK-LIFE-XXXX-2026</Text>
-            <Text style={styles.codeExampleText}>Premium: ADK-PREM-XXXX-20260731</Text>
+            <StepItem number={4} text="Salin kode lisensi yang diterima, lalu tempel di kolom input di bawah." />
+            <StepItem number={5} text='Tekan tombol "Aktivasi Lisensi".' />
+            <StepItem number={6} text="(Premium) Setelah aktivasi, masuk atau daftar Akun Cloud untuk backup & restore data." />
           </View>
         </Card>
 
@@ -273,10 +298,36 @@ export default function ActivationScreen() {
         </Card>
 
         {/* Catatan */}
-        <Text style={styles.footerNote}>
-          Lifetime Basic aktif untuk perangkat ini. Masuk atau daftar Akun Cloud untuk backup dan
-          restore data saat pindah perangkat.
-        </Text>
+        {isPremium ? (
+          <View style={styles.footerNoteBox}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.secondary} />
+            <Text style={styles.footerNoteText}>
+              Premium sudah aktif di perangkat ini. {'\n'}
+              Masuk atau daftar{' '}
+              <Text style={styles.footerNoteLink} onPress={() => router.push('/settings/cloud-backup')}>
+                Akun Cloud
+              </Text>
+              {' '}untuk backup & restore data.
+            </Text>
+          </View>
+        ) : licenseStatus === 'lifetime' ? (
+          <View style={styles.footerNoteBox}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.secondary} />
+            <Text style={styles.footerNoteText}>
+              Lifetime Basic aktif di perangkat ini. {'\n'}
+              Cloud backup hanya tersedia untuk pengguna Premium.
+              Untuk pindah perangkat, hubungi admin.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.footerNoteBox}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.onSurfaceVariant} />
+            <Text style={styles.footerNoteText}>
+              Kode lisensi didapat dari admin AdaKasir setelah pembayaran. {'\n'}
+              Lisensi berlaku untuk satu perangkat. Untuk pindah perangkat, hubungi admin.
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Modal Hasil Aktivasi */}
@@ -457,6 +508,19 @@ const styles = StyleSheet.create({
   stepNumber: { ...typography.labelSm, color: colors.primary, fontWeight: '700', fontSize: 13 },
   stepText: { ...typography.bodyMd, color: colors.onSurface, flex: 1 },
 
+  // Plan list
+  planList: { gap: spacing.stackSm },
+  planRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.stackSm },
+  planBadge: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: borderRadius.md,
+    minWidth: 72, alignItems: 'center',
+  },
+  planBadgeText: { ...typography.labelSm, fontWeight: '700', fontSize: 11 },
+  planInfo: { flex: 1 },
+  planName: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '700' },
+  planDesc: { ...typography.labelSm, color: colors.onSurfaceVariant, marginTop: 2, lineHeight: 16 },
+  planDivider: { height: 1, backgroundColor: colors.outlineVariant, marginVertical: 2 },
+
   // Code example
   codeExample: {
     marginTop: spacing.stackMd,
@@ -477,6 +541,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 2,
   },
+  codeExampleHint: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
+    marginTop: spacing.stackSm,
+    lineHeight: 16,
+    fontStyle: 'italic',
+  },
 
   // Input & buttons
   label: { ...typography.labelSm, color: colors.onSurfaceVariant, marginBottom: spacing.stackSm, fontWeight: '700' },
@@ -484,11 +555,24 @@ const styles = StyleSheet.create({
   contactBtn: { marginTop: spacing.stackSm },
 
   // Footer
-  footerNote: {
+  footerNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.stackSm,
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: borderRadius.md,
+    padding: spacing.stackMd,
+    marginTop: spacing.stackMd,
+  },
+  footerNoteText: {
+    flex: 1,
     ...typography.labelSm,
     color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginTop: spacing.stackSm,
+    lineHeight: 18,
+  },
+  footerNoteLink: {
+    color: colors.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });

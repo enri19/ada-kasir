@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors, typography } from '../../config/theme';
 import { AppModal } from './AppModal';
-import type { RestoreProgress } from '../../hooks/usePremiumLogin';
+import type { RestoreProgress } from '../../hooks/useCloudAccount';
 
 interface Props {
   progress: RestoreProgress;

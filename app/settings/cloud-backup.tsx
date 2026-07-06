@@ -44,7 +44,7 @@ function usePremiumStatus(): { isPremiumAccess: boolean; isChecking: boolean } {
     }, [refreshStatus])
   );
 
-  return { isPremiumAccess: status === 'premium_active' || status === 'lifetime', isChecking };
+  return { isPremiumAccess: status === 'premium_active', isChecking };
 }
 
 // ============================================================
@@ -172,6 +172,25 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
   const lastBackupAt = useLicenseStore((s) => s.lastBackupAt);
   const canUseCloudBackup = useLicenseStore((s) => s.canUseCloudBackup);
 
+  // ── Silent sync: ambil lastBackupAt dari cloud saat mount/focus ──
+  // Tidak trigger restore flow, hanya update info "Backup terakhir"
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
+      (async () => {
+        try {
+          const backups = await BackupService.listCloudBackups();
+          if (active && backups.length > 0) {
+            useLicenseStore.setState({ lastBackupAt: backups[0].updatedAt || backups[0].createdAt });
+          }
+        } catch {
+          // Silent fail — tidak mengganggu user
+        }
+      })();
+      return () => { active = false; };
+    }, [])
+  );
+
   const {
     restoreState,
     restoreMessage,
@@ -220,8 +239,9 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
   };
 
   // ── Tentukan apakah perlu menampilkan tombol restore di UI ──
+  // Termasuk 'checking_backup' agar tombol tetap tampil dengan spinner
   const shouldShowRestoreButton = !restoreState ||
-    ['idle', 'no_backup', 'restore_success', 'restore_error', 'skipped'].includes(restoreState);
+    ['idle', 'checking_backup', 'no_backup', 'restore_success', 'restore_error', 'skipped'].includes(restoreState);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -361,7 +381,7 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
         {backupInfo && (
           <View style={styles.backupDetail}>
             <Text style={styles.backupText}>
-              Backup: {new Date(backupInfo.createdAt).toLocaleDateString('id-ID')}
+              Backup: {new Date(backupInfo.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </Text>
             <Text style={styles.backupText}>
               Data: {backupInfo.recordCounts.products || 0} produk,{' '}
@@ -389,7 +409,7 @@ function CloudConnectedView({ insets }: { insets: { top: number; bottom: number 
         {backupInfo && (
           <View style={styles.backupDetail}>
             <Text style={styles.backupText}>
-              Backup: {new Date(backupInfo.createdAt).toLocaleDateString('id-ID')}
+              Backup: {new Date(backupInfo.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </Text>
             <Text style={styles.backupText}>
               Data: {backupInfo.recordCounts.products || 0} produk,{' '}

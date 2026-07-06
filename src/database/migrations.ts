@@ -55,6 +55,7 @@ export const CREATE_CUSTOMERS_TABLE = `
     phone TEXT,
     address TEXT,
     note TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -115,7 +116,7 @@ export const CREATE_DEBT_PAYMENTS_TABLE = `
   CREATE TABLE IF NOT EXISTS debt_payments (
     id TEXT PRIMARY KEY NOT NULL,
     debt_id TEXT NOT NULL,
-    customer_id TEXT NOT NULL,
+    customer_id TEXT,
     amount REAL NOT NULL,
     payment_method TEXT NOT NULL DEFAULT 'cash',
     note TEXT,
@@ -141,10 +142,10 @@ export const CREATE_STOCK_MOVEMENTS_TABLE = `
   );
 `;
 
-export const ALL_MIGRATIONS = [
-  // ========================
-  // STEP 5: Performance Indexes
-  // ========================
+// ============================================================
+// STEP 5: Performance Indexes - MUST be after all CREATE TABLE
+// ============================================================
+export const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at)',
   'CREATE INDEX IF NOT EXISTS idx_sales_payment_method ON sales(payment_method)',
   'CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id)',
@@ -158,10 +159,12 @@ export const ALL_MIGRATIONS = [
   'CREATE INDEX IF NOT EXISTS idx_debt_payments_debt_id ON debt_payments(debt_id)',
   'CREATE INDEX IF NOT EXISTS idx_debt_payments_paid_at ON debt_payments(paid_at)',
   'CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)',
+];
 
-  // ========================
-  // Table Creation (original)
-  // ========================
+// ============================================================
+// Table Creation (original) - All tables must be created before ALTER and Index
+// ============================================================
+export const TABLE_MIGRATIONS = [
   CREATE_STORES_TABLE,
   CREATE_CATEGORIES_TABLE,
   CREATE_PRODUCTS_TABLE,
@@ -170,7 +173,7 @@ export const ALL_MIGRATIONS = [
   CREATE_SALE_ITEMS_TABLE,
   CREATE_DEBTS_TABLE,
   CREATE_DEBT_PAYMENTS_TABLE,
-  // Backfill new columns for existing installations
+  // Backfill new columns for existing installations (ALTER TABLE must be after CREATE TABLE)
   "ALTER TABLE debt_payments ADD COLUMN customer_id TEXT",
   "ALTER TABLE debt_payments ADD COLUMN payment_method TEXT DEFAULT 'cash'",
   "ALTER TABLE debt_payments ADD COLUMN paid_at TEXT",
@@ -185,7 +188,14 @@ export const ALL_MIGRATIONS = [
   "ALTER TABLE products ADD COLUMN image_key TEXT DEFAULT 'default'",
   "ALTER TABLE debts ADD COLUMN source TEXT NOT NULL DEFAULT 'transaction'",
   'ALTER TABLE customers ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
-
   // Safe: add due_date if not already present (ignore error if exists)
   "ALTER TABLE debts ADD COLUMN due_date TEXT",
+];
+
+// ============================================================
+// All migrations in correct order: TABLES first, then ALTER, then INDEXES
+// ============================================================
+export const ALL_MIGRATIONS = [
+  ...TABLE_MIGRATIONS,
+  ...CREATE_INDEXES,
 ];

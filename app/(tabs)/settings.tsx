@@ -10,7 +10,7 @@ import { Card } from '../../src/components/Card';
 import { useAppStore } from '../../src/stores/app.store';
 import { useLicenseStore } from '../../src/stores/license.store';
 import { useCartStore } from '../../src/stores/cart.store';
-import { resetDatabase } from '../../src/database/db';
+import { resetDatabase, clearApplicationData } from '../../src/database/db';
 import { APP_NAME, APP_VERSION, STORAGE_KEYS } from '../../src/utils/constants';
 import { AppImages } from '../../src/constants/assets';
 
@@ -51,7 +51,9 @@ export default function SettingsScreen() {
   const clearAllData = async () => {
     setIsClearing(true);
     try {
-      await resetDatabase();
+      // Gunakan clearApplicationData() bukan resetDatabase()
+      // clearApplicationData hanya menghapus data, tidak drop schema
+      await clearApplicationData();
       await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
 
       useCartStore.getState().clearCart();
@@ -69,7 +71,8 @@ export default function SettingsScreen() {
         { cancelable: false }
       );
     } catch (error) {
-      Alert.alert('Gagal Menghapus Data', 'Terjadi kesalahan. Data Anda belum dihapus sepenuhnya.');
+      // Jangan tampilkan error native mentah ke user
+      Alert.alert('Gagal Menghapus Data', 'Data belum berhasil dihapus. Silakan coba lagi.');
     } finally {
       setIsClearing(false);
     }

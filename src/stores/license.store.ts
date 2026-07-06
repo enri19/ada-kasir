@@ -17,16 +17,20 @@ interface LicenseState {
   licenseKey: string | null;
   hasLifetime: boolean;
 
-  // Premium Account fields
+  // ─── Premium Account fields (LEGACY — login via email/phone, bukan Supabase Auth) ───
+  // @deprecated — Gunakan cloudUserId/cloudEmail untuk identitas cloud via Supabase Auth
   source: 'trial' | 'local_device' | 'manual_fallback' | 'account';
   premiumAccountId: string | null;
   premiumEmail: string | null;
   premiumPhone: string | null;
   premiumName: string | null;
   lastPremiumCheckAt: string | null;
+  // Shared fields (dipakai oleh Cloud Account juga)
   lastBackupAt: string | null;
   hasCloudBackup: boolean;
+  // @deprecated — Gunakan expiresAt dari verify_license
   premiumExpiresAt: string | null;
+  // @deprecated — Gunakan isCloudLoggedIn
   isPremiumAccountLogin: boolean;
   isLicenseLoaded: boolean;
 
@@ -34,7 +38,17 @@ interface LicenseState {
   loadFromStorage: () => Promise<void>;
   refreshStatus: () => Promise<void>;
   activateLicense: (licenseKey: string) => Promise<ActivationResult>;
+  // ─── Premium Account (LEGACY — login via email/phone tanpa Supabase Auth) ───
+  /**
+   * @deprecated LEGACY — Gunakan setCloudAccount untuk Cloud Account via Supabase Auth.
+   * Method ini untuk flow login Premium Akun via email/phone ke tabel licenses.
+   * Tidak dihapus untuk backward compatibility.
+   */
   setPremiumAccount: (data: { accountId: string; name: string; phone: string; email: string; premiumExpiresAt: string }) => Promise<void>;
+  /**
+   * @deprecated LEGACY — Gunakan clearCloudAccount untuk Cloud Account.
+   * Tidak dihapus untuk backward compatibility.
+   */
   clearPremiumAccount: () => Promise<void>;
 
   // Cloud Account fields — separate from license
@@ -51,6 +65,7 @@ interface LicenseState {
   canExportReport: () => boolean;
   canUsePremiumFeatures: () => boolean;
   isPremiumAccess: () => boolean;
+  isLifetime: () => boolean;
   canUseCloudBackup: () => boolean;
   canRestoreCloudBackup: () => boolean;
   isReadOnlyMode: () => boolean;
@@ -188,15 +203,31 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
           if (meta?.lastBackupAt) data.lastBackupAt = meta.lastBackupAt;
         } catch {}
       }
-      // Sync cloud login state dari Supabase session yang masih aktif
-      try {
-        const session = await getSession();
-        if (session?.user) {
-          data.cloudUserId = session.user.id;
-          data.cloudEmail = session.user.email || data.cloudEmail;
-          data.isCloudLoggedIn = true;
-        }
-      } catch {}
+      // Cloud state hanya valid untuk user Premium
+      // Trial/Lifetime user TIDAK BOLEH punya cloud state — paksa clear
+      const hasPremiumAccess = data.status === 'premium_active';
+
+      if (hasPremiumAccess && data.isCloudLoggedIn && data.cloudUserId) {
+        try {
+          const session = await getSession();
+          if (session?.user && session.user.id === data.cloudUserId) {
+            data.cloudEmail = session.user.email || data.cloudEmail;
+            data.isCloudLoggedIn = true;
+          } else {
+            // Session expired / beda user → clear
+            data.cloudUserId = null;
+            data.cloudEmail = null;
+            data.isCloudLoggedIn = false;
+            data.lastCloudLoginAt = null;
+          }
+        } catch {}
+      } else if (!hasPremiumAccess) {
+        // Trial / expired — paksa clear cloud state dari data lama
+        data.cloudUserId = null;
+        data.cloudEmail = null;
+        data.isCloudLoggedIn = false;
+        data.lastCloudLoginAt = null;
+      }
       await saveLicense(data);
       set(toState(data));
     } catch (error) {
@@ -294,8 +325,13 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
     return 'ok';
   },
 
-  // ─── Premium Account ─────────────────────────────────────────────────────
+  // ─── Premium Account (LEGACY) ───────────────────────────────────────────────
 
+  /**
+   * @deprecated LEGACY — Gunakan setCloudAccount untuk Cloud Account via Supabase Auth.
+   * Method ini untuk flow login Premium via email/phone ke tabel licenses.
+   * Tidak dihapus untuk backward compatibility.
+   */
   setPremiumAccount: async (accountData) => {
     const s = get();
     const now = new Date().toISOString();
@@ -324,6 +360,10 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
     set(toState(data));
   },
 
+  /**
+   * @deprecated LEGACY — Gunakan clearCloudAccount.
+   * Tidak dihapus untuk backward compatibility.
+   */
   clearPremiumAccount: async () => {
     const s = get();
 
@@ -494,6 +534,7 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
   canExportReport: () => LicenseService.canExportReport(get().status),
   canUsePremiumFeatures: () => LicenseService.canUsePremiumFeatures(get().status),
   isPremiumAccess: () => LicenseService.isPremiumAccess(get().status),
+  isLifetime: () => LicenseService.isLifetime(get().status),
   canUseCloudBackup: () => {
     const s = get();
     return (

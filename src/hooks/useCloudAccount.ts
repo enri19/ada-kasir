@@ -73,11 +73,16 @@ export function useCloudAccount() {
       }
 
       const latest = backups[0];
+      // Gunakan updated_at untuk display — created_at tidak berubah saat update backup
+      const backupTime = latest.updatedAt || latest.createdAt;
       setBackupInfo({
         id: latest.id,
-        createdAt: latest.createdAt,
+        createdAt: backupTime,
         recordCounts: latest.recordCounts || {},
       });
+
+      // Sync lastBackupAt ke license store agar UI "Backup terakhir" ter-update
+      useLicenseStore.setState({ lastBackupAt: backupTime });
 
       const hasLocalData = await checkLocalData();
       if (hasLocalData) {
@@ -186,7 +191,7 @@ export function useCloudAccount() {
     try {
       // Gunakan restore standar by user_id (bukan restoreFromData)
       // restoreFromCloud sudah handle clear data + insert
-      const result = await BackupService.restoreFromCloud();
+      await BackupService.restoreFromCloud();
 
       // Refresh state aplikasi
       const activeStore = await StoreRepository.getActiveStore();
@@ -195,6 +200,12 @@ export function useCloudAccount() {
         useAppStore.getState().setActiveStore(activeStore);
       }
       useAppStore.getState().setIsOnboardingComplete(true);
+
+      // Sync lastBackupAt ke license store agar UI "Backup terakhir" ter-update
+      const backupTime = await BackupService.getLastBackupTime();
+      if (backupTime) {
+        useLicenseStore.setState({ lastBackupAt: backupTime });
+      }
 
       setRestoreProgress({ visible: false, step: '', percent: null, detail: '' });
       setRestoreState('restore_success');

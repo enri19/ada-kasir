@@ -47,6 +47,8 @@ const runMigrations = async () => {
   }
 };
 
+// resetDatabase drops schema and is intended for developer testing only.
+// User-facing clear data must use clearApplicationData().
 export const resetDatabase = async () => {
   if (!__DEV__) {
     throw new Error('resetDatabase is for development only');
@@ -64,4 +66,31 @@ export const resetDatabase = async () => {
     DROP TABLE IF EXISTS stores;
   `);
   await runMigrations();
+};
+
+/**
+ * Membersihkan data aplikasi dengan menghapus isi tabel, bukan DROP TABLE.
+ * Hanya menghapus data, tetap mempertahankan schema, index, dan foreign key.
+ * Ini yang harus digunakan untuk fitur "Hapus Data" user-facing.
+ */
+export const clearApplicationData = async () => {
+  const database = await getDatabase();
+
+  await database.execAsync('PRAGMA foreign_keys = OFF');
+
+  try {
+    await database.execAsync(`
+      DELETE FROM stock_movements;
+      DELETE FROM debt_payments;
+      DELETE FROM debts;
+      DELETE FROM sale_items;
+      DELETE FROM sales;
+      DELETE FROM customers;
+      DELETE FROM products;
+      DELETE FROM categories;
+      DELETE FROM stores;
+    `);
+  } finally {
+    await database.execAsync('PRAGMA foreign_keys = ON');
+  }
 };

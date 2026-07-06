@@ -263,24 +263,34 @@ export const LicenseService = {
     return this.canUseBasicFeatures(status);
   },
 
-  /** Boleh export Excel / PDF — Premium atau Lifetime */
+  /** Export Excel / PDF — Premium only */
   canExportReport(status: LicenseStatus): boolean {
-    return status === 'premium_active' || status === 'lifetime';
+    return status === 'premium_active';
   },
 
-  /** Fitur Premium aktif — premium_active atau lifetime */
+  /** Fitur Premium khusus — Premium only */
   canUsePremiumFeatures(status: LicenseStatus): boolean {
-    return status === 'premium_active' || status === 'lifetime';
+    return status === 'premium_active';
   },
 
-  /** Helper: cek apakah user punya akses Premium (premium_active atau lifetime) */
+  /** Helper: Premium aktif — hanya premium_active */
   isPremiumAccess(status: LicenseStatus | null | undefined): boolean {
-    return status === 'premium_active' || status === 'lifetime';
+    return status === 'premium_active';
+  },
+
+  /** Lifetime aktif */
+  isLifetime(status: LicenseStatus): boolean {
+    return status === 'lifetime';
+  },
+
+  /** App usable (tidak read-only) */
+  isAppUsable(status: LicenseStatus): boolean {
+    return status === 'trial_active' || status === 'premium_active' || status === 'lifetime';
   },
 
   /** Mode read-only: data bisa dilihat tapi tidak bisa diubah */
   isReadOnlyMode(status: LicenseStatus): boolean {
-    return status === 'trial_expired' || status === 'premium_expired';
+    return status === 'trial_expired';
   },
 
   /** Shortcut cek trial expired */
@@ -288,14 +298,14 @@ export const LicenseService = {
     return status === 'trial_expired';
   },
 
-  /** Cloud backup tersedia untuk Premium/Lifetime + sudah login cloud */
+  /** Cloud backup tersedia — Premium only + sudah login cloud */
   canUseCloudBackup(data: { status: LicenseStatus; isCloudLoggedIn: boolean; cloudUserId: string | null | undefined }): boolean {
-    return (data.status === 'premium_active' || data.status === 'lifetime') &&
+    return data.status === 'premium_active' &&
       data.isCloudLoggedIn === true &&
       Boolean(data.cloudUserId);
   },
 
-  /** Restore cloud — sama dengan canUseCloudBackup */
+  /** Restore cloud — Premium only */
   canRestoreCloudBackup(data: { status: LicenseStatus; isCloudLoggedIn: boolean; cloudUserId: string | null | undefined }): boolean {
     return this.canUseCloudBackup(data);
   },

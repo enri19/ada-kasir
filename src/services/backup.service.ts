@@ -34,6 +34,37 @@ const BACKUP_VERSION = '1';
 // ============================================================
 
 /**
+ * Normalisasi nilai untuk SQLite - undefined/null menjadi null
+ */
+function dbValue<T>(value: T | null | undefined, fallback?: any): any {
+  return value === undefined || value === null ? (fallback ?? null) : value;
+}
+
+/**
+ * Normalisasi string - undefined/null menjadi fallback (default '')
+ */
+function dbText(value: unknown, fallback = ''): string {
+  return value === undefined || value === null ? fallback : String(value);
+}
+
+/**
+ * Normalisasi number - undefined/null menjadi fallback (default 0)
+ */
+function dbNumber(value: unknown, fallback = 0): number {
+  if (value === undefined || value === null) return fallback;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+/**
+ * Normalisasi boolean - true=1, false=0, undefined/null menjadi fallback (default 1)
+ */
+function dbBool(value: unknown, fallback = true): number {
+  if (value === undefined || value === null) return fallback ? 1 : 0;
+  return value ? 1 : 0;
+}
+
+/**
  * Mengecek koneksi internet.
  */
 async function checkConnection(): Promise<boolean> {
@@ -133,12 +164,14 @@ async function collectAllData(): Promise<{
 /**
  * Validasi data backup sebelum restore.
  * Memastikan field penting tersedia dan schema version dikenal.
+ * Untuk kompatibilitas dengan backup lama, validasi dibuat lebih lenient.
  */
 function validateBackupData(data: BackupData): string | null {
   if (!data || typeof data !== 'object') {
     return 'Data backup tidak valid.';
   }
 
+  // Validasi schema version (wajib)
   if (data.schemaVersion === undefined || data.schemaVersion === null) {
     return 'Data backup tidak memiliki versi skema.';
   }
@@ -147,15 +180,27 @@ function validateBackupData(data: BackupData): string | null {
     return `Versi skema backup (${data.schemaVersion}) tidak dikenal. Versi saat ini: ${BACKUP_SCHEMA_VERSION}.`;
   }
 
+  // Validasi records object (wajib)
   if (!data.records || typeof data.records !== 'object') {
     return 'Data backup tidak memiliki data records.';
   }
 
-  // Validasi minimal: pastikan ada array-arrays
-  const requiredTables = ['categories', 'products', 'customers', 'sales', 'saleItems', 'debts'];
-  for (const table of requiredTables) {
-    if (!Array.isArray((data.records as any)[table])) {
-      return `Data backup tidak valid: tabel ${table} tidak ditemukan.`;
+  // Validasi minimal: pastikan ada array-arrays penting
+  // Kita hanya wajibkan tabel-tabel kritis, yang lain bisa kosong
+  const criticalTables = ['categories', 'products', 'customers', 'sales', 'saleItems', 'debts'];
+  for (const table of criticalTables) {
+    const value = (data.records as any)[table];
+    if (value === undefined || !Array.isArray(value)) {
+      // Jika tidak ada, default ke array kosong (tidak fail)
+      (data.records as any)[table] = [];
+    }
+  }
+
+  // Pastikan tabel-tabel opsional ada (jika tidak ada, buat array kosong)
+  const optionalTables = ['debtPayments', 'stockMovements', 'stores'];
+  for (const table of optionalTables) {
+    if ((data.records as any)[table] === undefined) {
+      (data.records as any)[table] = [];
     }
   }
 
@@ -163,29 +208,33 @@ function validateBackupData(data: BackupData): string | null {
 }
 
 /**
- * Membersihkan data lokal sebelum restore.
+ * Membersihkan data lokal sebelum restore — tanpa PRAGMA.
+ * Gunakan ketika sudah di dalam transaction (PRAGMA harus di luar transaction).
+ * Data dihapus dengan urutan aman untuk foreign key (child table dulu).
+ */
+async function clearLocalDataInTransaction(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
+    DELETE FROM stock_movements;
+    DELETE FROM debt_payments;
+    DELETE FROM debts;
+    DELETE FROM sale_items;
+    DELETE FROM sales;
+    DELETE FROM customers;
+    DELETE FROM products;
+    DELETE FROM categories;
+    DELETE FROM stores;
+  `);
+}
+
+/**
+ * Membersihkan data lokal sebelum restore (dengan PRAGMA).
+ * Hanya untuk dipakai di luar transaction.
  * Data dihapus dengan urutan aman untuk foreign key.
- * Menerima db instance langsung (dari transaksi aktif).
- *
- * SQLite foreign key constraint sementara dinonaktifkan agar
- * DELETE berjalan tanpa error, karena urutan hapus mungkin
- * berbeda dengan urutan foreign key (misal customer masih
- * direferensi oleh sales yang sudah dihapus sebelumnya).
  */
 async function clearLocalData(db: SQLite.SQLiteDatabase): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = OFF');
   try {
-    await db.execAsync(`
-      DELETE FROM stock_movements;
-      DELETE FROM debt_payments;
-      DELETE FROM debts;
-      DELETE FROM sale_items;
-      DELETE FROM sales;
-      DELETE FROM customers;
-      DELETE FROM products;
-      DELETE FROM categories;
-      DELETE FROM stores;
-    `);
+    await clearLocalDataInTransaction(db);
   } finally {
     await db.execAsync('PRAGMA foreign_keys = ON');
   }
@@ -195,10 +244,19 @@ async function clearLocalData(db: SQLite.SQLiteDatabase): Promise<void> {
  * Insert data kategori ke SQLite. Menerima db instance langsung.
  */
 async function restoreCategories(db: SQLite.SQLiteDatabase, categories: Category[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const cat of categories) {
+    const safeCreatedAt = dbText(cat.createdAt, now);
+    const safeUpdatedAt = dbText(cat.updatedAt, safeCreatedAt);
     await db.runAsync(
       `INSERT OR REPLACE INTO categories (id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-      [cat.id, cat.name, cat.sortOrder, cat.createdAt, cat.updatedAt]
+      [
+        dbText(cat.id),
+        dbText(cat.name, ''),
+        dbNumber(cat.sortOrder, 0),
+        safeCreatedAt,
+        safeUpdatedAt,
+      ]
     );
   }
 }
@@ -207,27 +265,28 @@ async function restoreCategories(db: SQLite.SQLiteDatabase, categories: Category
  * Insert data produk ke SQLite. Menerima db instance langsung.
  */
 async function restoreProducts(db: SQLite.SQLiteDatabase, products: Product[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const p of products) {
     await db.runAsync(
       `INSERT OR REPLACE INTO products (id, category_id, name, sku, barcode, cost_price, sell_price, stock, min_stock, track_stock, allow_negative_stock, unit, image_uri, image_key, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        p.id,
-        p.categoryId,
-        p.name,
-        p.sku,
-        p.barcode,
-        p.costPrice,
-        p.sellPrice,
-        p.stock,
-        p.minStock,
-        p.trackStock ? 1 : 0,
-        p.allowNegativeStock ? 1 : 0,
-        p.unit,
-        p.imageUri,
-        p.imageKey,
-        p.isActive ? 1 : 0,
-        p.createdAt,
-        p.updatedAt,
+        dbText(p.id),
+        dbText(p.categoryId),
+        dbText(p.name, ''),
+        dbText(p.sku),
+        dbText(p.barcode),
+        dbNumber(p.costPrice, 0),
+        dbNumber(p.sellPrice, 0),
+        dbNumber(p.stock, 0),
+        dbNumber(p.minStock, 0),
+        dbBool(p.trackStock, true),
+        dbBool(p.allowNegativeStock, true),
+        dbText(p.unit, 'pcs'),
+        dbText(p.imageUri),
+        dbText(p.imageKey, 'default'),
+        dbBool(p.isActive, true),
+        dbText(p.createdAt, now),
+        dbText(p.updatedAt, now),
       ]
     );
   }
@@ -237,10 +296,20 @@ async function restoreProducts(db: SQLite.SQLiteDatabase, products: Product[]): 
  * Insert data pelanggan ke SQLite. Menerima db instance langsung.
  */
 async function restoreCustomers(db: SQLite.SQLiteDatabase, customers: Customer[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const c of customers) {
     await db.runAsync(
       `INSERT OR REPLACE INTO customers (id, name, phone, address, note, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [c.id, c.name, c.phone, c.address, c.note, c.isActive ?? 1, c.createdAt, c.updatedAt]
+      [
+        dbText(c.id),
+        dbText(c.name, ''),
+        dbText(c.phone),
+        dbText(c.address),
+        dbText(c.note),
+        dbBool(c.isActive, true),
+        dbText(c.createdAt, now),
+        dbText(c.updatedAt, now),
+      ]
     );
   }
 }
@@ -249,20 +318,21 @@ async function restoreCustomers(db: SQLite.SQLiteDatabase, customers: Customer[]
  * Insert data penjualan ke SQLite. Menerima db instance langsung.
  */
 async function restoreSales(db: SQLite.SQLiteDatabase, sales: Sale[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const s of sales) {
     await db.runAsync(
       `INSERT OR REPLACE INTO sales (id, invoice_number, customer_id, total_amount, paid_amount, change_amount, payment_method, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        s.id,
-        s.invoiceNumber,
-        s.customerId,
-        s.totalAmount,
-        s.paidAmount,
-        s.changeAmount,
-        s.paymentMethod,
-        s.status,
-        s.createdAt,
-        s.updatedAt,
+        dbText(s.id),
+        dbText(s.invoiceNumber, ''),
+        dbText(s.customerId),
+        dbNumber(s.totalAmount, 0),
+        dbNumber(s.paidAmount, 0),
+        dbNumber(s.changeAmount, 0),
+        dbText(s.paymentMethod, 'cash'),
+        dbText(s.status, 'paid'),
+        dbText(s.createdAt, now),
+        dbText(s.updatedAt, now),
       ]
     );
   }
@@ -272,10 +342,22 @@ async function restoreSales(db: SQLite.SQLiteDatabase, sales: Sale[]): Promise<v
  * Insert data item penjualan ke SQLite. Menerima db instance langsung.
  */
 async function restoreSaleItems(db: SQLite.SQLiteDatabase, items: SaleItem[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const item of items) {
+    const safeSubtotal = dbNumber(item.subtotal, dbNumber(item.qty) * dbNumber(item.price));
     await db.runAsync(
       `INSERT OR REPLACE INTO sale_items (id, sale_id, product_id, product_name, qty, price, cost_price, subtotal, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [item.id, item.saleId, item.productId, item.productName, item.qty, item.price, item.costPrice, item.subtotal, item.createdAt]
+      [
+        dbText(item.id),
+        dbText(item.saleId),
+        dbText(item.productId),
+        dbText(item.productName, 'Produk'),
+        dbNumber(item.qty, 1),
+        dbNumber(item.price, 0),
+        dbNumber(item.costPrice, 0),
+        safeSubtotal,
+        dbText(item.createdAt, now),
+      ]
     );
   }
 }
@@ -284,10 +366,28 @@ async function restoreSaleItems(db: SQLite.SQLiteDatabase, items: SaleItem[]): P
  * Insert data hutang ke SQLite. Menerima db instance langsung.
  */
 async function restoreDebts(db: SQLite.SQLiteDatabase, debts: Debt[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const d of debts) {
+    const safeRemaining = dbNumber(d.remainingAmount, dbNumber(d.amount) - dbNumber(d.paidAmount));
+    const safeDueDate = dbText(d.dueDate, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString());
+    const safeStatus = dbText(d.status, safeRemaining <= 0 ? 'paid' : 'unpaid');
+
     await db.runAsync(
       `INSERT OR REPLACE INTO debts (id, customer_id, sale_id, source, amount, paid_amount, remaining_amount, status, due_date, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [d.id, d.customerId, d.saleId, d.source, d.amount, d.paidAmount, d.remainingAmount, d.status, d.dueDate, d.note, d.createdAt, d.updatedAt]
+      [
+        dbText(d.id),
+        dbText(d.customerId),
+        dbText(d.saleId),
+        dbText(d.source, 'transaction'),
+        dbNumber(d.amount, 0),
+        dbNumber(d.paidAmount, 0),
+        safeRemaining,
+        safeStatus,
+        safeDueDate,
+        dbText(d.note),
+        dbText(d.createdAt, now),
+        dbText(d.updatedAt, now),
+      ]
     );
   }
 }
@@ -296,10 +396,20 @@ async function restoreDebts(db: SQLite.SQLiteDatabase, debts: Debt[]): Promise<v
  * Insert data pembayaran hutang ke SQLite. Menerima db instance langsung.
  */
 async function restoreDebtPayments(db: SQLite.SQLiteDatabase, payments: DebtPayment[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const p of payments) {
     await db.runAsync(
       `INSERT OR REPLACE INTO debt_payments (id, debt_id, customer_id, amount, payment_method, note, paid_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [p.id, p.debtId, p.customerId, p.amount, p.paymentMethod, p.note, p.paidAt, p.createdAt]
+      [
+        dbText(p.id),
+        dbText(p.debtId),
+        dbText(p.customerId),
+        dbNumber(p.amount, 0),
+        dbText(p.paymentMethod, 'cash'),
+        dbText(p.note),
+        dbText(p.paidAt, now),
+        dbText(p.createdAt, now),
+      ]
     );
   }
 }
@@ -308,10 +418,21 @@ async function restoreDebtPayments(db: SQLite.SQLiteDatabase, payments: DebtPaym
  * Insert data pergerakan stok ke SQLite. Menerima db instance langsung.
  */
 async function restoreStockMovements(db: SQLite.SQLiteDatabase, movements: StockMovement[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const m of movements) {
     await db.runAsync(
       `INSERT OR REPLACE INTO stock_movements (id, product_id, type, qty, stock_before, stock_after, reference_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [m.id, m.productId, m.type, m.qty, m.stockBefore, m.stockAfter, m.referenceId, m.note, m.createdAt]
+      [
+        dbText(m.id),
+        dbText(m.productId),
+        dbText(m.type, 'adjustment'),
+        dbNumber(m.qty, 0),
+        dbNumber(m.stockBefore, 0),
+        dbNumber(m.stockAfter, 0),
+        dbText(m.referenceId),
+        dbText(m.note),
+        dbText(m.createdAt, now),
+      ]
     );
   }
 }
@@ -320,10 +441,24 @@ async function restoreStockMovements(db: SQLite.SQLiteDatabase, movements: Stock
  * Insert data toko ke SQLite. Menerima db instance langsung.
  */
 async function restoreStores(db: SQLite.SQLiteDatabase, stores: Store[]): Promise<void> {
+  const now = new Date().toISOString();
   for (const s of stores) {
     await db.runAsync(
       `INSERT OR REPLACE INTO stores (id, name, owner_name, phone, address, receipt_note, logo_uri, qris_image_uri, qris_name, qris_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [s.id, s.name, s.ownerName, s.phone, s.address, s.receiptNote, s.logoUri, s.qrisImageUri, s.qrisName, s.qrisNote, s.createdAt, s.updatedAt]
+      [
+        dbText(s.id),
+        dbText(s.name, 'Warung Saya'),
+        dbText(s.ownerName),
+        dbText(s.phone),
+        dbText(s.address),
+        dbText(s.receiptNote),
+        dbText(s.logoUri),
+        dbText(s.qrisImageUri),
+        dbText(s.qrisName),
+        dbText(s.qrisNote),
+        dbText(s.createdAt, now),
+        dbText(s.updatedAt, now),
+      ]
     );
   }
 }
@@ -426,18 +561,30 @@ export const BackupService = {
       const deviceId = await getDeviceId();
       const storeId = activeStore?.id ?? null;
 
-      // 3. Bungkus dalam format BackupData
+      // 3. Dapatkan user email dari session untuk metadata
+      const userEmail = await getUserEmail();
+
+      // 4. Bungkus dalam format BackupData
       const backupData: BackupData = {
         schemaVersion: BACKUP_SCHEMA_VERSION,
         createdAt: new Date().toISOString(),
         appVersion: APP_VERSION,
         records,
         recordCounts,
-        // Simpan store_name di root agar mudah dicari oleh RPC
+        // Metadata untuk identifikasi backup (disarankan untuk query)
+        metadata: {
+          user_id: userId,
+          email: userEmail || undefined,
+          device_id: deviceId,
+          store_name: activeStore?.name || '',
+          created_at: new Date().toISOString(),
+        },
+        // @deprecated — tetap disimpan untuk backward compatibility,
+        // tapi query restore utama berdasarkan cloud_backups.user_id
         store_name: activeStore?.name || '',
       };
 
-      // 4. Simpan ke Supabase (satu backup terbaru per user)
+      // 5. Simpan ke Supabase (satu backup terbaru per user)
       const payload = {
         user_id: userId,
         store_id: storeId,
@@ -475,7 +622,7 @@ export const BackupService = {
         if (error) throw error;
       }
 
-      // 5. Simpan metadata ke lokal
+      // 6. Simpan metadata ke lokal
       await saveBackupMetadata(recordCounts);
 
       return true;
@@ -548,63 +695,73 @@ export const BackupService = {
 
       const backupData = backups[0].backup_data as BackupData;
 
-      // 2. Validasi data backup SEBELUM transaksi dimulai
+      // 2. Validasi dan normalisasi data backup SEBELUM transaksi dimulai
       const validationError = validateBackupData(backupData);
       if (validationError) {
         throw new Error(validationError);
       }
 
-      const { records } = backupData;
+      // Normalisasi records - pastikan semua array ada
+      const normalizedRecords = {
+        categories: Array.isArray(backupData.records.categories) ? backupData.records.categories : [],
+        products: Array.isArray(backupData.records.products) ? backupData.records.products : [],
+        customers: Array.isArray(backupData.records.customers) ? backupData.records.customers : [],
+        sales: Array.isArray(backupData.records.sales) ? backupData.records.sales : [],
+        saleItems: Array.isArray(backupData.records.saleItems) ? backupData.records.saleItems : [],
+        debts: Array.isArray(backupData.records.debts) ? backupData.records.debts : [],
+        debtPayments: Array.isArray(backupData.records.debtPayments) ? backupData.records.debtPayments : [],
+        stockMovements: Array.isArray(backupData.records.stockMovements) ? backupData.records.stockMovements : [],
+        stores: Array.isArray(backupData.records.stores) ? backupData.records.stores : [],
+      };
+
       const db = await getDatabase();
 
       // 3. Restore dalam SQLite transaction — atomic, rollback jika gagal
+      // PRAGMA foreign_keys harus di luar transaction untuk Android compatibility
+      await db.execAsync('PRAGMA foreign_keys = OFF');
       try {
         await db.execAsync('BEGIN TRANSACTION');
 
-        // Hapus data lokal dengan urutan aman (child table dulu)
-        await clearLocalData(db);
+        // Hapus data lokal dengan urutan aman (child table dulu) - tanpa PRAGMA di dalam transaction
+        await clearLocalDataInTransaction(db);
 
         // Insert ulang dengan urutan aman (parent table dulu)
-        if (records.categories.length > 0) await restoreCategories(db, records.categories);
-        if (records.products.length > 0) await restoreProducts(db, records.products);
-        if (records.customers.length > 0) await restoreCustomers(db, records.customers);
-        if (records.sales.length > 0) await restoreSales(db, records.sales);
-        if (records.saleItems.length > 0) await restoreSaleItems(db, records.saleItems);
-        if (records.debts.length > 0) await restoreDebts(db, records.debts);
-        if (records.debtPayments.length > 0) await restoreDebtPayments(db, records.debtPayments);
-        if (records.stockMovements.length > 0) await restoreStockMovements(db, records.stockMovements);
-        if (records.stores.length > 0) await restoreStores(db, records.stores);
+        if (normalizedRecords.categories.length > 0) await restoreCategories(db, normalizedRecords.categories);
+        if (normalizedRecords.products.length > 0) await restoreProducts(db, normalizedRecords.products);
+        if (normalizedRecords.customers.length > 0) await restoreCustomers(db, normalizedRecords.customers);
+        if (normalizedRecords.sales.length > 0) await restoreSales(db, normalizedRecords.sales);
+        if (normalizedRecords.saleItems.length > 0) await restoreSaleItems(db, normalizedRecords.saleItems);
+        if (normalizedRecords.debts.length > 0) await restoreDebts(db, normalizedRecords.debts);
+        if (normalizedRecords.debtPayments.length > 0) await restoreDebtPayments(db, normalizedRecords.debtPayments);
+        if (normalizedRecords.stockMovements.length > 0) await restoreStockMovements(db, normalizedRecords.stockMovements);
+        if (normalizedRecords.stores.length > 0) await restoreStores(db, normalizedRecords.stores);
 
         await db.execAsync('COMMIT');
-
-        // 4. Update metadata backup hanya jika COMMIT sukses
-        await saveBackupMetadata(backupData.recordCounts);
-
-        return true;
       } catch (txError) {
         // Rollback jika ada error selama transaksi
         try {
           await db.execAsync('ROLLBACK');
         } catch {
-          // Jika rollback pun gagal, database mungkin dalam state buruk —
-          // lempar error yang jelas
+          // Jika rollback pun gagal, database mungkin dalam state buruk
         }
         throw new Error('Restore gagal dan perubahan dibatalkan. Data lokal tidak diubah.');
+      } finally {
+        await db.execAsync('PRAGMA foreign_keys = ON').catch(() => {});
       }
-    } catch (error: any) {
-      if (error?.message?.includes('Failed to fetch') || error?.message?.includes('Network')) {
-        throw new Error('Restore gagal. Periksa koneksi internet.');
-      }
-      // Re-throw jika sudah punya pesan sendiri
-      if (
-        error?.message?.includes('Cloud belum dikonfigurasi') ||
-        error?.message?.includes('Anda belum login') ||
-        error?.message?.includes('tidak ditemukan') ||
-        error?.message?.includes('tidak valid')
-      ) {
+
+      // 4. Update metadata backup hanya jika COMMIT sukses
+      await saveBackupMetadata(backupData.recordCounts);
+
+      return true;
+    } catch (error: unknown) {
+      if (error instanceof Error && (
+        error.message.includes('tidak ditemukan') ||
+        error.message.includes('tidak valid') ||
+        error.message.includes('dibatalkan')
+      )) {
         throw error;
       }
-      throw new Error(`Restore gagal: ${error?.message || 'Terjadi kesalahan.'}`);
+      throw new Error(`Restore gagal. Data backup tidak dapat dipulihkan. Data lokal tidak diubah.`);
     }
   },
 
@@ -615,7 +772,7 @@ export const BackupService = {
    * @returns Promise dengan array metadata backup (id, createdAt, recordCounts)
    */
   async listCloudBackups(): Promise<
-    { id: string; createdAt: string; recordCounts: Record<string, number>; appVersion: string }[]
+    { id: string; createdAt: string; updatedAt: string; recordCounts: Record<string, number>; appVersion: string }[]
   > {
     const userId = await getUserId();
     if (!userId) return [];
@@ -623,13 +780,13 @@ export const BackupService = {
     const supabase = getSupabaseClient();
     if (!supabase) return [];
 
-    
+
 
     const { data } = await supabase
       .from('cloud_backups')
-      .select('id, created_at, record_counts, app_version')
+      .select('id, created_at, updated_at, record_counts, app_version')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
       .limit(20);
 
     if (!data) return [];
@@ -637,6 +794,7 @@ export const BackupService = {
     return data.map((row: any) => ({
       id: row.id,
       createdAt: row.created_at,
+      updatedAt: row.updated_at,
       recordCounts: row.record_counts || {},
       appVersion: row.app_version || '',
     }));
@@ -695,33 +853,47 @@ export const BackupService = {
       throw new Error(validationError);
     }
 
-    const { records } = backupData;
+    // Normalisasi records - pastikan semua array ada
+    const normalizedRecords = {
+      categories: Array.isArray(backupData.records.categories) ? backupData.records.categories : [],
+      products: Array.isArray(backupData.records.products) ? backupData.records.products : [],
+      customers: Array.isArray(backupData.records.customers) ? backupData.records.customers : [],
+      sales: Array.isArray(backupData.records.sales) ? backupData.records.sales : [],
+      saleItems: Array.isArray(backupData.records.saleItems) ? backupData.records.saleItems : [],
+      debts: Array.isArray(backupData.records.debts) ? backupData.records.debts : [],
+      debtPayments: Array.isArray(backupData.records.debtPayments) ? backupData.records.debtPayments : [],
+      stockMovements: Array.isArray(backupData.records.stockMovements) ? backupData.records.stockMovements : [],
+      stores: Array.isArray(backupData.records.stores) ? backupData.records.stores : [],
+    };
+
     const db = await getDatabase();
 
-    // Restore dalam SQLite transaction
+    // Restore dalam SQLite transaction — atomic, rollback jika gagal
+    // PRAGMA foreign_keys harus di luar transaction untuk Android compatibility
+    await db.execAsync('PRAGMA foreign_keys = OFF');
     try {
       onProgress?.({ step: 'Memulihkan data toko...', percent: 25, detail: 'Mengembalikan pengaturan toko.' });
       await db.execAsync('BEGIN TRANSACTION');
 
       onProgress?.({ step: 'Membersihkan data lama...', percent: 30, detail: 'Menghapus data lokal yang ada.' });
-      await clearLocalData(db);
+      await clearLocalDataInTransaction(db);
 
       onProgress?.({ step: 'Memulihkan produk dan stok...', percent: 50, detail: 'Mengembalikan daftar produk, kategori, dan stok.' });
-      if (records.categories.length > 0) await restoreCategories(db, records.categories);
-      if (records.products.length > 0) await restoreProducts(db, records.products);
+      if (normalizedRecords.categories.length > 0) await restoreCategories(db, normalizedRecords.categories);
+      if (normalizedRecords.products.length > 0) await restoreProducts(db, normalizedRecords.products);
 
       onProgress?.({ step: 'Memulihkan pelanggan dan bon...', percent: 65, detail: 'Mengembalikan data pelanggan dan piutang.' });
-      if (records.customers.length > 0) await restoreCustomers(db, records.customers);
-      if (records.debts.length > 0) await restoreDebts(db, records.debts);
-      if (records.debtPayments.length > 0) await restoreDebtPayments(db, records.debtPayments);
+      if (normalizedRecords.customers.length > 0) await restoreCustomers(db, normalizedRecords.customers);
+      if (normalizedRecords.debts.length > 0) await restoreDebts(db, normalizedRecords.debts);
+      if (normalizedRecords.debtPayments.length > 0) await restoreDebtPayments(db, normalizedRecords.debtPayments);
 
       onProgress?.({ step: 'Memulihkan transaksi...', percent: 80, detail: 'Mengembalikan riwayat penjualan.' });
-      if (records.sales.length > 0) await restoreSales(db, records.sales);
-      if (records.saleItems.length > 0) await restoreSaleItems(db, records.saleItems);
+      if (normalizedRecords.sales.length > 0) await restoreSales(db, normalizedRecords.sales);
+      if (normalizedRecords.saleItems.length > 0) await restoreSaleItems(db, normalizedRecords.saleItems);
 
       onProgress?.({ step: 'Memulihkan pergerakan stok...', percent: 90, detail: 'Mengembalikan riwayat stok.' });
-      if (records.stockMovements.length > 0) await restoreStockMovements(db, records.stockMovements);
-      if (records.stores.length > 0) await restoreStores(db, records.stores);
+      if (normalizedRecords.stockMovements.length > 0) await restoreStockMovements(db, normalizedRecords.stockMovements);
+      if (normalizedRecords.stores.length > 0) await restoreStores(db, normalizedRecords.stores);
 
       onProgress?.({ step: 'Menyelesaikan restore...', percent: 95, detail: 'Menyimpan perubahan.' });
       await db.execAsync('COMMIT');
@@ -735,6 +907,8 @@ export const BackupService = {
         await db.execAsync('ROLLBACK');
       } catch {}
       throw new Error('Restore gagal dan perubahan dibatalkan. Data lokal tidak diubah.');
+    } finally {
+      await db.execAsync('PRAGMA foreign_keys = ON').catch(() => {});
     }
   },
 };

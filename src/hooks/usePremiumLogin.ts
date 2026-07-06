@@ -1,3 +1,21 @@
+/**
+ * @deprecated LEGACY — Premium Account Login via email/phone (tanpa Supabase Auth)
+ *
+ * Hook ini menggunakan RPC premium_restore_get_backup(p_email_or_phone) untuk
+ * mencari backup berdasarkan email/phone, BUKAN berdasarkan user_id Supabase Auth.
+ *
+ * Flow ini sudah digantikan oleh useCloudAccount.ts yang menggunakan:
+ * - Supabase Auth untuk login/register
+ * - cloud_backups.user_id untuk query backup
+ * - BackupService.restoreFromCloud() untuk restore
+ *
+ * Digunakan di:
+ * - RestoreProgressModal.tsx (hanya type import RestoreProgress)
+ *
+ * Jangan gunakan hook ini untuk fitur baru.
+ * Jangan hapus dulu — mungkin diperlukan untuk backward compatibility.
+ */
+
 import { useState, useCallback } from 'react';
 import { PremiumAccountService, PremiumLoginInput } from '../services/premium-account.service';
 import { getSupabaseClient } from '../services/supabase.client';
