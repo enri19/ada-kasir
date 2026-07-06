@@ -288,9 +288,15 @@ export const LicenseService = {
     return status === 'trial_active' || status === 'premium_active' || status === 'lifetime';
   },
 
-  /** Mode read-only: data bisa dilihat tapi tidak bisa diubah */
+  /**
+   * Mode read-only: data bisa dilihat tapi tidak bisa diubah.
+   * trial_expired: trial habis → read-only.
+   * premium_expired: Premium habis tanpa Lifetime → read-only.
+   * Note: resolveStatus memastikan premium_expired tidak pernah punya hasLifetime,
+   * jadi premium_expired selalu read-only dalam praktik.
+   */
   isReadOnlyMode(status: LicenseStatus): boolean {
-    return status === 'trial_expired';
+    return status === 'trial_expired' || status === 'premium_expired';
   },
 
   /** Shortcut cek trial expired */

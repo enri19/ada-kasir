@@ -11,6 +11,7 @@ import { Button } from '../../src/components/Button';
 import { CustomerRepository } from '../../src/database/customer.repo';
 import { Customer, CustomerDebtSummary } from '../../src/types/customer';
 import { useLicenseStore } from '../../src/stores/license.store';
+import type { LicenseStatus } from '../../src/services/license.service';
 import { AppModal } from '../../src/components/ui/AppModal';
 
 // ─── CustomerCard (memo, outside screen) ─────────────────────────────────────
@@ -65,6 +66,7 @@ export default function KelolaPelangganScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isReadOnly = useLicenseStore((s) => s.isReadOnlyMode());
+  const licenseStatus = useLicenseStore((s) => s.status) as LicenseStatus;
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [debtMap, setDebtMap] = useState<Record<string, CustomerDebtSummary>>({});
@@ -261,20 +263,52 @@ export default function KelolaPelangganScreen() {
         </View>
       </Modal>
 
-      {/* Read-only Modal */}
-      <AppModal
-        visible={showReadOnlyModal}
-        onClose={() => setShowReadOnlyModal(false)}
-        type="warning"
-        title="Mode Read-only"
-        icon="lock-closed"
-        message="Anda tidak dapat mengubah data pelanggan saat lisensi sudah berakhir."
-        primaryAction={{
-          label: 'Mengerti',
-          onPress: () => setShowReadOnlyModal(false),
-          variant: 'primary',
-        }}
-      />
+      {/* Read-only Modal — pesan sesuai status lisensi aktual */}
+      {licenseStatus === 'premium_expired' ? (
+        <AppModal
+          visible={showReadOnlyModal}
+          onClose={() => setShowReadOnlyModal(false)}
+          type="warning"
+          title="Premium Berakhir"
+          icon="time-outline"
+          message="Masa aktif Premium sudah berakhir. Silakan perpanjang Premium untuk menggunakan fitur penuh kembali."
+          primaryAction={{
+            label: 'Perpanjang Premium',
+            onPress: () => {
+              setShowReadOnlyModal(false);
+              router.push('/settings/activation');
+            },
+            variant: 'primary',
+          }}
+          secondaryAction={{
+            label: 'Tutup',
+            onPress: () => setShowReadOnlyModal(false),
+            variant: 'ghost',
+          }}
+        />
+      ) : (
+        <AppModal
+          visible={showReadOnlyModal}
+          onClose={() => setShowReadOnlyModal(false)}
+          type="warning"
+          title="Masa Trial Berakhir"
+          icon="time-outline"
+          message="Masa trial Anda sudah berakhir. Data tetap dapat dilihat, tetapi perubahan data dinonaktifkan. Silakan aktifkan Premium untuk melanjutkan."
+          primaryAction={{
+            label: 'Aktifkan Premium',
+            onPress: () => {
+              setShowReadOnlyModal(false);
+              router.push('/settings/activation');
+            },
+            variant: 'primary',
+          }}
+          secondaryAction={{
+            label: 'Tutup',
+            onPress: () => setShowReadOnlyModal(false),
+            variant: 'ghost',
+          }}
+        />
+      )}
     </View>
   );
 }

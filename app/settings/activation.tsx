@@ -315,8 +315,8 @@ export default function ActivationScreen() {
             <Ionicons name="checkmark-circle" size={16} color={colors.secondary} />
             <Text style={styles.footerNoteText}>
               Lifetime Basic aktif di perangkat ini. {'\n'}
-              Cloud backup hanya tersedia untuk pengguna Premium.
-              Untuk pindah perangkat, hubungi admin.
+              Fitur premium hanya tersedia untuk pengguna Premium.
+              Untuk pindah perangkat, hubungi admin.  
             </Text>
           </View>
         ) : (

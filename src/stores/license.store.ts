@@ -313,11 +313,12 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       hasCloudBackup: false,
       premiumExpiresAt: result.expiresAt,
       isPremiumAccountLogin: false,
-      // Preserve cloud login state
-      cloudUserId: s.cloudUserId,
-      cloudEmail: s.cloudEmail,
-      isCloudLoggedIn: s.isCloudLoggedIn,
-      lastCloudLoginAt: s.lastCloudLoginAt,
+      // Preserve cloud login state only for premium_active
+      // Non-premium (Lifetime, etc.) → clear cloud state immediately
+      cloudUserId: result.status === 'premium_active' ? s.cloudUserId : null,
+      cloudEmail: result.status === 'premium_active' ? s.cloudEmail : null,
+      isCloudLoggedIn: result.status === 'premium_active' ? s.isCloudLoggedIn : false,
+      lastCloudLoginAt: result.status === 'premium_active' ? s.lastCloudLoginAt : null,
     };
     data.status = LicenseService.resolveStatus(data);
     await saveLicense(data);

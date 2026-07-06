@@ -28,7 +28,7 @@ import { useCloudAccount } from '../../src/hooks/useCloudAccount';
 // Premium gate check
 // ============================================================
 
-function usePremiumStatus(): { isPremiumAccess: boolean; isChecking: boolean } {
+function usePremiumStatus(): { isPremiumAccess: boolean; isChecking: boolean; status: string } {
   const status = useLicenseStore((s) => s.status);
   const refreshStatus = useLicenseStore((s) => s.refreshStatus);
   const [isChecking, setIsChecking] = useState(true);
@@ -44,15 +44,56 @@ function usePremiumStatus(): { isPremiumAccess: boolean; isChecking: boolean } {
     }, [refreshStatus])
   );
 
-  return { isPremiumAccess: status === 'premium_active', isChecking };
+  return { isPremiumAccess: status === 'premium_active', isChecking, status };
 }
 
 // ============================================================
 // Locked page untuk akun Free / non-Premium
 // ============================================================
 
-function PremiumLockedView({ insets }: { insets: { top: number; bottom: number } }) {
+function PremiumLockedView({
+  insets,
+  licenseStatus,
+}: {
+  insets: { top: number; bottom: number };
+  licenseStatus: string;
+}) {
   const router = useRouter();
+
+  // ── Per-status messages ──
+  const statusConfig = (() => {
+    switch (licenseStatus) {
+      case 'lifetime':
+        return {
+          title: 'Fitur Premium',
+          description:
+            'Cloud Backup adalah fitur Premium. Lisensi Lifetime hanya membuka akses aplikasi dasar seumur hidup.',
+          buttonLabel: 'Aktifkan Premium',
+        };
+      case 'trial_expired':
+        return {
+          title: 'Fitur Premium',
+          description:
+            'Masa trial berakhir. Aktifkan Premium untuk menggunakan Cloud Backup.',
+          buttonLabel: 'Aktifkan Premium',
+        };
+      case 'premium_expired':
+        return {
+          title: 'Fitur Premium',
+          description:
+            'Premium berakhir. Perpanjang Premium untuk menggunakan Cloud Backup.',
+          buttonLabel: 'Perpanjang Premium',
+        };
+      default:
+        // trial_active atau status lain yang bukan premium
+        return {
+          title: 'Fitur Premium',
+          description:
+            'Cloud Backup tersedia untuk pengguna Premium.\nLindungi data kasir Anda dengan backup cloud.',
+          buttonLabel: 'Aktifkan Premium',
+        };
+    }
+  })();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -65,11 +106,8 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
           <View style={styles.lockIconCircle}>
             <Ionicons name="lock-closed-outline" size={48} color={colors.primary} />
           </View>
-          <Text style={styles.lockTitle}>Fitur Premium</Text>
-          <Text style={styles.lockDescription}>
-            Cloud Backup tersedia untuk pengguna Premium.{'\n'}
-            Lindungi data kasir Anda dengan backup cloud.
-          </Text>
+          <Text style={styles.lockTitle}>{statusConfig.title}</Text>
+          <Text style={styles.lockDescription}>{statusConfig.description}</Text>
         </View>
 
         <Card style={styles.benefitCard}>
@@ -87,7 +125,7 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
         </Card>
 
         <Button
-          title="Aktifkan Premium"
+          title={statusConfig.buttonLabel}
           onPress={() => router.push('/settings/activation')}
           fullWidth
           icon={<Ionicons name="diamond-outline" size={20} color={colors.onPrimary} />}
@@ -734,7 +772,7 @@ function CloudRegisterModal({
 export default function CloudBackupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isPremiumAccess, isChecking } = usePremiumStatus();
+  const { isPremiumAccess, isChecking, status: licenseStatus } = usePremiumStatus();
   const isCloudLoggedIn = useLicenseStore((s) => s.isCloudLoggedIn);
 
   const {
@@ -788,10 +826,10 @@ export default function CloudBackupScreen() {
   }
 
   if (!isPremiumAccess) {
-    return <PremiumLockedView insets={insets} />;
+    return <PremiumLockedView insets={insets} licenseStatus={licenseStatus} />;
   }
 
-  // Premium/Lifetime tapi belum login cloud
+  // Premium (only premium_active bisa lewat gate atas) tapi belum login cloud
   if (!isCloudLoggedIn) {
     return (
       <>
@@ -828,7 +866,7 @@ export default function CloudBackupScreen() {
     );
   }
 
-  // Premium/Lifetime + sudah login cloud
+  // Premium + sudah login cloud
   return (
     <>
       <CloudConnectedView insets={insets} />

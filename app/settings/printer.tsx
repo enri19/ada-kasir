@@ -15,7 +15,7 @@ import { PrinterPaperSize, PrinterSettings } from '../../src/types/printer';
 // Premium gate hook
 // ============================================================
 
-function usePremiumStatus(): { isPremium: boolean; isChecking: boolean } {
+function usePremiumStatus(): { isPremium: boolean; isChecking: boolean; status: string } {
   const status = useLicenseStore((s) => s.status);
   const refreshStatus = useLicenseStore((s) => s.refreshStatus);
   const [isChecking, setIsChecking] = useState(true);
@@ -31,15 +31,55 @@ function usePremiumStatus(): { isPremium: boolean; isChecking: boolean } {
     }, [refreshStatus])
   );
 
-  return { isPremium: status === 'premium_active', isChecking };
+  return { isPremium: status === 'premium_active', isChecking, status };
 }
 
 // ============================================================
 // Locked view untuk akun Free
 // ============================================================
 
-function PremiumLockedView({ insets }: { insets: { top: number; bottom: number } }) {
+function PremiumLockedView({
+  insets,
+  licenseStatus,
+}: {
+  insets: { top: number; bottom: number };
+  licenseStatus: string;
+}) {
   const router = useRouter();
+
+  // ── Per-status messages ──
+  const statusConfig = (() => {
+    switch (licenseStatus) {
+      case 'lifetime':
+        return {
+          title: 'Fitur Premium',
+          description:
+            'Printer Struk tersedia untuk pengguna Premium aktif. Lisensi Lifetime hanya membuka akses aplikasi dasar seumur hidup.',
+          buttonLabel: 'Aktifkan Premium',
+        };
+      case 'trial_expired':
+        return {
+          title: 'Fitur Premium',
+          description:
+            'Masa trial berakhir. Aktifkan Premium untuk menggunakan Printer Struk.',
+          buttonLabel: 'Aktifkan Premium',
+        };
+      case 'premium_expired':
+        return {
+          title: 'Fitur Premium',
+          description:
+            'Premium berakhir. Perpanjang Premium untuk menggunakan Printer Struk.',
+          buttonLabel: 'Perpanjang Premium',
+        };
+      default:
+        return {
+          title: 'Printer Struk adalah fitur Premium',
+          description:
+            'Aktifkan Premium untuk menghubungkan printer thermal Bluetooth dan mencetak struk transaksi.',
+          buttonLabel: 'Aktifkan Premium',
+        };
+    }
+  })();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -50,10 +90,8 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
           <View style={styles.lockIconCircle}>
             <Ionicons name="lock-closed-outline" size={48} color={colors.primary} />
           </View>
-          <Text style={styles.lockTitle}>Printer Struk adalah fitur Premium</Text>
-          <Text style={styles.lockDescription}>
-            Aktifkan Premium untuk menghubungkan printer thermal Bluetooth dan mencetak struk transaksi.
-          </Text>
+          <Text style={styles.lockTitle}>{statusConfig.title}</Text>
+          <Text style={styles.lockDescription}>{statusConfig.description}</Text>
         </View>
 
         {/* Manfaat */}
@@ -74,7 +112,7 @@ function PremiumLockedView({ insets }: { insets: { top: number; bottom: number }
 
         {/* Tombol aktivasi */}
         <Button
-          title="Aktifkan Premium"
+          title={statusConfig.buttonLabel}
           onPress={() => router.push('/settings/activation')}
           fullWidth
           icon={<Ionicons name="diamond-outline" size={20} color={colors.onPrimary} />}
@@ -336,7 +374,7 @@ function PrinterSettingsView({ insets }: { insets: { top: number; bottom: number
 
 export default function PrinterScreen() {
   const insets = useSafeAreaInsets();
-  const { isPremium, isChecking } = usePremiumStatus();
+  const { isPremium, isChecking, status: licenseStatus } = usePremiumStatus();
 
   if (isChecking) {
     return (
@@ -350,7 +388,7 @@ export default function PrinterScreen() {
   }
 
   if (!isPremium) {
-    return <PremiumLockedView insets={insets} />;
+    return <PremiumLockedView insets={insets} licenseStatus={licenseStatus} />;
   }
 
   return <PrinterSettingsView insets={insets} />;
